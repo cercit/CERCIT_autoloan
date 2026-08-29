@@ -10,11 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuditLogRouteImport } from './routes/audit-log'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as EmployersRouteImport } from './routes/employers'
+import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
+import { Route as RateGridRouteImport } from './routes/rate-grid'
+import { Route as UsersRouteImport } from './routes/users'
+import { Route as ApplicationsIndexRouteImport } from './routes/applications/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditLogRoute = AuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -22,31 +33,105 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmployersRoute = EmployersRouteImport.update({
+  id: '/employers',
+  path: '/employers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PolicyRulesRoute = PolicyRulesRouteImport.update({
+  id: '/policy-rules',
+  path: '/policy-rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RateGridRoute = RateGridRouteImport.update({
+  id: '/rate-grid',
+  path: '/rate-grid',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsIndexRoute = ApplicationsIndexRouteImport.update({
+  id: '/applications/',
+  path: '/applications/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
   '/dashboard': typeof DashboardRoute
+  '/employers': typeof EmployersRoute
+  '/policy-rules': typeof PolicyRulesRoute
+  '/rate-grid': typeof RateGridRoute
+  '/users': typeof UsersRoute
+  '/applications/': typeof ApplicationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
   '/dashboard': typeof DashboardRoute
+  '/employers': typeof EmployersRoute
+  '/policy-rules': typeof PolicyRulesRoute
+  '/rate-grid': typeof RateGridRoute
+  '/users': typeof UsersRoute
+  '/applications': typeof ApplicationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
   '/dashboard': typeof DashboardRoute
+  '/employers': typeof EmployersRoute
+  '/policy-rules': typeof PolicyRulesRoute
+  '/rate-grid': typeof RateGridRoute
+  '/users': typeof UsersRoute
+  '/applications/': typeof ApplicationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard'
+  fullPaths:
+    | '/'
+    | '/audit-log'
+    | '/dashboard'
+    | '/employers'
+    | '/policy-rules'
+    | '/rate-grid'
+    | '/users'
+    | '/applications/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard'
-  id: '__root__' | '/' | '/dashboard'
+  to:
+    | '/'
+    | '/audit-log'
+    | '/dashboard'
+    | '/employers'
+    | '/policy-rules'
+    | '/rate-grid'
+    | '/users'
+    | '/applications'
+  id:
+    | '__root__'
+    | '/'
+    | '/audit-log'
+    | '/dashboard'
+    | '/employers'
+    | '/policy-rules'
+    | '/rate-grid'
+    | '/users'
+    | '/applications/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditLogRoute: typeof AuditLogRoute
   DashboardRoute: typeof DashboardRoute
+  EmployersRoute: typeof EmployersRoute
+  PolicyRulesRoute: typeof PolicyRulesRoute
+  RateGridRoute: typeof RateGridRoute
+  UsersRoute: typeof UsersRoute
+  ApplicationsIndexRoute: typeof ApplicationsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +143,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit-log': {
+      id: '/audit-log'
+      path: '/audit-log'
+      fullPath: '/audit-log'
+      preLoaderRoute: typeof AuditLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -65,12 +157,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/employers': {
+      id: '/employers'
+      path: '/employers'
+      fullPath: '/employers'
+      preLoaderRoute: typeof EmployersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policy-rules': {
+      id: '/policy-rules'
+      path: '/policy-rules'
+      fullPath: '/policy-rules'
+      preLoaderRoute: typeof PolicyRulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rate-grid': {
+      id: '/rate-grid'
+      path: '/rate-grid'
+      fullPath: '/rate-grid'
+      preLoaderRoute: typeof RateGridRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/': {
+      id: '/applications/'
+      path: '/applications'
+      fullPath: '/applications/'
+      preLoaderRoute: typeof ApplicationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditLogRoute: AuditLogRoute,
   DashboardRoute: DashboardRoute,
+  EmployersRoute: EmployersRoute,
+  PolicyRulesRoute: PolicyRulesRoute,
+  RateGridRoute: RateGridRoute,
+  UsersRoute: UsersRoute,
+  ApplicationsIndexRoute: ApplicationsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
