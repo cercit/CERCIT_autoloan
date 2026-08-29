@@ -44,7 +44,7 @@ export const Route = createFileRoute("/applications/new")({
       },
     ],
   }),
-  component: NewApplication;
+  component: NewApplication,
 });
 
 const steps = ["Customer Details", "Employment", "Vehicle & Deal", "Obligations", "Documents"];
