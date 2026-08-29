@@ -129,7 +129,7 @@ function Applications() {
                     <Link
                       to="/applications/$id"
                       params={{ id: app.id }}
-                      className="font-medium text-primary hover:underline"
+                      className="font-medium whitespace-nowrap text-primary hover:underline"
                     >
                       {app.id}
                     </Link>
