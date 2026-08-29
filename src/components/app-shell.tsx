@@ -153,7 +153,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="p-3 sm:p-5">
+        <main className="min-w-0 overflow-x-hidden p-3 sm:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>

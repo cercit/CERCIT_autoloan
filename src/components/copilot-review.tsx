@@ -119,8 +119,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]">
-        <div className="space-y-4">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
           <section
             className={cn(
               "panel overflow-hidden",
@@ -418,7 +418,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           </Collapsible>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <SectionCard title="Documents" description={`${documents.length} files`}>
             <ul className="space-y-2">
               {documents.map((doc) => {

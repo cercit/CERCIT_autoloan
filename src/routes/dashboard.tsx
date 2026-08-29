@@ -121,7 +121,7 @@ function Dashboard() {
                       <Link
                         to="/applications/$id"
                         params={{ id: app.id }}
-                        className="font-medium text-primary hover:underline"
+                        className="font-medium whitespace-nowrap text-primary hover:underline"
                       >
                         {app.id}
                       </Link>
@@ -170,6 +170,7 @@ function Dashboard() {
                   outerRadius="90%"
                   paddingAngle={2}
                   stroke="none"
+                  isAnimationActive={false}
                 >
                   {decisionDistribution.map((entry, i) => (
                     <Cell key={entry.key} fill={donutColors[i]} />
@@ -251,7 +252,12 @@ function Dashboard() {
                   fontSize: 11,
                 }}
               />
-              <Bar dataKey="minutes" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="minutes"
+                fill="var(--color-primary)"
+                radius={[6, 6, 0, 0]}
+                isAnimationActive={false}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
