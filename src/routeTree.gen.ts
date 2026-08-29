@@ -10,33 +10,181 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuditLogRouteImport } from './routes/audit-log'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as EmployersRouteImport } from './routes/employers'
+import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
+import { Route as RateGridRouteImport } from './routes/rate-grid'
+import { Route as UsersRouteImport } from './routes/users'
+import { Route as ApplicationsIndexRouteImport } from './routes/applications/index'
+import { Route as ApplicationsNewRouteImport } from './routes/applications/new'
+import { Route as ApplicationsIdIndexRouteImport } from './routes/applications/$id/index'
+import { Route as ApplicationsIdManagerReviewRouteImport } from './routes/applications/$id/manager-review'
+import { Route as ApplicationsIdSanctionRouteImport } from './routes/applications/$id/sanction'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditLogRoute = AuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmployersRoute = EmployersRouteImport.update({
+  id: '/employers',
+  path: '/employers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PolicyRulesRoute = PolicyRulesRouteImport.update({
+  id: '/policy-rules',
+  path: '/policy-rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RateGridRoute = RateGridRouteImport.update({
+  id: '/rate-grid',
+  path: '/rate-grid',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsIndexRoute = ApplicationsIndexRouteImport.update({
+  id: '/applications/',
+  path: '/applications/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsNewRoute = ApplicationsNewRouteImport.update({
+  id: '/applications/new',
+  path: '/applications/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsIdIndexRoute = ApplicationsIdIndexRouteImport.update({
+  id: '/applications/$id/',
+  path: '/applications/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsIdManagerReviewRoute =
+  ApplicationsIdManagerReviewRouteImport.update({
+    id: '/applications/$id/manager-review',
+    path: '/applications/$id/manager-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApplicationsIdSanctionRoute = ApplicationsIdSanctionRouteImport.update({
+  id: '/applications/$id/sanction',
+  path: '/applications/$id/sanction',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
+  '/dashboard': typeof DashboardRoute
+  '/employers': typeof EmployersRoute
+  '/policy-rules': typeof PolicyRulesRoute
+  '/rate-grid': typeof RateGridRoute
+  '/users': typeof UsersRoute
+  '/applications/new': typeof ApplicationsNewRoute
+  '/applications/': typeof ApplicationsIndexRoute
+  '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
+  '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
+  '/applications/$id/': typeof ApplicationsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
+  '/dashboard': typeof DashboardRoute
+  '/employers': typeof EmployersRoute
+  '/policy-rules': typeof PolicyRulesRoute
+  '/rate-grid': typeof RateGridRoute
+  '/users': typeof UsersRoute
+  '/applications/new': typeof ApplicationsNewRoute
+  '/applications': typeof ApplicationsIndexRoute
+  '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
+  '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
+  '/applications/$id': typeof ApplicationsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
+  '/dashboard': typeof DashboardRoute
+  '/employers': typeof EmployersRoute
+  '/policy-rules': typeof PolicyRulesRoute
+  '/rate-grid': typeof RateGridRoute
+  '/users': typeof UsersRoute
+  '/applications/new': typeof ApplicationsNewRoute
+  '/applications/': typeof ApplicationsIndexRoute
+  '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
+  '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
+  '/applications/$id/': typeof ApplicationsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/audit-log'
+    | '/dashboard'
+    | '/employers'
+    | '/policy-rules'
+    | '/rate-grid'
+    | '/users'
+    | '/applications/new'
+    | '/applications/'
+    | '/applications/$id/manager-review'
+    | '/applications/$id/sanction'
+    | '/applications/$id/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/audit-log'
+    | '/dashboard'
+    | '/employers'
+    | '/policy-rules'
+    | '/rate-grid'
+    | '/users'
+    | '/applications/new'
+    | '/applications'
+    | '/applications/$id/manager-review'
+    | '/applications/$id/sanction'
+    | '/applications/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/audit-log'
+    | '/dashboard'
+    | '/employers'
+    | '/policy-rules'
+    | '/rate-grid'
+    | '/users'
+    | '/applications/new'
+    | '/applications/'
+    | '/applications/$id/manager-review'
+    | '/applications/$id/sanction'
+    | '/applications/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditLogRoute: typeof AuditLogRoute
+  DashboardRoute: typeof DashboardRoute
+  EmployersRoute: typeof EmployersRoute
+  PolicyRulesRoute: typeof PolicyRulesRoute
+  RateGridRoute: typeof RateGridRoute
+  UsersRoute: typeof UsersRoute
+  ApplicationsNewRoute: typeof ApplicationsNewRoute
+  ApplicationsIndexRoute: typeof ApplicationsIndexRoute
+  ApplicationsIdManagerReviewRoute: typeof ApplicationsIdManagerReviewRoute
+  ApplicationsIdSanctionRoute: typeof ApplicationsIdSanctionRoute
+  ApplicationsIdIndexRoute: typeof ApplicationsIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +196,99 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit-log': {
+      id: '/audit-log'
+      path: '/audit-log'
+      fullPath: '/audit-log'
+      preLoaderRoute: typeof AuditLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/employers': {
+      id: '/employers'
+      path: '/employers'
+      fullPath: '/employers'
+      preLoaderRoute: typeof EmployersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policy-rules': {
+      id: '/policy-rules'
+      path: '/policy-rules'
+      fullPath: '/policy-rules'
+      preLoaderRoute: typeof PolicyRulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rate-grid': {
+      id: '/rate-grid'
+      path: '/rate-grid'
+      fullPath: '/rate-grid'
+      preLoaderRoute: typeof RateGridRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/': {
+      id: '/applications/'
+      path: '/applications'
+      fullPath: '/applications/'
+      preLoaderRoute: typeof ApplicationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/new': {
+      id: '/applications/new'
+      path: '/applications/new'
+      fullPath: '/applications/new'
+      preLoaderRoute: typeof ApplicationsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/$id/': {
+      id: '/applications/$id/'
+      path: '/applications/$id'
+      fullPath: '/applications/$id/'
+      preLoaderRoute: typeof ApplicationsIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/$id/manager-review': {
+      id: '/applications/$id/manager-review'
+      path: '/applications/$id/manager-review'
+      fullPath: '/applications/$id/manager-review'
+      preLoaderRoute: typeof ApplicationsIdManagerReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/$id/sanction': {
+      id: '/applications/$id/sanction'
+      path: '/applications/$id/sanction'
+      fullPath: '/applications/$id/sanction'
+      preLoaderRoute: typeof ApplicationsIdSanctionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditLogRoute: AuditLogRoute,
+  DashboardRoute: DashboardRoute,
+  EmployersRoute: EmployersRoute,
+  PolicyRulesRoute: PolicyRulesRoute,
+  RateGridRoute: RateGridRoute,
+  UsersRoute: UsersRoute,
+  ApplicationsNewRoute: ApplicationsNewRoute,
+  ApplicationsIndexRoute: ApplicationsIndexRoute,
+  ApplicationsIdManagerReviewRoute: ApplicationsIdManagerReviewRoute,
+  ApplicationsIdSanctionRoute: ApplicationsIdSanctionRoute,
+  ApplicationsIdIndexRoute: ApplicationsIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
