@@ -18,6 +18,9 @@ import { Route as RateGridRouteImport } from './routes/rate-grid'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as ApplicationsIndexRouteImport } from './routes/applications/index'
 import { Route as ApplicationsNewRouteImport } from './routes/applications/new'
+import { Route as ApplicationsIdIndexRouteImport } from './routes/applications/$id/index'
+import { Route as ApplicationsIdManagerReviewRouteImport } from './routes/applications/$id/manager-review'
+import { Route as ApplicationsIdSanctionRouteImport } from './routes/applications/$id/sanction'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +67,22 @@ const ApplicationsNewRoute = ApplicationsNewRouteImport.update({
   path: '/applications/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApplicationsIdIndexRoute = ApplicationsIdIndexRouteImport.update({
+  id: '/applications/$id/',
+  path: '/applications/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsIdManagerReviewRoute =
+  ApplicationsIdManagerReviewRouteImport.update({
+    id: '/applications/$id/manager-review',
+    path: '/applications/$id/manager-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApplicationsIdSanctionRoute = ApplicationsIdSanctionRouteImport.update({
+  id: '/applications/$id/sanction',
+  path: '/applications/$id/sanction',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +94,9 @@ export interface FileRoutesByFullPath {
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications/': typeof ApplicationsIndexRoute
+  '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
+  '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
+  '/applications/$id/': typeof ApplicationsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +108,9 @@ export interface FileRoutesByTo {
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications': typeof ApplicationsIndexRoute
+  '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
+  '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
+  '/applications/$id': typeof ApplicationsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +123,9 @@ export interface FileRoutesById {
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications/': typeof ApplicationsIndexRoute
+  '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
+  '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
+  '/applications/$id/': typeof ApplicationsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +139,9 @@ export interface FileRouteTypes {
     | '/users'
     | '/applications/new'
     | '/applications/'
+    | '/applications/$id/manager-review'
+    | '/applications/$id/sanction'
+    | '/applications/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +153,9 @@ export interface FileRouteTypes {
     | '/users'
     | '/applications/new'
     | '/applications'
+    | '/applications/$id/manager-review'
+    | '/applications/$id/sanction'
+    | '/applications/$id'
   id:
     | '__root__'
     | '/'
@@ -133,6 +167,9 @@ export interface FileRouteTypes {
     | '/users'
     | '/applications/new'
     | '/applications/'
+    | '/applications/$id/manager-review'
+    | '/applications/$id/sanction'
+    | '/applications/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +182,9 @@ export interface RootRouteChildren {
   UsersRoute: typeof UsersRoute
   ApplicationsNewRoute: typeof ApplicationsNewRoute
   ApplicationsIndexRoute: typeof ApplicationsIndexRoute
+  ApplicationsIdManagerReviewRoute: typeof ApplicationsIdManagerReviewRoute
+  ApplicationsIdSanctionRoute: typeof ApplicationsIdSanctionRoute
+  ApplicationsIdIndexRoute: typeof ApplicationsIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +252,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplicationsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/applications/$id/': {
+      id: '/applications/$id/'
+      path: '/applications/$id'
+      fullPath: '/applications/$id/'
+      preLoaderRoute: typeof ApplicationsIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/$id/manager-review': {
+      id: '/applications/$id/manager-review'
+      path: '/applications/$id/manager-review'
+      fullPath: '/applications/$id/manager-review'
+      preLoaderRoute: typeof ApplicationsIdManagerReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/$id/sanction': {
+      id: '/applications/$id/sanction'
+      path: '/applications/$id/sanction'
+      fullPath: '/applications/$id/sanction'
+      preLoaderRoute: typeof ApplicationsIdSanctionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +286,9 @@ const rootRouteChildren: RootRouteChildren = {
   UsersRoute: UsersRoute,
   ApplicationsNewRoute: ApplicationsNewRoute,
   ApplicationsIndexRoute: ApplicationsIndexRoute,
+  ApplicationsIdManagerReviewRoute: ApplicationsIdManagerReviewRoute,
+  ApplicationsIdSanctionRoute: ApplicationsIdSanctionRoute,
+  ApplicationsIdIndexRoute: ApplicationsIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
