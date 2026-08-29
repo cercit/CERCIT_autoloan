@@ -4,7 +4,7 @@ import { ArrowLeft, Download, Printer, Send, SquarePen } from "lucide-react";
 import { AppShell, LabelValue, SectionCard } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { emiFor, inr } from "@/lib/format";
-import { applications, getApplication } from "@/lib/mock-data";
+import { getApplication } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/applications/$id/sanction")({
   head: ({ params }) => ({
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/applications/$id/sanction")({
 
 function SanctionLetter() {
   const { id } = Route.useParams();
-  const app = getApplication(id) ?? applications[0];
+  const app = getApplication(id);
   const emi = emiFor(app.loanAmount, app.rate, app.tenure);
 
   return (

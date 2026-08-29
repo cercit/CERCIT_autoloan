@@ -465,7 +465,8 @@ export const applications: Application[] = [
   },
 ];
 
-export const getApplication = (id: string) => applications.find((a) => a.id === id);
+export const getApplication = (id: string): Application =>
+  applications.find((a) => a.id === id) ?? applications[0]!;
 
 export const dashboardStats = [
   { label: "New Applications", value: 12, trend: "+18%", up: true },
@@ -518,7 +519,7 @@ export const incomeSources = [
   { source: "Form 16 (annualized)", amount: 84166, status: "Extracted" },
 ];
 
-export const bureauMetrics = [
+export const bureauMetrics: [string, string][] = [
   ["Active Accounts", "4"],
   ["Overdue Accounts", "0"],
   ["Total Outstanding", "Rs 18,95,000"],

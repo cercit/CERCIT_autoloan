@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
 import { Button } from "@/components/ui/button";
-import { applications, getApplication } from "@/lib/mock-data";
+import { getApplication } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/applications/$id/manager-review")({
   head: ({ params }) => ({
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/applications/$id/manager-review")({
 
 function ManagerReview() {
   const { id } = Route.useParams();
-  const app = getApplication(id) ?? applications[2];
+  const app = getApplication(id);
   const withReferral = app.referredBy
     ? app
     : {

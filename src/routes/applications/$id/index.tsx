@@ -4,7 +4,7 @@ import { UserCog } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
 import { Button } from "@/components/ui/button";
-import { applications, getApplication } from "@/lib/mock-data";
+import { getApplication } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/applications/$id/")({
   head: ({ params }) => ({
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/applications/$id/")({
 
 function ApplicationDetail() {
   const { id } = Route.useParams();
-  const app = getApplication(id) ?? applications[0];
+  const app = getApplication(id);
 
   return (
     <AppShell
