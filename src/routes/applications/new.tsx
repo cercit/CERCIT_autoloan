@@ -384,7 +384,7 @@ function NewApplication() {
                 </Select>
               </Field>
               <Field label="Model">
-                <Select defaultValue={makes[make]?.[0]} key={make}>
+                <Select defaultValue={makes[make]?.[0] ?? ""} key={make}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

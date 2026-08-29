@@ -29,7 +29,7 @@ export const Route = createFileRoute("/policy-rules")({
 });
 
 function PolicyRulesPage() {
-  const [tab, setTab] = useState(policyTabs[0]);
+  const [tab, setTab] = useState<string>(policyTabs[0]!);
   const rules = policyRules[tab] ?? [];
 
   return (
