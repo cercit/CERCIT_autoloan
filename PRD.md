@@ -4,13 +4,15 @@
 **Product & Domain:** Sameer S Mittimani
 **Engineering & Architecture:** Claude (AI partner)
 **Version:** 3.0 (consolidated from GPT brainstorm, Claude chat PRD, Copilot spec, Gemini research)
-**Status:** Build phase — backend complete, frontend integration in progress
-**Jira Project:** SCRUM at `samsm.atlassian.net` (needs cercit epics/stories)
+**Status:** E2E working — submit, assess, review flow live on Supabase
+**Repo:** `cercit/cercit` (private, main branch)
+**Jira Project:** SCRUM at `samsm.atlassian.net`
 **Supabase Project:** `izlxncfcuvjqzxxbyidt` (hosted PostgreSQL, free tier, Mumbai region)
 **AI Layer:** OpenRouter with guardrails
 **License:** AGPL-3.0 with dual licensing (commercial license required for financial institutions)
+**Security audit:** Planned post-public-demo — Claude Fable 5, GPT 5.6, Kimi 3/DeepSeek (see `docs/security_audit_plan.md`)
 **Timeline:** 12 weeks
-**Last Updated:** 2026-08-30
+**Last Updated:** 30 Aug 2026
 
 ---
 

@@ -1,82 +1,141 @@
-# Connecting cercit_mock to Supabase
+# cercit — Supabase integration guide
 
-## What's ready
+Last updated: 30 Aug 2026
 
-The Supabase backend is live with:
-- 22 tables with RLS policies
-- 132 dealers across 12 OEMs
-- 16 policy rules with thresholds
-- 7 PostgreSQL functions callable via `supabase.rpc()`
-- Two smoke-tested scenarios (APPROVE + REJECT)
+## Connection details
 
-The integration layer is written and sitting in `Lov_cercit/src/lib/`:
-- `supabase.ts` — client init, reads URL and anon key from env vars
-- `api.ts` — wraps Supabase queries and RPCs, maps DB rows to the UI's `Application` type, falls back to mock data when Supabase isn't configured
+| Setting | Value |
+|---|---|
+| Project | Credit_Appraisal |
+| Org | cercit |
+| Region | Mumbai (ap-south-1) |
+| Project ref | `izlxncfcuvjqzxxbyidt` |
+| URL | `https://izlxncfcuvjqzxxbyidt.supabase.co` |
+| Anon key | Set in `.env` (not committed) |
+| Auth role | `anon` (no Supabase Auth yet) |
+| RLS | Disabled for demo |
 
-## Steps to wire up
+## Setup
 
-### 1. Add supabase-js
+### 1. Install dependency
 
-In Lovable, add the dependency:
-```
+```bash
 npm install @supabase/supabase-js
 ```
 
-Or in Lovable's package editor, add `@supabase/supabase-js` to dependencies.
-
 ### 2. Set environment variables
 
-In Lovable project settings (or `.env` locally):
+Copy `.env.example` to `.env` and fill in your anon key:
+
 ```
 VITE_SUPABASE_URL=https://izlxncfcuvjqzxxbyidt.supabase.co
 VITE_SUPABASE_ANON_KEY=<get from Supabase dashboard > Settings > API > anon public>
 ```
 
-### 3. Replace mock imports
+### 3. Run SQL migrations
 
-Each route file currently imports from `mock-data.ts`. Replace with `api.ts`:
+Run these files in order in the Supabase SQL Editor:
 
-```tsx
-// Before
-import { applications } from "@/lib/mock-data";
+1. `sql/001_schema.sql` — 22 tables
+2. `sql/002_seed_lookups.sql` — states, rate grid, reason codes, policy rules, users
+3. `sql/003_seed_dealers.sql` — 132 dealers across 12 OEMs
+4. `sql/004_functions.sql` — 7 PostgreSQL functions
+5. `sql/005_smoke_tests.sql` — test scenarios (optional)
+6. `sql/006_submit_application.sql` — full submission RPC + recommendation fix
 
-// After
-import { getApplications } from "@/lib/api";
+### 4. Grant permissions
 
-// In component, use useEffect or TanStack Query:
-const [apps, setApps] = useState<Application[]>([]);
-useEffect(() => {
-  getApplications().then(setApps);
-}, []);
+RLS is disabled for demo. If you need to re-grant after re-enabling RLS:
+
+```sql
+GRANT SELECT ON public.applications TO anon;
+GRANT SELECT ON public.customers TO anon;
+GRANT SELECT ON public.vehicles TO anon;
+GRANT SELECT ON public.bureau_reports TO anon;
+GRANT SELECT ON public.recommendations TO anon;
+GRANT SELECT ON public.credit_decisions TO anon;
+GRANT SELECT ON public.policy_rules TO anon;
+GRANT SELECT ON public.audit_events TO anon;
+GRANT SELECT ON public.rate_grid TO anon;
+GRANT SELECT ON public.dealers TO anon;
+GRANT EXECUTE ON FUNCTION fn_submit_full_application TO anon;
+GRANT EXECUTE ON FUNCTION fn_create_application TO anon;
+GRANT EXECUTE ON FUNCTION fn_assess_application TO anon;
+GRANT EXECUTE ON FUNCTION fn_list_applications TO anon;
 ```
 
-### 4. RPC functions available
+## Architecture
 
-| UI action | Function | Call |
+### Client layer (`src/lib/supabase.ts`)
+
+Reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from env vars. If either is missing, logs a warning and sets `isSupabaseConfigured = false`.
+
+### API layer (`src/lib/api.ts`)
+
+Every function checks `isSupabaseConfigured` first. If false, returns mock data from `src/lib/mock-data.ts`. This means the app works without a database connection — useful for local dev and Lovable preview.
+
+### RPC functions (SECURITY DEFINER)
+
+Backend functions run as the postgres role regardless of who calls them. This bypasses RLS, which is why the anon role can create applications and run assessments without INSERT/UPDATE grants on individual tables.
+
+| Function | Called from | What it does |
 |---|---|---|
-| New application form submit | `fn_create_application` | `supabase.rpc('fn_create_application', {p_full_name, p_email, p_mobile})` |
-| Quick eligibility check | `fn_in_principle_check` | `supabase.rpc('fn_in_principle_check', {p_application_id: uuid})` |
-| Run full assessment | `fn_assess_application` | `supabase.rpc('fn_assess_application', {p_application_id: uuid})` |
-| EMI calculator widget | `fn_calculate_emi` | `supabase.rpc('fn_calculate_emi', {p_principal, p_annual_rate, p_tenure_months})` |
+| `fn_list_applications` | Dashboard, queue | Joins 5 tables, returns flat rows for the application list |
+| `fn_submit_full_application` | New application form | Creates records in 7 tables + runs the assessment pipeline |
+| `fn_assess_application` | Called by submit | Runs policy engine + generates recommendation |
 
-### 5. Direct table reads
+### Direct table queries
 
-Policy rules, rate grid, audit log, and dealers can be read directly:
+The application detail view (`/applications/:id`) queries tables directly with PostgREST joins:
 
-```ts
-supabase.from('policy_rules').select('*').eq('is_active', true)
-supabase.from('rate_grid').select('*').order('score_band_min')
-supabase.from('dealers').select('*').eq('is_active', true)
-supabase.from('audit_events').select('*').order('created_at', {ascending: false})
+```
+applications -> customers (inner join)
+             -> vehicles!fk_vehicles_app
+             -> bureau_reports
+             -> recommendations
+             -> credit_decisions
 ```
 
-### 6. Graceful fallback
+The `vehicles` join needs the FK hint `!fk_vehicles_app` because the `applications` table has two relationships to `vehicles` (one-to-many via `vehicles.application_id`, and many-to-one via `applications.vehicle_id`).
 
-The API layer falls back to mock data when env vars aren't set. This means the app works in both modes — mock for Lovable preview, live for connected deployment.
+## Data flow
 
-## What's not wired yet
+```
+Customer fills form (5 steps)
+    |
+    v
+submitFullApplication() in api.ts
+    |
+    v
+fn_submit_full_application RPC (SECURITY DEFINER)
+    |-- INSERT customer
+    |-- INSERT application (DRAFT -> UNDER_ASSESSMENT)
+    |-- INSERT vehicle (with auto-calculated taxes)
+    |-- INSERT bureau_report
+    |-- INSERT bank_statement_analysis
+    |-- INSERT income_assessment
+    |-- CALL fn_assess_application
+    |       |-- fn_run_policy_engine (16 rules)
+    |       |-- fn_generate_recommendation
+    |       |       |-- rate lookup from rate_grid
+    |       |       |-- EMI calculation
+    |       |       |-- FOIR / LTV / DBR / surplus
+    |       |       |-- INSERT recommendation
+    |       |       |-- INSERT credit_decision
+    |       |       |-- UPDATE application status
+    |       |       |-- INSERT audit_event
+    |       |       |-- RETURN decision + metrics
+    |       |-- RETURN {policy, recommendation}
+    |-- RETURN {application_id, decision, rate, summary}
+    v
+Dialog shows result: "Application 202608000011 — APPROVE"
+```
 
-- **Authentication** — Supabase Auth not set up. RLS policies exist but currently allow all access (no auth_user_id checks). Phase 2 item.
-- **fn_list_applications** — a view or function to list applications with joined data (customer name, vehicle, recommendation). Needs to be created for the dashboard.
-- **Real-time subscriptions** — Supabase supports `supabase.channel().on('postgres_changes', ...)` for live updates. Not needed for Phase 1.
-- **File uploads** — document upload flow (salary slips, bank statements) uses Supabase Storage. Phase 2.
+## Mock data fallback
+
+When `isSupabaseConfigured` is false, every API function returns data from `src/lib/mock-data.ts`. The mock data mirrors the DB shape closely enough that all UI components render without changes.
+
+This means:
+- Lovable preview works without Supabase credentials
+- Local dev works without `.env`
+- Switching between mock and live is automatic — just set/remove the env vars
