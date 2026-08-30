@@ -1,0 +1,356 @@
+Make,Model,Variant,Fuel Type,Transmission,Colors Available,City,Ex-Showroom Price (INR),Channel/Segment
+Hyundai,Grand i10 Nios,Era 1.2 Kappa,Petrol,5-speed MT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,560000,Mass
+Hyundai,Grand i10 Nios,Era 1.2 AMT,Petrol,AMT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,610000,Mass
+Hyundai,Grand i10 Nios,Magna 1.2 Kappa,Petrol,5-speed MT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,620000,Mass
+Hyundai,Grand i10 Nios,Magna 1.2 CNG,Petrol+CNG,5-speed MT,"Titan Grey, Atlas White, Typhoon Silver",Delhi,750000,Mass
+Hyundai,Grand i10 Nios,Sportz 1.2 Kappa,Petrol,5-speed MT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,690000,Mass
+Hyundai,Grand i10 Nios,Sportz 1.2 AMT,Petrol,AMT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,740000,Mass
+Hyundai,Grand i10 Nios,Sportz 1.2 CNG,Petrol+CNG,5-speed MT,"Titan Grey, Atlas White, Typhoon Silver",Delhi,800000,Mass
+Hyundai,Grand i10 Nios,Asta 1.2 Kappa,Petrol,5-speed MT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,760000,Mass
+Hyundai,Aura,E 1.2 Kappa,Petrol,5-speed MT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,600000,Mass
+Hyundai,Aura,S 1.2 Kappa,Petrol,5-speed MT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,675000,Mass
+Hyundai,Aura,S 1.2 CNG,Petrol+CNG,5-speed MT,"Titan Grey, Atlas White, Typhoon Silver",Delhi,785000,Mass
+Hyundai,Aura,SX 1.2 Kappa,Petrol,5-speed MT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,745000,Mass
+Hyundai,Aura,SX+ 1.2 AMT,Petrol,AMT,"Fiery Red, Titan Grey, Atlas White, Starry Night, Typhoon Silver, Abyss Black",Delhi,860000,Mass
+Hyundai,Exter,EX 1.2 Kappa,Petrol,5-speed MT,"Cosmic Blue, Ranger Khaki, Atlas White, Abyss Black, Titan Grey, Fiery Red",Delhi,581000,Mass
+Hyundai,Exter,EX+ 1.2 Kappa,Petrol,5-speed MT,"Cosmic Blue, Ranger Khaki, Atlas White, Abyss Black, Titan Grey, Fiery Red",Delhi,640000,Mass
+Hyundai,Exter,S 1.2 Kappa,Petrol,5-speed MT,"Cosmic Blue, Ranger Khaki, Atlas White, Abyss Black, Titan Grey, Fiery Red",Delhi,700000,Mass
+Hyundai,Exter,S 1.2 CNG,Petrol+CNG,5-speed MT,"Atlas White, Abyss Black, Titan Grey",Delhi,810000,Mass
+Hyundai,Exter,S 1.2 AMT,Petrol,AMT,"Cosmic Blue, Ranger Khaki, Atlas White, Abyss Black, Titan Grey, Fiery Red",Delhi,750000,Mass
+Hyundai,Exter,SX 1.2 Kappa,Petrol,5-speed MT,"Cosmic Blue, Ranger Khaki, Atlas White, Abyss Black, Titan Grey, Fiery Red, Dual Tone",Delhi,810000,Mass
+Hyundai,Exter,SX(O) 1.2 AMT,Petrol,AMT,"Cosmic Blue, Ranger Khaki, Atlas White, Abyss Black, Titan Grey, Fiery Red, Dual Tone",Delhi,890000,Mass
+Hyundai,Exter,SX Connect 1.2 AMT,Petrol,AMT,"Cosmic Blue, Ranger Khaki, Atlas White, Abyss Black, Titan Grey, Fiery Red, Dual Tone",Delhi,961000,Mass
+Hyundai,i20,Era 1.2 Kappa,Petrol,5-speed MT,"Titanium Black, Typhoon Silver, Titan Grey, Starry Night, Fiery Red, Atlas White, Amazon Grey",Delhi,600000,Premium
+Hyundai,i20,Magna 1.2 Kappa,Petrol,5-speed MT,"Titanium Black, Typhoon Silver, Titan Grey, Starry Night, Fiery Red, Atlas White, Amazon Grey",Delhi,680000,Premium
+Hyundai,i20,Sportz 1.2 Kappa,Petrol,5-speed MT,"Titanium Black, Typhoon Silver, Titan Grey, Starry Night, Fiery Red, Atlas White, Amazon Grey, Dual Tone",Delhi,760000,Premium
+Hyundai,i20,Sportz 1.2 IVT,Petrol,IVT,"Titanium Black, Typhoon Silver, Titan Grey, Starry Night, Fiery Red, Atlas White, Amazon Grey, Dual Tone",Delhi,850000,Premium
+Hyundai,i20,Asta 1.2 IVT,Petrol,IVT,"Titanium Black, Typhoon Silver, Titan Grey, Starry Night, Fiery Red, Atlas White, Amazon Grey, Dual Tone",Delhi,950000,Premium
+Hyundai,i20,Asta(O) 1.2 IVT,Petrol,IVT,"Titanium Black, Typhoon Silver, Titan Grey, Starry Night, Fiery Red, Atlas White, Dual Tone",Delhi,1063000,Premium
+Hyundai,Venue,E 1.2 Kappa,Petrol,5-speed MT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black",Delhi,800000,Mass
+Hyundai,Venue,S 1.2 Kappa,Petrol,5-speed MT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black, Dual Tone",Delhi,880000,Mass
+Hyundai,Venue,S(O) 1.2 Kappa,Petrol,5-speed MT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black, Dual Tone",Delhi,950000,Mass
+Hyundai,Venue,S 1.0 Turbo GDi,Petrol Turbo,6-speed MT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black, Dual Tone",Delhi,1050000,Mass
+Hyundai,Venue,S(O) 1.0 Turbo DCT,Petrol Turbo,7-speed DCT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black, Dual Tone",Delhi,1150000,Mass
+Hyundai,Venue,SX 1.5 Diesel,Diesel,6-speed MT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black, Dual Tone",Delhi,1200000,Mass
+Hyundai,Venue,SX 1.0 Turbo DCT,Petrol Turbo,7-speed DCT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black, Dual Tone",Delhi,1300000,Mass
+Hyundai,Venue,SX(O) 1.5 Diesel AT,Diesel,6-speed AT,"Mystic Sapphire, Hazel Blue, Titan Grey, Dragon Red, Atlas White, Titanium Black, Dual Tone",Delhi,1500000,Mass
+Hyundai,Venue,SX(O) 1.0 Turbo DCT DT,Petrol Turbo,7-speed DCT,"Dual Tone options",Delhi,1583000,Mass
+Hyundai,Verna,EX 1.5 MPi,Petrol,6-speed MT,"Titanium Black, Titan Grey, Starry Night, Classy Blue, Atlas White, Topaz Brown, Dual Tone",Delhi,1099000,Premium
+Hyundai,Verna,S 1.5 MPi,Petrol,6-speed MT,"Titanium Black, Titan Grey, Starry Night, Classy Blue, Atlas White, Topaz Brown, Dual Tone",Delhi,1199000,Premium
+Hyundai,Verna,SX 1.5 MPi,Petrol,6-speed MT,"Titanium Black, Titan Grey, Starry Night, Classy Blue, Atlas White, Topaz Brown, Dual Tone",Delhi,1350000,Premium
+Hyundai,Verna,SX IVT,Petrol,IVT,"Titanium Black, Titan Grey, Starry Night, Classy Blue, Atlas White, Topaz Brown, Dual Tone",Delhi,1450000,Premium
+Hyundai,Verna,SX(O) 1.5 Turbo DCT,Petrol Turbo,7-speed DCT,"Titanium Black, Titan Grey, Starry Night, Classy Blue, Atlas White, Topaz Brown, Dual Tone",Delhi,1700000,Premium
+Hyundai,Verna,SX(O) 1.5 Turbo Knight DCT,Petrol Turbo,7-speed DCT,"Titanium Black Matte, Titan Grey Matte",Delhi,1841000,Premium
+Hyundai,Creta,E 1.5 Petrol,Petrol,6-speed MT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night",Delhi,1091000,Mass
+Hyundai,Creta,EX 1.5 Petrol,Petrol,6-speed MT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night",Delhi,1200000,Mass
+Hyundai,Creta,EX(O) 1.5 Petrol,Petrol,6-speed MT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night",Delhi,1280000,Mass
+Hyundai,Creta,S(O) 1.5 Petrol,Petrol,IVT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night",Delhi,1400000,Mass
+Hyundai,Creta,SX 1.5 Petrol,Petrol,IVT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night, Dual Tone",Delhi,1550000,Mass
+Hyundai,Creta,SX 1.5 Diesel,Diesel,6-speed MT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night, Dual Tone",Delhi,1500000,Mass
+Hyundai,Creta,SX 1.5 Diesel AT,Diesel,6-speed AT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night, Dual Tone",Delhi,1650000,Mass
+Hyundai,Creta,SX 1.5 Turbo DCT,Petrol Turbo,7-speed DCT,"Abyss Black, Titan Grey, Atlas White, Robust Emerald Pearl, Fiery Red, Ranger Khaki, Starry Night, Dual Tone",Delhi,1700000,Mass
+Hyundai,Creta,Knight 1.5 Turbo DCT,Petrol Turbo,7-speed DCT,"Titanium Black Matte, Titan Grey Matte",Delhi,1850000,Mass
+Hyundai,Creta,Knight 1.5 Diesel AT,Diesel,6-speed AT,"Titanium Black Matte, Titan Grey Matte",Delhi,1900000,Mass
+Hyundai,Creta,King Knight 1.5 Diesel AT,Diesel,6-speed AT,"Titanium Black Matte, Titan Grey Matte, Starry Night",Delhi,2011000,Mass
+Hyundai,Alcazar,Executive 1.5 Turbo,Petrol Turbo,6-speed MT,"Abyss Black, Titan Grey, Starry Night, Atlas White, Robust Emerald Pearl",Delhi,1451000,Premium
+Hyundai,Alcazar,Prestige 1.5 Turbo,Petrol Turbo,6-speed MT,"Abyss Black, Titan Grey, Starry Night, Atlas White, Robust Emerald Pearl",Delhi,1600000,Premium
+Hyundai,Alcazar,Prestige 1.5 Turbo DCT,Petrol Turbo,7-speed DCT,"Abyss Black, Titan Grey, Starry Night, Atlas White, Robust Emerald Pearl",Delhi,1750000,Premium
+Hyundai,Alcazar,Platinum 1.5 Diesel AT,Diesel,6-speed AT,"Abyss Black, Titan Grey, Starry Night, Atlas White, Robust Emerald Pearl, Dual Tone",Delhi,2000000,Premium
+Hyundai,Alcazar,Signature 1.5 Diesel AT,Diesel,6-speed AT,"Abyss Black, Titan Grey, Starry Night, Atlas White, Robust Emerald Pearl, Dual Tone",Delhi,2125000,Premium
+Hyundai,Tucson,Advance 2.0 Petrol AT,Petrol,6-speed AT,"Titan Grey, Abyss Black, Atlas White, Fiery Red",Delhi,2732000,Premium
+Hyundai,Tucson,Signature 2.0 Diesel AT,Diesel,8-speed AT,"Titan Grey, Abyss Black, Atlas White, Fiery Red",Delhi,3200000,Premium
+Hyundai,Tucson,Platinum 2.0 Diesel AT AWD,Diesel,8-speed AT,"Titan Grey, Abyss Black, Atlas White, Fiery Red",Delhi,3364000,Premium
+Hyundai,IONIQ 5,Standard Range RWD,Electric,Single-speed,"Gravity Gold Matte, Optic White, Digital Teal Pearl, Midnight Black Pearl, Shooting Star Matte",Delhi,4470000,EV
+Hyundai,IONIQ 5,Long Range RWD,Electric,Single-speed,"Gravity Gold Matte, Optic White, Digital Teal Pearl, Midnight Black Pearl, Shooting Star Matte",Delhi,4920000,EV
+Hyundai,IONIQ 5,Long Range AWD,Electric,Single-speed,"Gravity Gold Matte, Optic White, Digital Teal Pearl, Midnight Black Pearl, Shooting Star Matte",Delhi,5570000,EV
+Honda,Amaze 2nd Gen,V MT,Petrol,5-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,599000,Mass
+Honda,Amaze 2nd Gen,V CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,650000,Mass
+Honda,Amaze 2nd Gen,VX MT,Petrol,5-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,700000,Mass
+Honda,Amaze 2nd Gen,VX CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,750000,Mass
+Honda,Amaze,V MT,Petrol,5-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,760000,Mass
+Honda,Amaze,V CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,830000,Mass
+Honda,Amaze,VX MT,Petrol,5-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,870000,Mass
+Honda,Amaze,VX CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,920000,Mass
+Honda,Amaze,ZX CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,1000000,Mass
+Honda,City,V MT,Petrol,6-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Lunar Silver",Delhi,1200000,Premium
+Honda,City,V CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Lunar Silver",Delhi,1300000,Premium
+Honda,City,VX MT,Petrol,6-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Lunar Silver",Delhi,1400000,Premium
+Honda,City,VX CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Lunar Silver",Delhi,1500000,Premium
+Honda,City,ZX MT,Petrol,6-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Lunar Silver",Delhi,1600000,Premium
+Honda,City,ZX CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Lunar Silver",Delhi,1715000,Premium
+Honda,City,e:HEV ZX,Hybrid,eCVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Lunar Silver",Delhi,2100000,Premium
+Honda,Elevate,SV MT,Petrol,6-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,1181000,Mass
+Honda,Elevate,SV CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,1280000,Mass
+Honda,Elevate,V MT,Petrol,6-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,1350000,Mass
+Honda,Elevate,VX MT,Petrol,6-speed MT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,1450000,Mass
+Honda,Elevate,VX CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,1550000,Mass
+Honda,Elevate,ZX CVT,Petrol,CVT,"Radiant Red, Meteoroid Grey, Platinum White Pearl, Golden Brown, Obsidian Blue Pearl, Lunar Silver",Delhi,1698000,Mass
+Honda,ZR-V,e:HEV RS,Hybrid,eCVT,"Crystal Black Pearl, Platinum White Pearl, Meteoroid Grey",Delhi,4799000,Premium
+Maruti Suzuki,Alto K10,Std,Petrol,5-speed MT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue",Delhi,389000,Arena
+Maruti Suzuki,Alto K10,LXi,Petrol,5-speed MT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue",Delhi,449000,Arena
+Maruti Suzuki,Alto K10,VXi,Petrol,5-speed MT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue",Delhi,498000,Arena
+Maruti Suzuki,Alto K10,VXi+,Petrol,5-speed MT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue",Delhi,525000,Arena
+Maruti Suzuki,Alto K10,VXi AGS,Petrol,AGS/AMT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue",Delhi,548000,Arena
+Maruti Suzuki,Alto K10,VXi+ AGS,Petrol,AGS/AMT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue",Delhi,575000,Arena
+Maruti Suzuki,S-Presso,Std,Petrol,5-speed MT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue, Pearl Starry Blue",Delhi,350000,Arena
+Maruti Suzuki,S-Presso,LXi,Petrol,5-speed MT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue, Pearl Starry Blue",Delhi,420000,Arena
+Maruti Suzuki,S-Presso,VXi,Petrol,5-speed MT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue, Pearl Starry Blue",Delhi,480000,Arena
+Maruti Suzuki,S-Presso,VXi+ AGS,Petrol,AGS/AMT,"Solid White, Silky Silver, Granite Grey, Sizzling Red, Speedy Blue, Pearl Starry Blue",Delhi,525000,Arena
+Maruti Suzuki,WagonR,LXi 1.0,Petrol,5-speed MT,"Silky Silver, Magma Grey, Solid White, Pearl Arctic White, Nutmeg Brown, Poolside Blue",Delhi,499000,Arena
+Maruti Suzuki,WagonR,VXi 1.0,Petrol,5-speed MT,"Silky Silver, Magma Grey, Solid White, Pearl Arctic White, Nutmeg Brown, Poolside Blue",Delhi,555000,Arena
+Maruti Suzuki,WagonR,VXi 1.0 AGS,Petrol,AGS/AMT,"Silky Silver, Magma Grey, Solid White, Pearl Arctic White, Nutmeg Brown, Poolside Blue",Delhi,600000,Arena
+Maruti Suzuki,WagonR,VXi 1.2,Petrol,5-speed MT,"Silky Silver, Magma Grey, Solid White, Pearl Arctic White, Nutmeg Brown, Poolside Blue",Delhi,580000,Arena
+Maruti Suzuki,WagonR,ZXi 1.2,Petrol,5-speed MT,"Silky Silver, Magma Grey, Solid White, Pearl Arctic White, Nutmeg Brown, Poolside Blue",Delhi,620000,Arena
+Maruti Suzuki,WagonR,ZXi 1.2 AGS,Petrol,AGS/AMT,"Silky Silver, Magma Grey, Solid White, Pearl Arctic White, Nutmeg Brown, Poolside Blue",Delhi,680000,Arena
+Maruti Suzuki,WagonR,ZXi+ 1.2 AGS,Petrol,AGS/AMT,"Silky Silver, Magma Grey, Solid White, Pearl Arctic White, Nutmeg Brown, Poolside Blue",Delhi,720000,Arena
+Maruti Suzuki,WagonR,LXi CNG,Petrol+CNG,5-speed MT,"Silky Silver, Solid White",Delhi,620000,Arena
+Maruti Suzuki,Swift,LXi,Petrol,5-speed MT,"Pearl Arctic White, Solid Fire Red, Sizzling Red, Luster Blue, Magma Grey, Midnight Blue",Delhi,579000,Arena
+Maruti Suzuki,Swift,VXi,Petrol,5-speed MT,"Pearl Arctic White, Solid Fire Red, Sizzling Red, Luster Blue, Magma Grey, Midnight Blue",Delhi,650000,Arena
+Maruti Suzuki,Swift,VXi AGS,Petrol,AGS/AMT,"Pearl Arctic White, Solid Fire Red, Sizzling Red, Luster Blue, Magma Grey, Midnight Blue",Delhi,710000,Arena
+Maruti Suzuki,Swift,ZXi,Petrol,5-speed MT,"Pearl Arctic White, Solid Fire Red, Sizzling Red, Luster Blue, Magma Grey, Midnight Blue, Dual Tone",Delhi,760000,Arena
+Maruti Suzuki,Swift,ZXi AGS,Petrol,AGS/AMT,"Pearl Arctic White, Solid Fire Red, Sizzling Red, Luster Blue, Magma Grey, Midnight Blue, Dual Tone",Delhi,810000,Arena
+Maruti Suzuki,Swift,ZXi+ AGS,Petrol,AGS/AMT,"Pearl Arctic White, Solid Fire Red, Sizzling Red, Luster Blue, Magma Grey, Midnight Blue, Dual Tone",Delhi,880000,Arena
+Maruti Suzuki,Dzire,LXi,Petrol,5-speed MT,"Oxford Blue, Magma Grey, Alluring Red, Sherwood Brown, Silky Silver, Pearl Arctic White",Delhi,626000,Arena
+Maruti Suzuki,Dzire,VXi,Petrol,5-speed MT,"Oxford Blue, Magma Grey, Alluring Red, Sherwood Brown, Silky Silver, Pearl Arctic White",Delhi,700000,Arena
+Maruti Suzuki,Dzire,VXi AGS,Petrol,AGS/AMT,"Oxford Blue, Magma Grey, Alluring Red, Sherwood Brown, Silky Silver, Pearl Arctic White",Delhi,750000,Arena
+Maruti Suzuki,Dzire,ZXi,Petrol,5-speed MT,"Oxford Blue, Magma Grey, Alluring Red, Sherwood Brown, Silky Silver, Pearl Arctic White",Delhi,820000,Arena
+Maruti Suzuki,Dzire,ZXi AGS,Petrol,AGS/AMT,"Oxford Blue, Magma Grey, Alluring Red, Sherwood Brown, Silky Silver, Pearl Arctic White",Delhi,870000,Arena
+Maruti Suzuki,Dzire,ZXi+ AGS,Petrol,AGS/AMT,"Oxford Blue, Magma Grey, Alluring Red, Sherwood Brown, Silky Silver, Pearl Arctic White",Delhi,931000,Arena
+Maruti Suzuki,Brezza,LXi,Petrol,5-speed MT,"Brave Khaki, Sizzling Red, Magma Grey, Pearl Arctic White, Splendid Silver, Exuberant Blue",Delhi,826000,Arena
+Maruti Suzuki,Brezza,VXi,Petrol,5-speed MT,"Brave Khaki, Sizzling Red, Magma Grey, Pearl Arctic White, Splendid Silver, Exuberant Blue",Delhi,920000,Arena
+Maruti Suzuki,Brezza,VXi AT,Petrol,6-speed AT,"Brave Khaki, Sizzling Red, Magma Grey, Pearl Arctic White, Splendid Silver, Exuberant Blue",Delhi,1000000,Arena
+Maruti Suzuki,Brezza,ZXi,Petrol,5-speed MT,"Brave Khaki, Sizzling Red, Magma Grey, Pearl Arctic White, Splendid Silver, Exuberant Blue, Dual Tone",Delhi,1060000,Arena
+Maruti Suzuki,Brezza,ZXi AT,Petrol,6-speed AT,"Brave Khaki, Sizzling Red, Magma Grey, Pearl Arctic White, Splendid Silver, Exuberant Blue, Dual Tone",Delhi,1140000,Arena
+Maruti Suzuki,Brezza,ZXi+ AT,Petrol,6-speed AT,"Brave Khaki, Sizzling Red, Magma Grey, Pearl Arctic White, Splendid Silver, Exuberant Blue, Dual Tone",Delhi,1301000,Arena
+Maruti Suzuki,Brezza,ZXi CNG,Petrol+CNG,5-speed MT,"Pearl Arctic White, Splendid Silver",Delhi,1100000,Arena
+Maruti Suzuki,Ertiga,LXi,Petrol,5-speed MT,"Pearl Arctic White, Silky Silver, Magma Grey, Brave Khaki, Splendid Silver, Auburn Red",Delhi,880000,Arena
+Maruti Suzuki,Ertiga,VXi,Petrol,5-speed MT,"Pearl Arctic White, Silky Silver, Magma Grey, Brave Khaki, Splendid Silver, Auburn Red",Delhi,960000,Arena
+Maruti Suzuki,Ertiga,VXi AT,Petrol,6-speed AT,"Pearl Arctic White, Silky Silver, Magma Grey, Brave Khaki, Splendid Silver, Auburn Red",Delhi,1050000,Arena
+Maruti Suzuki,Ertiga,ZXi,Petrol,5-speed MT,"Pearl Arctic White, Silky Silver, Magma Grey, Brave Khaki, Splendid Silver, Auburn Red",Delhi,1100000,Arena
+Maruti Suzuki,Ertiga,ZXi AT,Petrol,6-speed AT,"Pearl Arctic White, Silky Silver, Magma Grey, Brave Khaki, Splendid Silver, Auburn Red",Delhi,1180000,Arena
+Maruti Suzuki,Ertiga,ZXi+ AT,Petrol,6-speed AT,"Pearl Arctic White, Silky Silver, Magma Grey, Brave Khaki, Splendid Silver, Auburn Red",Delhi,1294000,Arena
+Maruti Suzuki,Ertiga,VXi CNG,Petrol+CNG,5-speed MT,"Pearl Arctic White, Silky Silver",Delhi,1050000,Arena
+Maruti Suzuki,Baleno,Sigma,Petrol,5-speed MT,"Nexa Blue, Arctic White, Grandeur Grey, Luxe Beige, Opulent Red, Splendid Silver",Delhi,599000,Nexa
+Maruti Suzuki,Baleno,Delta,Petrol,5-speed MT,"Nexa Blue, Arctic White, Grandeur Grey, Luxe Beige, Opulent Red, Splendid Silver",Delhi,680000,Nexa
+Maruti Suzuki,Baleno,Delta AGS,Petrol,AGS/AMT,"Nexa Blue, Arctic White, Grandeur Grey, Luxe Beige, Opulent Red, Splendid Silver",Delhi,730000,Nexa
+Maruti Suzuki,Baleno,Zeta,Petrol,5-speed MT,"Nexa Blue, Arctic White, Grandeur Grey, Luxe Beige, Opulent Red, Splendid Silver",Delhi,780000,Nexa
+Maruti Suzuki,Baleno,Zeta AGS,Petrol,AGS/AMT,"Nexa Blue, Arctic White, Grandeur Grey, Luxe Beige, Opulent Red, Splendid Silver",Delhi,830000,Nexa
+Maruti Suzuki,Baleno,Alpha,Petrol,5-speed MT,"Nexa Blue, Arctic White, Grandeur Grey, Luxe Beige, Opulent Red, Splendid Silver, Dual Tone",Delhi,890000,Nexa
+Maruti Suzuki,Baleno,Alpha AGS,Petrol,AGS/AMT,"Nexa Blue, Arctic White, Grandeur Grey, Luxe Beige, Opulent Red, Splendid Silver, Dual Tone",Delhi,940000,Nexa
+Maruti Suzuki,Fronx,Sigma,Petrol,5-speed MT,"Nexa Blue, Arctic White, Grandeur Grey, Earthen Brown, Opulent Red, Splendid Silver",Delhi,685000,Nexa
+Maruti Suzuki,Fronx,Delta,Petrol,5-speed MT,"Nexa Blue, Arctic White, Grandeur Grey, Earthen Brown, Opulent Red, Splendid Silver",Delhi,780000,Nexa
+Maruti Suzuki,Fronx,Delta+ AGS,Petrol,AGS/AMT,"Nexa Blue, Arctic White, Grandeur Grey, Earthen Brown, Opulent Red, Splendid Silver",Delhi,860000,Nexa
+Maruti Suzuki,Fronx,Zeta Turbo,Petrol Turbo,6-speed AT,"Nexa Blue, Arctic White, Grandeur Grey, Earthen Brown, Opulent Red, Splendid Silver, Dual Tone",Delhi,980000,Nexa
+Maruti Suzuki,Fronx,Alpha Turbo,Petrol Turbo,6-speed AT,"Nexa Blue, Arctic White, Grandeur Grey, Earthen Brown, Opulent Red, Splendid Silver, Dual Tone",Delhi,1100000,Nexa
+Maruti Suzuki,Fronx,Alpha+ Turbo,Petrol Turbo,6-speed AT,"Nexa Blue, Arctic White, Grandeur Grey, Earthen Brown, Opulent Red, Splendid Silver, Dual Tone",Delhi,1198000,Nexa
+Maruti Suzuki,Grand Vitara,Sigma 1.5 MT,Petrol,5-speed MT,"Arctic White, Grandeur Grey, Splendid Silver, Nexa Blue, Chestnut Brown, Celestial Blue, Dual Tone",Delhi,1077000,Nexa
+Maruti Suzuki,Grand Vitara,Delta 1.5 MT,Petrol,5-speed MT,"Arctic White, Grandeur Grey, Splendid Silver, Nexa Blue, Chestnut Brown, Celestial Blue, Dual Tone",Delhi,1175000,Nexa
+Maruti Suzuki,Grand Vitara,Zeta 1.5 MT,Petrol,5-speed MT,"Arctic White, Grandeur Grey, Splendid Silver, Nexa Blue, Chestnut Brown, Celestial Blue, Dual Tone",Delhi,1320000,Nexa
+Maruti Suzuki,Grand Vitara,Zeta+ 1.5 AT,Petrol,6-speed AT,"Arctic White, Grandeur Grey, Splendid Silver, Nexa Blue, Chestnut Brown, Celestial Blue, Dual Tone",Delhi,1450000,Nexa
+Maruti Suzuki,Grand Vitara,Alpha 1.5 Hybrid AT,Hybrid,eCVT,"Arctic White, Grandeur Grey, Splendid Silver, Nexa Blue, Chestnut Brown, Celestial Blue, Dual Tone",Delhi,1700000,Nexa
+Maruti Suzuki,Grand Vitara,Alpha+ 1.5 Hybrid AT DT,Hybrid,eCVT,"Dual Tone options",Delhi,1977000,Nexa
+Maruti Suzuki,Invicto,Zeta,Hybrid,eCVT,"Nexa Blue, Arctic White, Grandeur Grey, Mystic White",Delhi,2497000,Nexa
+Maruti Suzuki,Invicto,Zeta+,Hybrid,eCVT,"Nexa Blue, Arctic White, Grandeur Grey, Mystic White",Delhi,2680000,Nexa
+Maruti Suzuki,Invicto,Alpha+,Hybrid,eCVT,"Nexa Blue, Arctic White, Grandeur Grey, Mystic White",Delhi,2861000,Nexa
+Maruti Suzuki,Jimny,Zeta MT,Petrol,5-speed MT,"Kinetic Yellow, Sizzling Red, Granite Grey, Bluish Black, Pearl Arctic White, Nexa Blue",Delhi,1274000,Nexa
+Maruti Suzuki,Jimny,Alpha MT,Petrol,5-speed MT,"Kinetic Yellow, Sizzling Red, Granite Grey, Bluish Black, Pearl Arctic White, Nexa Blue, Dual Tone",Delhi,1390000,Nexa
+Maruti Suzuki,Jimny,Alpha AT,Petrol,4-speed AT,"Kinetic Yellow, Sizzling Red, Granite Grey, Bluish Black, Pearl Arctic White, Nexa Blue, Dual Tone",Delhi,1490000,Nexa
+Tata,Tiago,XE,Petrol,5-speed MT,"Daytona Grey, Opal White, Pure Silver, Flame Red, Arizona Blue",Delhi,470000,Mass
+Tata,Tiago,XM,Petrol,5-speed MT,"Daytona Grey, Opal White, Pure Silver, Flame Red, Arizona Blue",Delhi,530000,Mass
+Tata,Tiago,XZ,Petrol,5-speed MT,"Daytona Grey, Opal White, Pure Silver, Flame Red, Arizona Blue",Delhi,590000,Mass
+Tata,Tiago,XZ+,Petrol,5-speed MT,"Daytona Grey, Opal White, Pure Silver, Flame Red, Arizona Blue, Dual Tone",Delhi,640000,Mass
+Tata,Tiago,XZ+ AMT,Petrol,AMT,"Daytona Grey, Opal White, Pure Silver, Flame Red, Arizona Blue, Dual Tone",Delhi,690000,Mass
+Tata,Tiago,XM CNG,Petrol+CNG,5-speed MT,"Daytona Grey, Opal White, Pure Silver",Delhi,600000,Mass
+Tata,Punch,Pure,Petrol,5-speed MT,"Tornado Blue, Daytona Grey, Orcus White, Pure Silver, Flame Red, Meteor Bronze",Delhi,559000,Mass
+Tata,Punch,Adventure,Petrol,5-speed MT,"Tornado Blue, Daytona Grey, Orcus White, Pure Silver, Flame Red, Meteor Bronze",Delhi,650000,Mass
+Tata,Punch,Adventure AMT,Petrol,AMT,"Tornado Blue, Daytona Grey, Orcus White, Pure Silver, Flame Red, Meteor Bronze",Delhi,710000,Mass
+Tata,Punch,Accomplished,Petrol,5-speed MT,"Tornado Blue, Daytona Grey, Orcus White, Pure Silver, Flame Red, Meteor Bronze, Dual Tone",Delhi,780000,Mass
+Tata,Punch,Accomplished+ AMT,Petrol,AMT,"Tornado Blue, Daytona Grey, Orcus White, Pure Silver, Flame Red, Meteor Bronze, Dual Tone",Delhi,870000,Mass
+Tata,Punch,Creative+ AMT,Petrol,AMT,"Tornado Blue, Daytona Grey, Orcus White, Pure Silver, Flame Red, Meteor Bronze, Dual Tone",Delhi,1000000,Mass
+Tata,Punch,Adventure CNG,Petrol+CNG,5-speed MT,"Daytona Grey, Orcus White, Pure Silver",Delhi,720000,Mass
+Tata,Punch,Accomplished CNG,Petrol+CNG,5-speed MT,"Daytona Grey, Orcus White, Pure Silver",Delhi,810000,Mass
+Tata,Altroz,XE,Petrol,5-speed MT,"Harbour Blue, Daytona Grey, Pristine White, Pure Silver, Opera Blue",Delhi,630000,Mass
+Tata,Altroz,XM+,Petrol,5-speed MT,"Harbour Blue, Daytona Grey, Pristine White, Pure Silver, Opera Blue",Delhi,720000,Mass
+Tata,Altroz,XZ,Petrol,5-speed MT,"Harbour Blue, Daytona Grey, Pristine White, Pure Silver, Opera Blue, Dual Tone",Delhi,810000,Mass
+Tata,Altroz,XZ+ DCA,Petrol,DCA/DCT,"Harbour Blue, Daytona Grey, Pristine White, Pure Silver, Opera Blue, Dual Tone",Delhi,920000,Mass
+Tata,Altroz,XZ+ Diesel,Diesel,5-speed MT,"Harbour Blue, Daytona Grey, Pristine White, Pure Silver, Opera Blue, Dual Tone",Delhi,950000,Mass
+Tata,Altroz,XZ(O) Diesel,Diesel,5-speed MT,"Harbour Blue, Daytona Grey, Pristine White, Pure Silver, Opera Blue, Dual Tone",Delhi,1051000,Mass
+Tata,Nexon,Smart,Petrol,6-speed MT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple",Delhi,740000,Mass
+Tata,Nexon,Smart+,Petrol,6-speed MT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple",Delhi,830000,Mass
+Tata,Nexon,Smart+ AMT,Petrol,AMT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple",Delhi,890000,Mass
+Tata,Nexon,Smart+ Diesel,Diesel,6-speed MT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple",Delhi,960000,Mass
+Tata,Nexon,Pure,Petrol,6-speed MT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple, Dual Tone",Delhi,940000,Mass
+Tata,Nexon,Pure+ AMT,Petrol,AMT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple, Dual Tone",Delhi,1020000,Mass
+Tata,Nexon,Creative Diesel AT,Diesel,6-speed AMT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple, Dual Tone",Delhi,1200000,Mass
+Tata,Nexon,Fearless+ Petrol AT,Petrol,6-speed AMT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple, Dual Tone",Delhi,1300000,Mass
+Tata,Nexon,Fearless+ Diesel AT,Diesel,6-speed AMT,"Daytona Grey, Pure Silver, Pristine White, Flame Red, Creative Ocean, Fearless Purple, Dual Tone",Delhi,1440000,Mass
+Tata,Curvv,Smart 1.2T,Petrol Turbo,6-speed MT,"Flame Red, Virtual Sunrise, Gold Essence, Pristine White, Daytona Grey, Pure Silver",Delhi,976000,Mass
+Tata,Curvv,Pure+ 1.2T,Petrol Turbo,6-speed MT,"Flame Red, Virtual Sunrise, Gold Essence, Pristine White, Daytona Grey, Pure Silver",Delhi,1100000,Mass
+Tata,Curvv,Creative 1.2T AT,Petrol Turbo,7-speed DCT,"Flame Red, Virtual Sunrise, Gold Essence, Pristine White, Daytona Grey, Pure Silver, Dual Tone",Delhi,1350000,Mass
+Tata,Curvv,Creative+ 1.5D MT,Diesel,6-speed MT,"Flame Red, Virtual Sunrise, Gold Essence, Pristine White, Daytona Grey, Pure Silver, Dual Tone",Delhi,1400000,Mass
+Tata,Curvv,Accomplished+ 1.5D AT,Diesel,7-speed DCT,"Flame Red, Virtual Sunrise, Gold Essence, Pristine White, Daytona Grey, Pure Silver, Dual Tone",Delhi,1700000,Mass
+Tata,Curvv,Fearless+ 1.5D AT,Diesel,7-speed DCT,"Flame Red, Virtual Sunrise, Gold Essence, Pristine White, Daytona Grey, Pure Silver, Dual Tone",Delhi,1885000,Mass
+Tata,Harrier,Smart Petrol MT,Petrol Turbo,6-speed MT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire",Delhi,1300000,Premium
+Tata,Harrier,Pure+ Petrol MT,Petrol Turbo,6-speed MT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire",Delhi,1500000,Premium
+Tata,Harrier,Adventure+ Diesel AT,Diesel,6-speed AT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire, Dual Tone",Delhi,1900000,Premium
+Tata,Harrier,Fearless Diesel AT,Diesel,6-speed AT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire, Dual Tone",Delhi,2200000,Premium
+Tata,Harrier,Fearless+ Diesel AT,Diesel,6-speed AT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire, Dual Tone",Delhi,2601000,Premium
+Tata,Safari,Smart Diesel MT,Diesel,6-speed MT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire",Delhi,1340000,Premium
+Tata,Safari,Pure+ Diesel MT,Diesel,6-speed MT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire",Delhi,1550000,Premium
+Tata,Safari,Adventure+ Diesel AT,Diesel,6-speed AT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire, Dual Tone",Delhi,2000000,Premium
+Tata,Safari,Accomplished+ Diesel AT,Diesel,6-speed AT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire, Dual Tone",Delhi,2400000,Premium
+Tata,Safari,Accomplished+ Diesel AT 4WD,Diesel,6-speed AT,"Ash Grey, Orcus White, Daytona Grey, Coral Red, Galactic Sapphire, Dual Tone",Delhi,2676000,Premium
+Mahindra,XUV 3XO,MX1 1.2 Petrol MT,Petrol,6-speed MT,"Everest White, Galaxy Grey, Tango Red, Deep Forest, Nebula Blue",Delhi,754000,Mass
+Mahindra,XUV 3XO,MX2 1.2 Petrol MT,Petrol,6-speed MT,"Everest White, Galaxy Grey, Tango Red, Deep Forest, Nebula Blue",Delhi,850000,Mass
+Mahindra,XUV 3XO,MX3 1.2T Petrol MT,Petrol Turbo,6-speed MT,"Everest White, Galaxy Grey, Tango Red, Deep Forest, Nebula Blue, Dual Tone",Delhi,1000000,Mass
+Mahindra,XUV 3XO,AX5 1.2T Petrol AT,Petrol Turbo,6-speed AT,"Everest White, Galaxy Grey, Tango Red, Deep Forest, Nebula Blue, Dual Tone",Delhi,1150000,Mass
+Mahindra,XUV 3XO,AX7 1.5D Diesel MT,Diesel,6-speed MT,"Everest White, Galaxy Grey, Tango Red, Deep Forest, Nebula Blue, Dual Tone",Delhi,1250000,Mass
+Mahindra,XUV 3XO,AX7L 1.5D Diesel AT,Diesel,6-speed AT,"Everest White, Galaxy Grey, Tango Red, Deep Forest, Nebula Blue, Dual Tone",Delhi,1450000,Mass
+Mahindra,Thar,LX 2.0 Petrol MT HT,Petrol Turbo,6-speed MT,"Everest White, Galaxy Grey, Red Rage, Napoli Black, Deep Forest",Delhi,1032000,Mass
+Mahindra,Thar,LX 2.2 Diesel MT HT,Diesel,6-speed MT,"Everest White, Galaxy Grey, Red Rage, Napoli Black, Deep Forest",Delhi,1100000,Mass
+Mahindra,Thar,LX 2.2 Diesel AT CT,Diesel,6-speed AT,"Everest White, Galaxy Grey, Red Rage, Napoli Black, Deep Forest",Delhi,1350000,Mass
+Mahindra,Thar,LX 2.0 Petrol AT CT 4WD,Petrol Turbo,6-speed AT,"Everest White, Galaxy Grey, Red Rage, Napoli Black, Deep Forest",Delhi,1600000,Mass
+Mahindra,Thar,LX 2.2 Diesel AT CT 4WD,Diesel,6-speed AT,"Everest White, Galaxy Grey, Red Rage, Napoli Black, Deep Forest",Delhi,1780000,Mass
+Mahindra,Thar ROXX,MX1 1.5D Diesel MT RWD,Diesel,6-speed MT,"Everest White, Stealth Black, Tango Red, Nebula Blue, Deep Forest, Burnt Sienna",Delhi,1252000,Mass
+Mahindra,Thar ROXX,MX3 2.0T Petrol MT RWD,Petrol Turbo,6-speed MT,"Everest White, Stealth Black, Tango Red, Nebula Blue, Deep Forest, Burnt Sienna",Delhi,1350000,Mass
+Mahindra,Thar ROXX,AX5L 2.2D Diesel AT RWD,Diesel,6-speed AT,"Everest White, Stealth Black, Tango Red, Nebula Blue, Deep Forest, Burnt Sienna, Dual Tone",Delhi,1700000,Mass
+Mahindra,Thar ROXX,AX7L 2.2D Diesel AT AWD,Diesel,6-speed AT,"Everest White, Stealth Black, Tango Red, Nebula Blue, Deep Forest, Burnt Sienna, Dual Tone",Delhi,2100000,Mass
+Mahindra,Thar ROXX,AX7L 2.0T Petrol AT AWD,Petrol Turbo,6-speed AT,"Everest White, Stealth Black, Tango Red, Nebula Blue, Deep Forest, Burnt Sienna, Dual Tone",Delhi,2352000,Mass
+Mahindra,Scorpio N,Z2 2.0 Petrol MT,Petrol Turbo,6-speed MT,"Everest White, Napoli Black, Deep Forest, Dazzling Silver, Grand Canyon",Delhi,1369000,Mass
+Mahindra,Scorpio N,Z4 2.2 Diesel MT,Diesel,6-speed MT,"Everest White, Napoli Black, Deep Forest, Dazzling Silver, Grand Canyon",Delhi,1500000,Mass
+Mahindra,Scorpio N,Z6 2.2 Diesel MT,Diesel,6-speed MT,"Everest White, Napoli Black, Deep Forest, Dazzling Silver, Grand Canyon, Dual Tone",Delhi,1700000,Mass
+Mahindra,Scorpio N,Z8L 2.2 Diesel AT,Diesel,6-speed AT,"Everest White, Napoli Black, Deep Forest, Dazzling Silver, Grand Canyon, Dual Tone",Delhi,2100000,Mass
+Mahindra,Scorpio N,Z8L 2.2 Diesel AT 4WD,Diesel,6-speed AT,"Everest White, Napoli Black, Deep Forest, Dazzling Silver, Grand Canyon, Dual Tone",Delhi,2549000,Mass
+Mahindra,XUV 7XO,MX 2.0 Petrol MT,Petrol Turbo,6-speed MT,"Everest White, Galaxy Grey, Red Rage, Midnight Black, Deep Forest",Delhi,1399000,Premium
+Mahindra,XUV 7XO,AX3 2.0 Petrol MT,Petrol Turbo,6-speed MT,"Everest White, Galaxy Grey, Red Rage, Midnight Black, Deep Forest",Delhi,1550000,Premium
+Mahindra,XUV 7XO,AX5 2.2 Diesel AT,Diesel,6-speed AT,"Everest White, Galaxy Grey, Red Rage, Midnight Black, Deep Forest, Dual Tone",Delhi,1900000,Premium
+Mahindra,XUV 7XO,AX7 2.2 Diesel AT,Diesel,6-speed AT,"Everest White, Galaxy Grey, Red Rage, Midnight Black, Deep Forest, Dual Tone",Delhi,2200000,Premium
+Mahindra,XUV 7XO,AX7L 2.2 Diesel AT AWD,Diesel,6-speed AT,"Everest White, Galaxy Grey, Red Rage, Midnight Black, Deep Forest, Dual Tone",Delhi,2579000,Premium
+Mahindra,Bolero,B4,Diesel,5-speed MT,"Diamond White, Majestic Silver, Mist Silver",Delhi,779000,Mass
+Mahindra,Bolero,B6,Diesel,5-speed MT,"Diamond White, Majestic Silver, Mist Silver, Molten Red",Delhi,880000,Mass
+Mahindra,Bolero,B6(O),Diesel,5-speed MT,"Diamond White, Majestic Silver, Mist Silver, Molten Red",Delhi,970000,Mass
+Mahindra,Bolero Neo,N4,Diesel,5-speed MT,"Diamond White, Napoli Black, Majestic Silver, Red Rage",Delhi,900000,Mass
+Mahindra,Bolero Neo,N8,Diesel,5-speed MT,"Diamond White, Napoli Black, Majestic Silver, Red Rage",Delhi,1000000,Mass
+Mahindra,Bolero Neo,N10,Diesel,5-speed MT,"Diamond White, Napoli Black, Majestic Silver, Red Rage",Delhi,1050000,Mass
+Mahindra,Bolero Neo,N10(O),Diesel,5-speed MT,"Diamond White, Napoli Black, Majestic Silver, Red Rage",Delhi,1100000,Mass
+Mahindra,Scorpio Classic,S,Diesel,5-speed MT,"Diamond White, Napoli Black, Dsat Silver",Delhi,1110000,Mass
+Mahindra,Scorpio Classic,S11,Diesel,6-speed MT,"Diamond White, Napoli Black, Dsat Silver, Red Rage",Delhi,1380000,Mass
+Toyota,Glanza,E MT,Petrol,5-speed MT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue",Delhi,673000,Mass
+Toyota,Glanza,S MT,Petrol,5-speed MT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue",Delhi,750000,Mass
+Toyota,Glanza,S AMT,Petrol,AMT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue",Delhi,800000,Mass
+Toyota,Glanza,G MT,Petrol,5-speed MT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue",Delhi,860000,Mass
+Toyota,Glanza,G AMT,Petrol,AMT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue, Dual Tone",Delhi,910000,Mass
+Toyota,Glanza,V AMT,Petrol,AMT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue, Dual Tone",Delhi,999000,Mass
+Toyota,Taisor,E MT,Petrol,5-speed MT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue, Sunny Brown",Delhi,743000,Mass
+Toyota,Taisor,S MT,Petrol,5-speed MT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue, Sunny Brown",Delhi,850000,Mass
+Toyota,Taisor,S+ AMT,Petrol,AMT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue, Sunny Brown",Delhi,930000,Mass
+Toyota,Taisor,G Turbo AT,Petrol Turbo,6-speed AT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue, Sunny Brown, Dual Tone",Delhi,1050000,Mass
+Toyota,Taisor,V Turbo AT,Petrol Turbo,6-speed AT,"Cafe White, Gaming Grey, Sporting Red, Avenue White, Insta Blue, Sunny Brown, Dual Tone",Delhi,1200000,Mass
+Toyota,Taisor,V+ Turbo AT,Petrol Turbo,6-speed AT,"Dual Tone options",Delhi,1294000,Mass
+Toyota,Urban Cruiser Hyryder,E MT,Petrol,5-speed MT,"Cafe White, Gaming Grey, Enticing Silver, Avenue White, Midnight Black, Sporty Khaki",Delhi,1131000,Mass
+Toyota,Urban Cruiser Hyryder,S MT,Petrol,5-speed MT,"Cafe White, Gaming Grey, Enticing Silver, Avenue White, Midnight Black, Sporty Khaki",Delhi,1250000,Mass
+Toyota,Urban Cruiser Hyryder,G AT,Petrol,6-speed AT,"Cafe White, Gaming Grey, Enticing Silver, Avenue White, Midnight Black, Sporty Khaki",Delhi,1450000,Mass
+Toyota,Urban Cruiser Hyryder,V Hybrid eCVT,Hybrid,eCVT,"Cafe White, Gaming Grey, Enticing Silver, Avenue White, Midnight Black, Sporty Khaki, Dual Tone",Delhi,1700000,Mass
+Toyota,Urban Cruiser Hyryder,V Hybrid eCVT AWD,Hybrid,eCVT,"Dual Tone options",Delhi,2019000,Mass
+Toyota,Innova Crysta,GX MT Diesel,Diesel,5-speed MT,"Attitude Black, Super White, Silver Metallic, Avant-Garde Bronze",Delhi,1972000,Premium
+Toyota,Innova Crysta,VX MT Diesel,Diesel,5-speed MT,"Attitude Black, Super White, Silver Metallic, Avant-Garde Bronze",Delhi,2200000,Premium
+Toyota,Innova Crysta,ZX AT Diesel,Diesel,6-speed AT,"Attitude Black, Super White, Silver Metallic, Avant-Garde Bronze",Delhi,2677000,Premium
+Toyota,Innova Hycross,GX Petrol,Petrol,CVT,"Attitude Black, Super White, Sparkling Black, Silver Metallic, Avant-Garde Bronze",Delhi,1870000,Premium
+Toyota,Innova Hycross,VX Hybrid,Hybrid,eCVT,"Attitude Black, Super White, Sparkling Black, Silver Metallic, Avant-Garde Bronze",Delhi,2500000,Premium
+Toyota,Innova Hycross,ZX Hybrid,Hybrid,eCVT,"Attitude Black, Super White, Sparkling Black, Silver Metallic, Avant-Garde Bronze",Delhi,3000000,Premium
+Toyota,Innova Hycross,ZX(O) Hybrid,Hybrid,eCVT,"Attitude Black, Super White, Sparkling Black, Silver Metallic, Avant-Garde Bronze",Delhi,3295000,Premium
+Toyota,Fortuner,4x2 MT Diesel,Diesel,6-speed MT,"Attitude Black, Super White, Silver Metallic, Phantom Brown, Avant-Garde Bronze",Delhi,3475000,Premium
+Toyota,Fortuner,4x2 AT Diesel,Diesel,6-speed AT,"Attitude Black, Super White, Silver Metallic, Phantom Brown, Avant-Garde Bronze",Delhi,3700000,Premium
+Toyota,Fortuner,4x4 AT Diesel,Diesel,6-speed AT,"Attitude Black, Super White, Silver Metallic, Phantom Brown, Avant-Garde Bronze",Delhi,4200000,Premium
+Toyota,Fortuner,Legender 4x2 AT,Diesel,6-speed AT,"Attitude Black, Super White, Phantom Brown, Dual Tone",Delhi,4600000,Premium
+Toyota,Fortuner,Legender 4x4 AT,Diesel,6-speed AT,"Attitude Black, Super White, Dual Tone",Delhi,5046000,Premium
+Kia,Sonet,HTE 1.2 Petrol MT,Petrol,5-speed MT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue",Delhi,741000,Mass
+Kia,Sonet,HTK 1.2 Petrol MT,Petrol,5-speed MT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue",Delhi,850000,Mass
+Kia,Sonet,HTK+ 1.0T iMT,Petrol Turbo,6-speed iMT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1000000,Mass
+Kia,Sonet,HTX 1.5D MT,Diesel,6-speed MT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1150000,Mass
+Kia,Sonet,HTX+ 1.0T DCT,Petrol Turbo,7-speed DCT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1300000,Mass
+Kia,Sonet,GTX+ 1.5D AT,Diesel,6-speed AT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1500000,Mass
+Kia,Syros,HTK 1.0T MT,Petrol Turbo,6-speed MT,"Crystal White, Matte Graphite, Sparkling Silver, Intense Red, Imperial Blue, Aurora Black Pearl",Delhi,842000,Mass
+Kia,Syros,HTK+ 1.0T iMT,Petrol Turbo,6-speed iMT,"Crystal White, Matte Graphite, Sparkling Silver, Intense Red, Imperial Blue, Aurora Black Pearl",Delhi,980000,Mass
+Kia,Syros,HTX 1.5D MT,Diesel,6-speed MT,"Crystal White, Matte Graphite, Sparkling Silver, Intense Red, Imperial Blue, Aurora Black Pearl, Dual Tone",Delhi,1100000,Mass
+Kia,Syros,HTX+ 1.0T DCT,Petrol Turbo,7-speed DCT,"Crystal White, Matte Graphite, Sparkling Silver, Intense Red, Imperial Blue, Aurora Black Pearl, Dual Tone",Delhi,1300000,Mass
+Kia,Syros,GTX+ 1.5D AT,Diesel,6-speed AT,"Crystal White, Matte Graphite, Sparkling Silver, Intense Red, Imperial Blue, Aurora Black Pearl, Dual Tone",Delhi,1582000,Mass
+Kia,Seltos,HTE 1.5 Petrol MT,Petrol,6-speed MT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue",Delhi,1100000,Mass
+Kia,Seltos,HTK 1.5 Petrol MT,Petrol,6-speed MT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue",Delhi,1200000,Mass
+Kia,Seltos,HTK+ 1.5 Petrol CVT,Petrol,CVT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue",Delhi,1339000,Mass
+Kia,Seltos,HTX 1.5T iMT,Petrol Turbo,6-speed iMT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1389000,Mass
+Kia,Seltos,HTX 1.5D MT,Diesel,6-speed MT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1400000,Mass
+Kia,Seltos,HTX+ 1.5D AT,Diesel,6-speed AT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1629000,Mass
+Kia,Seltos,GTX 1.5T DCT,Petrol Turbo,7-speed DCT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1800000,Mass
+Kia,Seltos,GTX+ 1.5D AT,Diesel,6-speed AT,"Intense Red, Aurora Black Pearl, Gravity Grey, Glacier White Pearl, Sparkling Silver, Imperial Blue, Dual Tone",Delhi,1999000,Mass
+Kia,Seltos,X-Line 1.5T DCT,Petrol Turbo,7-speed DCT,"Matte Graphite with Orange roof",Delhi,2182000,Premium
+Kia,Carens,Premium 1.5 Petrol MT,Petrol,6-speed MT,"Glacier White Pearl, Intense Red, Aurora Black Pearl, Sparkling Silver, Gravity Grey, Imperial Blue",Delhi,1102000,Mass
+Kia,Carens,Prestige 1.5 Petrol MT,Petrol,6-speed MT,"Glacier White Pearl, Intense Red, Aurora Black Pearl, Sparkling Silver, Gravity Grey, Imperial Blue",Delhi,1250000,Mass
+Kia,Carens,Prestige+ 1.5T DCT,Petrol Turbo,7-speed DCT,"Glacier White Pearl, Intense Red, Aurora Black Pearl, Sparkling Silver, Gravity Grey, Imperial Blue, Dual Tone",Delhi,1450000,Mass
+Kia,Carens,Luxury+ 1.5D AT,Diesel,6-speed AT,"Glacier White Pearl, Intense Red, Aurora Black Pearl, Sparkling Silver, Gravity Grey, Imperial Blue, Dual Tone",Delhi,1700000,Mass
+Kia,EV6,GT-Line AWD,Electric,Single-speed,"Runway Red, Moonscape Matte, Snow White Pearl, Yacht Blue, Aurora Black Pearl",Delhi,6598000,EV
+Skoda,Kylaq,Classic 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Lava Blue",Delhi,759000,Mass
+Skoda,Kylaq,Active 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Lava Blue",Delhi,880000,Mass
+Skoda,Kylaq,Ambition 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Lava Blue",Delhi,990000,Mass
+Skoda,Kylaq,Ambition+ 1.0 TSI AT,Petrol Turbo,6-speed AT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Lava Blue",Delhi,1100000,Mass
+Skoda,Kylaq,Style 1.0 TSI AT,Petrol Turbo,6-speed AT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Lava Blue",Delhi,1299000,Mass
+Skoda,Slavia,Active 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver",Delhi,1000000,Premium
+Skoda,Slavia,Ambition 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver",Delhi,1150000,Premium
+Skoda,Slavia,Style 1.0 TSI AT,Petrol Turbo,6-speed AT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver",Delhi,1350000,Premium
+Skoda,Slavia,Style 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver",Delhi,1600000,Premium
+Skoda,Slavia,Laurin & Klement 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Candy White, Brilliant Silver, Carbon Steel",Delhi,1819000,Premium
+Skoda,Kushaq,Active 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver, Honey Orange",Delhi,1069000,Mass
+Skoda,Kushaq,Ambition 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver, Honey Orange",Delhi,1200000,Mass
+Skoda,Kushaq,Style 1.0 TSI AT,Petrol Turbo,6-speed AT,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver, Honey Orange",Delhi,1450000,Mass
+Skoda,Kushaq,Style 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Candy White, Brilliant Silver, Carbon Steel, Tornado Red, Reflex Silver, Honey Orange",Delhi,1700000,Mass
+Skoda,Kushaq,Monte Carlo 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Carbon Steel, Tornado Red",Delhi,1899000,Mass
+Skoda,Kodiaq,Style 2.0 TSI DSG,Petrol Turbo,7-speed DSG,"Candy White, Brilliant Silver, Lava Blue, Quartz Grey",Delhi,3699000,Premium
+Skoda,Kodiaq,L&K 2.0 TSI DSG,Petrol Turbo,7-speed DSG,"Candy White, Brilliant Silver, Lava Blue, Quartz Grey",Delhi,4200000,Premium
+Skoda,Kodiaq,Sportline 2.0 TSI DSG 4x4,Petrol Turbo,7-speed DSG,"Carbon Steel, Lava Blue",Delhi,4699000,Premium
+Volkswagen,Taigun,Comfortline 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Curcuma Yellow",Delhi,1100000,Mass
+Volkswagen,Taigun,Highline 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Curcuma Yellow",Delhi,1300000,Mass
+Volkswagen,Taigun,Highline 1.0 TSI AT,Petrol Turbo,8-speed AT,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Curcuma Yellow",Delhi,1450000,Mass
+Volkswagen,Taigun,Topline 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Curcuma Yellow",Delhi,1700000,Mass
+Volkswagen,Taigun,GT 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Carbon Steel, Wild Cherry Red, Curcuma Yellow",Delhi,1930000,Mass
+Volkswagen,Virtus,Comfortline 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Rising Blue",Delhi,1050000,Mass
+Volkswagen,Virtus,Highline 1.0 TSI MT,Petrol Turbo,6-speed MT,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Rising Blue",Delhi,1200000,Mass
+Volkswagen,Virtus,Highline 1.0 TSI AT,Petrol Turbo,8-speed AT,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Rising Blue",Delhi,1400000,Mass
+Volkswagen,Virtus,Topline 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Candy White, Reflex Silver, Carbon Steel, Wild Cherry Red, Rising Blue",Delhi,1650000,Mass
+Volkswagen,Virtus,GT 1.5 TSI DSG,Petrol Turbo,7-speed DSG,"Carbon Steel, Wild Cherry Red, Rising Blue",Delhi,1920000,Mass
+Volkswagen,Tiguan,Elegance 2.0 TSI DSG 4MOTION,Petrol Turbo,7-speed DSG,"Oryx White, Dolphin Grey, Deep Black Pearl, Reflex Silver",Delhi,4711000,Premium
+Volkswagen,Tayron,R-Line 2.0 TSI DSG,Petrol Turbo,7-speed DSG,"Oryx White, Dolphin Grey, Deep Black Pearl",Delhi,4199000,Premium
+Volkswagen,Tayron,R-Line 2.0 TSI DSG 4MOTION,Petrol Turbo,7-speed DSG,"Oryx White, Dolphin Grey, Deep Black Pearl",Delhi,4774000,Premium
+BYD,Atto 3,Dynamic,Electric,Single-speed,"Surf Blue, Boulder Grey, Ski White, Cosmos Black",Delhi,2499000,EV
+BYD,Atto 3,Premium,Electric,Single-speed,"Surf Blue, Boulder Grey, Ski White, Cosmos Black",Delhi,2900000,EV
+BYD,Atto 3,Superior,Electric,Single-speed,"Surf Blue, Boulder Grey, Ski White, Cosmos Black",Delhi,3350000,EV
+BYD,Atto 3,Flagship,Electric,Single-speed,"Surf Blue, Boulder Grey, Ski White, Cosmos Black",Delhi,3449000,EV
+BYD,eMAX 7,Comfort,Electric,Single-speed,"Harbour Grey, Cosmos Black, Crystal White",Delhi,2690000,EV
+BYD,eMAX 7,Premium,Electric,Single-speed,"Harbour Grey, Cosmos Black, Crystal White",Delhi,2790000,EV
+BYD,eMAX 7,Superior,Electric,Single-speed,"Harbour Grey, Cosmos Black, Crystal White",Delhi,2990000,EV
+BYD,Seal,Dynamic,Electric,Single-speed,"Aurora White, Cosmos Black, Atlantis Grey",Delhi,4150000,EV
+BYD,Seal,Premium,Electric,Single-speed,"Aurora White, Cosmos Black, Atlantis Grey",Delhi,4650000,EV
+BYD,Seal,Performance AWD,Electric,Single-speed,"Aurora White, Cosmos Black, Atlantis Grey",Delhi,5365000,EV
+BYD,Sealion 7,Dynamic,Electric,Single-speed,"Aurora White, Cosmos Black, Atlantis Grey, Glacial Blue",Delhi,4190000,EV
+BYD,Sealion 7,Premium,Electric,Single-speed,"Aurora White, Cosmos Black, Atlantis Grey, Glacial Blue",Delhi,4690000,EV
+BYD,Sealion 7,Superior AWD,Electric,Single-speed,"Aurora White, Cosmos Black, Atlantis Grey, Glacial Blue",Delhi,5590000,EV
+MG,Comet EV,Excite,Electric,Single-speed,"Candy White, Starry Black, Aurora Silver, Apple Green, Brit Dynamic Red",Delhi,780000,EV
+MG,Comet EV,Excite+,Electric,Single-speed,"Candy White, Starry Black, Aurora Silver, Apple Green, Brit Dynamic Red",Delhi,850000,EV
+MG,Comet EV,Exquisite,Electric,Single-speed,"Candy White, Starry Black, Aurora Silver, Apple Green, Brit Dynamic Red, Dual Tone",Delhi,950000,EV
+MG,Comet EV,Exclusive,Electric,Single-speed,"Candy White, Starry Black, Aurora Silver, Apple Green, Brit Dynamic Red, Dual Tone",Delhi,1007000,EV
+MG,Astor,Style 1.5 MT,Petrol,5-speed MT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Spiced Orange",Delhi,979000,Mass
+MG,Astor,Super 1.5 CVT,Petrol,CVT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Spiced Orange",Delhi,1100000,Mass
+MG,Astor,Smart 1.5 CVT,Petrol,CVT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Spiced Orange",Delhi,1250000,Mass
+MG,Astor,Sharp 1.3T AT,Petrol Turbo,6-speed AT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Spiced Orange",Delhi,1400000,Mass
+MG,Hector,Style 1.5T MT,Petrol Turbo,6-speed MT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Woodland Green",Delhi,1199000,Mass
+MG,Hector,Super 1.5T MT,Petrol Turbo,6-speed MT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Woodland Green",Delhi,1350000,Mass
+MG,Hector,Smart 1.5T CVT,Petrol Turbo,CVT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Woodland Green, Dual Tone",Delhi,1550000,Mass
+MG,Hector,Sharp 2.0D MT,Diesel,6-speed MT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Woodland Green, Dual Tone",Delhi,1700000,Mass
+MG,Hector,Savvy 1.5T CVT,Petrol Turbo,CVT,"Candy White, Glaze Red, Aurora Silver, Starry Black, Woodland Green, Dual Tone",Delhi,1919000,Mass
+MG,Windsor EV,Excite,Electric,Single-speed,"Starburst Blue, Pearl White, Turquoise Green, Clay Beige",Delhi,1470000,EV
+MG,Windsor EV,Exclusive,Electric,Single-speed,"Starburst Blue, Pearl White, Turquoise Green, Clay Beige",Delhi,1600000,EV
+MG,Windsor EV,Essence,Electric,Single-speed,"Starburst Blue, Pearl White, Turquoise Green, Clay Beige",Delhi,1750000,EV
+MG,Windsor EV,Essence+,Electric,Single-speed,"Starburst Blue, Pearl White, Turquoise Green, Clay Beige",Delhi,1900000,EV
+MG,ZS EV,Excite,Electric,Single-speed,"Candy White, Glaze Red, Aurora Silver, Starry Black",Delhi,1800000,EV
+MG,ZS EV,Exclusive,Electric,Single-speed,"Candy White, Glaze Red, Aurora Silver, Starry Black",Delhi,1950000,EV
+MG,ZS EV,Essence,Electric,Single-speed,"Candy White, Glaze Red, Aurora Silver, Starry Black",Delhi,2100000,EV
+MG,Majestor,Savvy,Petrol Turbo,8-speed AT,"Candy White, Aurora Silver, Starry Black",Delhi,4249000,Premium

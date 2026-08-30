@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { History, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { policyRules, policyTabs } from "@/lib/mock-data";
+import { getMappedPolicyRules } from "@/lib/api";
+import type { PolicyRule } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/policy-rules")({
@@ -29,7 +30,18 @@ export const Route = createFileRoute("/policy-rules")({
 });
 
 function PolicyRulesPage() {
-  const [tab, setTab] = useState<string>(policyTabs[0]!);
+  const [policyRules, setPolicyRules] = useState<Record<string, PolicyRule[]>>({});
+  const [policyTabs, setPolicyTabs] = useState<string[]>([]);
+  const [tab, setTab] = useState<string>("");
+
+  useEffect(() => {
+    getMappedPolicyRules().then(({ rules, tabs }) => {
+      setPolicyRules(rules);
+      setPolicyTabs(tabs);
+      setTab(tabs[0] ?? "");
+    });
+  }, []);
+
   const rules = policyRules[tab] ?? [];
 
   return (

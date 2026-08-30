@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Filter, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, Pill, ScoreText, StatusPill } from "@/components/status";
@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { applications } from "@/lib/mock-data";
+import { getApplications } from "@/lib/api";
+import type { Application } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -47,12 +48,20 @@ const statuses = [
 ];
 
 function Applications() {
+  const [allApps, setAllApps] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All statuses");
 
+  useEffect(() => {
+    getApplications()
+      .then(setAllApps)
+      .finally(() => setLoading(false));
+  }, []);
+
   const rows = useMemo(
     () =>
-      applications.filter((app) => {
+      allApps.filter((app) => {
         const matchesStatus = status === "All statuses" || app.status === status;
         const q = query.trim().toLowerCase();
         const matchesQuery =
@@ -63,13 +72,13 @@ function Applications() {
           app.employer.toLowerCase().includes(q);
         return matchesStatus && matchesQuery;
       }),
-    [query, status],
+    [allApps, query, status],
   );
 
   return (
     <AppShell
       title="Applications"
-      subtitle={`${rows.length} of ${applications.length} applications`}
+      subtitle={loading ? "Loading..." : `${rows.length} of ${allApps.length} applications`}
       actions={
         <Button asChild>
           <Link to="/applications/new">

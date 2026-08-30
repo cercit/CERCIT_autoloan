@@ -1,10 +1,12 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Download, Printer, Send, SquarePen } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { AppShell, LabelValue, SectionCard } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { emiFor, inr } from "@/lib/format";
-import { getApplication } from "@/lib/mock-data";
+import { getApplication } from "@/lib/api";
+import type { Application } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/applications/$id/sanction")({
   head: ({ params }) => ({
@@ -27,7 +29,20 @@ export const Route = createFileRoute("/applications/$id/sanction")({
 
 function SanctionLetter() {
   const { id } = Route.useParams();
-  const app = getApplication(id);
+  const [app, setApp] = useState<Application | null>(null);
+
+  useEffect(() => {
+    getApplication(id).then((result) => setApp(result ?? null));
+  }, [id]);
+
+  if (!app) {
+    return (
+      <AppShell title="Sanction Letter Preview" subtitle="Loading...">
+        <div className="py-20 text-center text-muted-foreground">Loading application...</div>
+      </AppShell>
+    );
+  }
+
   const emi = emiFor(app.loanAmount, app.rate, app.tenure);
 
   return (

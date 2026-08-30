@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { submitFullApplication } from "@/lib/api";
+import type { SubmitResult } from "@/lib/api";
 import { emiFor, inr } from "@/lib/format";
 import { employers, makes } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -105,6 +107,21 @@ function NewApplication() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
+
+  const [firstName, setFirstName] = useState("Rajesh");
+  const [middleName, setMiddleName] = useState("Kumar");
+  const [lastName, setLastName] = useState("Sharma");
+  const [email, setEmail] = useState("rajesh.sharma@tcs.com");
+  const [mobile, setMobile] = useState("9840012345");
+  const [dob, setDob] = useState("1994-03-14");
+  const [pan, setPan] = useState("ABCDE1234F");
+  const [city, setCity] = useState("Chennai");
+  const [selectedState, setSelectedState] = useState("Tamil Nadu");
+  const [pincode, setPincode] = useState("600102");
+  const [employer, setEmployer] = useState("Tata Consultancy Services");
+  const [cibilScore, setCibilScore] = useState("780");
 
   const [netSalary, setNetSalary] = useState("85000");
   const [make, setMake] = useState("Hyundai");
@@ -200,28 +217,28 @@ function NewApplication() {
         {step === 0 && (
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="First name">
-              <Input defaultValue="Rajesh" />
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             </Field>
             <Field label="Mobile number">
-              <Input defaultValue="+91 98400 12345" />
+              <Input value={mobile} onChange={(e) => setMobile(e.target.value)} />
             </Field>
             <Field label="Middle name">
-              <Input defaultValue="Kumar" />
+              <Input value={middleName} onChange={(e) => setMiddleName(e.target.value)} />
             </Field>
             <Field label="Email">
-              <Input type="email" defaultValue="rajesh.sharma@tcs.com" />
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
             <Field label="Last name">
-              <Input defaultValue="Sharma" />
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </Field>
             <Field label="Current address">
               <Textarea rows={2} defaultValue="12/4 Anna Nagar East, 3rd Street" />
             </Field>
             <Field label="Date of birth">
-              <Input type="date" defaultValue="1994-03-14" />
+              <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
             </Field>
             <Field label="City">
-              <Input defaultValue="Chennai" />
+              <Input value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
             <Field label="Gender">
               <Select defaultValue="Male">
@@ -238,7 +255,7 @@ function NewApplication() {
               </Select>
             </Field>
             <Field label="State">
-              <Select defaultValue="Tamil Nadu">
+              <Select value={selectedState} onValueChange={setSelectedState}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -252,10 +269,10 @@ function NewApplication() {
               </Select>
             </Field>
             <Field label="PAN number" hint="Format: ABCDE1234F">
-              <Input defaultValue="ABCDE1234F" />
+              <Input value={pan} onChange={(e) => setPan(e.target.value)} />
             </Field>
             <Field label="PIN code">
-              <Input defaultValue="600102" />
+              <Input value={pincode} onChange={(e) => setPincode(e.target.value)} />
             </Field>
             <Field label="Aadhaar number" hint="12 digits">
               <Input defaultValue="4321 8765 9012" />
@@ -278,13 +295,16 @@ function NewApplication() {
             <Field label="Years at current address">
               <Input defaultValue="4" />
             </Field>
+            <Field label="CIBIL score" hint="Enter bureau score for assessment">
+              <Input value={cibilScore} onChange={(e) => setCibilScore(e.target.value)} />
+            </Field>
           </div>
         )}
 
         {step === 1 && (
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Employer name" hint="Category shown from employer master">
-              <Select defaultValue="Tata Consultancy Services">
+              <Select value={employer} onValueChange={setEmployer}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -680,7 +700,44 @@ function NewApplication() {
             {step < steps.length - 1 ? (
               <Button onClick={() => setStep((s) => s + 1)}>Next</Button>
             ) : (
-              <Button onClick={() => setSubmitted(true)}>Submit application</Button>
+              <Button
+                disabled={submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  const stateMap: Record<string, string> = {
+                    "Tamil Nadu": "TN", Karnataka: "KA", Kerala: "KL",
+                    Telangana: "TG", "Andhra Pradesh": "AP",
+                    Maharashtra: "MH", Delhi: "DL",
+                  };
+                  const result = await submitFullApplication({
+                    fullName: `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, " ").trim(),
+                    email,
+                    mobile,
+                    dob,
+                    pan,
+                    employer,
+                    city,
+                    stateCode: stateMap[selectedState] ?? "TN",
+                    pincode,
+                    netSalary: Number(netSalary) || 0,
+                    existingEmis: noObligations ? 0 : existingEmis,
+                    loanAmount: Number(loanAmount) || 0,
+                    tenure: Number(tenure) || 60,
+                    make,
+                    model: makes[make]?.[0] ?? "",
+                    variant: "SX(O) 1.5 Turbo DCT",
+                    fuelType: "PETROL",
+                    exShowroom: 1840000,
+                    onRoad: Number(onRoad) || 0,
+                    cibilScore: Number(cibilScore) || 750,
+                  });
+                  setSubmitResult(result);
+                  setSubmitting(false);
+                  setSubmitted(true);
+                }}
+              >
+                {submitting ? "Submitting..." : "Submit application"}
+              </Button>
             )}
           </div>
         </div>
@@ -689,17 +746,44 @@ function NewApplication() {
       <Dialog open={submitted} onOpenChange={setSubmitted}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Application APP-2026-00848 submitted</DialogTitle>
+            <DialogTitle>
+              {submitResult
+                ? `Application ${submitResult.applicationId} — ${submitResult.decision}`
+                : "Application submitted"}
+            </DialogTitle>
             <DialogDescription>
-              Documents will be processed for extraction. You will be notified when the assessment
-              is ready.
+              {submitResult?.decision === "APPROVE" && (
+                <>Approved at {submitResult.rate}% p.a. The sanction letter is ready for review.</>
+              )}
+              {submitResult?.decision === "REJECT" && (
+                <>Application did not meet policy criteria. {submitResult.summary}</>
+              )}
+              {submitResult?.decision === "MAYBE" && (
+                <>Application needs manual review by a credit officer. {submitResult.summary}</>
+              )}
+              {submitResult?.decision === "ERROR" && (
+                <>Something went wrong during assessment. {submitResult.summary}</>
+              )}
+              {!submitResult && (
+                <>Supabase is not configured. Switch to mock mode or set env vars.</>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSubmitted(false)}>
               Stay here
             </Button>
-            <Button onClick={() => navigate({ to: "/applications" })}>Go to applications</Button>
+            <Button
+              onClick={() =>
+                navigate({
+                  to: submitResult
+                    ? `/applications/${submitResult.applicationId}`
+                    : "/applications",
+                })
+              }
+            >
+              {submitResult ? "View application" : "Go to applications"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

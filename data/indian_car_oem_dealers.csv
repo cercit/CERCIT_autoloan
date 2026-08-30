@@ -1,0 +1,133 @@
+Make,Dealer Name,Dealer Code,City,State,Address,Phone,Channel/Segment
+Hyundai,Ramaa Hyundai,HYD-DEL-001,Delhi,Delhi,"10/A, Inner Ring Road, Opp. Moolchand Hospital, Lajpat Nagar 4, New Delhi 110024",9311139004,Hyundai
+Hyundai,Hans Hyundai,HYD-DEL-002,Delhi,Delhi,"A-57, Industrial Area Phase 1, Naraina, New Delhi 110028",8447735009,Hyundai
+Hyundai,Hyundai Dwarka,HYD-DEL-003,Delhi,Delhi,"K1/36, Main Rajapuri Rd, Opp. Sector 5, Dwarka, Delhi 110059",,Hyundai
+Hyundai,Hyundai IP Extension,HYD-DEL-004,Delhi,Delhi,"Sunrise Complex, Plot No.2, I.P.Extension, Opp. Pandav Nagar, Delhi 110092",,Hyundai
+Hyundai,Hyundai Najafgarh,HYD-DEL-005,Delhi,Delhi,"Plot No.2,3,4 Ranaji Enclave, Najafgarh, Opp. Pillar No.33-34, Delhi 110043",,Hyundai
+Hyundai,Hyundai Salt Lake,HYD-KOL-001,Kolkata,West Bengal,"Adventz Infinity, Plot No 5, Block BN, Sector V, Salt Lake, Kolkata 700091",9830001122,Hyundai
+Hyundai,Hyundai Kalikapur,HYD-KOL-002,Kolkata,West Bengal,"Ambient Winds, 1185 Kalikapur, P.S Survey Park, Kolkata 700099",9830068068,Hyundai
+Hyundai,Hyundai Kharibari,HYD-KOL-003,Kolkata,West Bengal,"Maheshgudi, Kharibari Road, 24 Paraganas (North) 700128",9830017017,Hyundai
+Hyundai,Hyundai Navi Mumbai,HYD-MUM-001,Mumbai,Maharashtra,"Plot No. D-406, TTC Industrial Area, Mumbai Pune Highway, Turbhe, Navi Mumbai",,Hyundai
+Hyundai,Hyundai Mahalaxmi,HYD-MUM-002,Mumbai,Maharashtra,"Unit No. 6, Vivarea Complex, Sane Guruji Marg, Mahalaxmi, Mumbai",,Hyundai
+Hyundai,Hyundai Kandivali,HYD-MUM-003,Mumbai,Maharashtra,"Kandivali West, Mumbai",,Hyundai
+Hyundai,Hyundai Borivali,HYD-MUM-004,Mumbai,Maharashtra,"Borivali West, Mumbai",,Hyundai
+Hyundai,Hyundai Warje Pune,HYD-PUN-001,Pune,Maharashtra,"K.J. Tower, S. No. 113/3, Opp. RMD Sinhgad Institute, Mumbai-Bangalore Bypass, Warje, Pune",,Hyundai
+Hyundai,Hyundai Hadapsar Pune,HYD-PUN-002,Pune,Maharashtra,"Hadapsar, Pune",,Hyundai
+Hyundai,Hyundai Baner Pune,HYD-PUN-003,Pune,Maharashtra,"Baner, Pune",,Hyundai
+Hyundai,Hyundai Vishala Ahmedabad,HYD-AHM-001,Ahmedabad,Gujarat,"Near Vishala Hotel, Opp. APMC Market, Vishala Circle, Vasna, Ahmedabad 380055",,Hyundai
+Hyundai,Gallops Hyundai Nikol,HYD-AHM-002,Ahmedabad,Gujarat,"Ground Floor, Suryam Trade Centre, Opp. Galaxy Heights, Odhav Industrial Estate, Nikol, Ahmedabad 382350",,Hyundai
+Hyundai,Gallops Hyundai Amraiwadi,HYD-AHM-003,Ahmedabad,Gujarat,"Nagarvel Hanuman Road, Opp. Amraiwadi Post Office, Swastik Cross Rd, Ahmedabad 380026",,Hyundai
+Hyundai,Hyundai Bangalore,HYD-BLR-001,Bangalore,Karnataka,"Bangalore (29 showrooms across city)",,Hyundai
+Hyundai,Hyundai Chennai,HYD-CHN-001,Chennai,Tamil Nadu,"Chennai (18 showrooms across city)",,Hyundai
+Hyundai,Hyundai Hyderabad,HYD-HYD-001,Hyderabad,Telangana,"Hyderabad (multiple showrooms across city)",,Hyundai
+Maruti Arena,TR Sawhney Motors,MAR-A-DEL-001,Delhi,Delhi,"Nehru Place, New Delhi",8062513305,Arena
+Maruti Arena,Magic Auto,MAR-A-DEL-002,Delhi,Delhi,"Karol Bagh, New Delhi",8062514400,Arena
+Maruti Arena,Rohan Motors,MAR-A-DEL-003,Delhi,Delhi,"Ind Area, Mathura Road, Delhi",,Arena
+Maruti Arena,DD Motors,MAR-A-DEL-004,Delhi,Delhi,"D-194, Okhla Industrial Area, Phase-I, Near Airtel Building, New Delhi 110020",,Arena
+Maruti Arena,Maruti Arena Mumbai,MAR-A-MUM-001,Mumbai,Maharashtra,"Mumbai (multiple Arena showrooms across city)",,Arena
+Maruti Arena,Maruti Arena Bangalore,MAR-A-BLR-001,Bangalore,Karnataka,"Bangalore (multiple Arena showrooms across city)",,Arena
+Maruti Arena,Maruti Arena Chennai,MAR-A-CHN-001,Chennai,Tamil Nadu,"Chennai (multiple Arena showrooms across city)",,Arena
+Maruti Arena,Maruti Arena Hyderabad,MAR-A-HYD-001,Hyderabad,Telangana,"Hyderabad (multiple Arena showrooms across city)",,Arena
+Maruti Arena,Maruti Arena Kolkata,MAR-A-KOL-001,Kolkata,West Bengal,"Kolkata (multiple Arena showrooms across city)",,Arena
+Maruti Arena,Maruti Arena Pune,MAR-A-PUN-001,Pune,Maharashtra,"Pune (multiple Arena showrooms across city)",,Arena
+Maruti Arena,Maruti Arena Ahmedabad,MAR-A-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple Arena showrooms across city)",,Arena
+Maruti Nexa,Rana Nexa Kailash Colony,MAR-N-DEL-001,Delhi,Delhi,"Kailash Colony, New Delhi",,Nexa
+Maruti Nexa,Nexa Moti Nagar,MAR-N-DEL-002,Delhi,Delhi,"30, Najafgarh Road, Moti Nagar, Shivaji Marg, New Delhi 110015",,Nexa
+Maruti Nexa,Nexa Shahdara,MAR-N-DEL-003,Delhi,Delhi,"18/19, Hind Pocket Books, GT Road, Shahdara, Opp. Jhilmil Metro Station, New Delhi 110095",,Nexa
+Maruti Nexa,Nexa GT Karnal Road,MAR-N-DEL-004,Delhi,Delhi,"B-4, G.T Karnal Road Industrial Area, Near Shakti Nagar Telephone Exchange, Delhi 110033",,Nexa
+Maruti Nexa,Nexa Rohini,MAR-N-DEL-005,Delhi,Delhi,"Rohini, New Delhi",,Nexa
+Maruti Nexa,Maruti Nexa Mumbai,MAR-N-MUM-001,Mumbai,Maharashtra,"Mumbai (multiple Nexa showrooms across city)",,Nexa
+Maruti Nexa,Maruti Nexa Bangalore,MAR-N-BLR-001,Bangalore,Karnataka,"Bangalore (multiple Nexa showrooms across city)",,Nexa
+Maruti Nexa,Maruti Nexa Chennai,MAR-N-CHN-001,Chennai,Tamil Nadu,"Chennai (multiple Nexa showrooms across city)",,Nexa
+Maruti Nexa,Maruti Nexa Hyderabad,MAR-N-HYD-001,Hyderabad,Telangana,"Hyderabad (multiple Nexa showrooms across city)",,Nexa
+Maruti Nexa,Maruti Nexa Kolkata,MAR-N-KOL-001,Kolkata,West Bengal,"Kolkata (multiple Nexa showrooms across city)",,Nexa
+Maruti Nexa,Maruti Nexa Pune,MAR-N-PUN-001,Pune,Maharashtra,"Pune (multiple Nexa showrooms across city)",,Nexa
+Maruti Nexa,Maruti Nexa Ahmedabad,MAR-N-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple Nexa showrooms across city)",,Nexa
+Honda,Honda Delhi,HON-DEL-001,Delhi,Delhi,"Delhi (13 showrooms across city)",,Honda
+Honda,Honda Mumbai,HON-MUM-001,Mumbai,Maharashtra,"Mumbai (5 showrooms across city)",,Honda
+Honda,Magnum Honda Kanakapura,HON-BLR-001,Bangalore,Karnataka,"#13, 11th Km, Kanakapura Road, Bangalore 560062",8049080669,Honda
+Honda,Magnum Honda Mehkri Circle,HON-BLR-002,Bangalore,Karnataka,"#18/2, Achaiah Shetty Layout, RMV Extension, Mehkri Circle, Bangalore 560080",8049080669,Honda
+Honda,Tridentauto Honda Kengeri,HON-BLR-003,Bangalore,Karnataka,"#18/1B, Mysore Road, Next to Rajarajeshwari Nagar Arch, Kengeri, Bangalore 560039",,Honda
+Honda,Honda Chennai,HON-CHN-001,Chennai,Tamil Nadu,"Chennai (11 showrooms across city)",,Honda
+Honda,Honda Hyderabad,HON-HYD-001,Hyderabad,Telangana,"Hyderabad (7 showrooms across city)",,Honda
+Honda,Honda Kolkata,HON-KOL-001,Kolkata,West Bengal,"Kolkata (multiple showrooms across city)",,Honda
+Honda,Honda Pune,HON-PUN-001,Pune,Maharashtra,"Pune (6 showrooms across city)",,Honda
+Honda,Honda Ahmedabad,HON-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple showrooms across city)",,Honda
+Tata,Delight Motors Janakpuri,TAT-DEL-001,Delhi,Delhi,"No B/1/629, Najafgarh Road, Janakpuri, Block B, West Delhi, Delhi",,Tata
+Tata,Sagar Motors Patparganj,TAT-DEL-002,Delhi,Delhi,"Plot No 78, Patparganj Industrial Area, East Delhi, Delhi",,Tata
+Tata,Sparsh Narela,TAT-DEL-003,Delhi,Delhi,"Narela, North Delhi, Delhi",,Tata
+Tata,KHT Motors Whitefield,TAT-BLR-001,Bangalore,Karnataka,"Plot No 32, Kh No 156/150/32, Sy No 22, Phase 2, Doddanekundi Industrial Area, Whitefield, Bangalore",,Tata
+Tata,Key Motors RR Nagar,TAT-BLR-002,Bangalore,Karnataka,"Survey No 18/1B6, Mysore Road, Near Gopalan Arcade Mall, RR Nagar, Bangalore",,Tata
+Tata,Adishakti Cars Dasarahalli,TAT-BLR-003,Bangalore,Karnataka,"Chokkasandra, Dasarahalli, Bangalore",,Tata
+Tata,Tata Mumbai,TAT-MUM-001,Mumbai,Maharashtra,"Mumbai (15 showrooms across city)",,Tata
+Tata,Tata Chennai,TAT-CHN-001,Chennai,Tamil Nadu,"Chennai (multiple showrooms across city)",,Tata
+Tata,Tata Hyderabad,TAT-HYD-001,Hyderabad,Telangana,"Hyderabad (multiple showrooms across city)",,Tata
+Tata,Tata Kolkata,TAT-KOL-001,Kolkata,West Bengal,"Kolkata (multiple showrooms across city)",,Tata
+Tata,Tata Pune,TAT-PUN-001,Pune,Maharashtra,"Pune (multiple showrooms across city)",,Tata
+Tata,Tata Ahmedabad,TAT-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple showrooms across city)",,Tata
+Mahindra,Mahindra Karol Bagh,MAH-DEL-001,Delhi,Delhi,"Plot No. 19, Karol Bagh, New Rohtak Road, New Delhi 110005",,Mahindra
+Mahindra,Mahindra Wazirabad Road,MAH-DEL-002,Delhi,Delhi,"D-4/885 Khasra No. 1021/719, Ashok Nagar, Main Wazirabad Road, New Delhi 110094",,Mahindra
+Mahindra,Mahindra Rama Road,MAH-DEL-003,Delhi,Delhi,"Plot No. 33, 33A, Rama Road, Industrial Area, New Delhi 110015",,Mahindra
+Mahindra,Mahindra Lajpat Nagar,MAH-DEL-004,Delhi,Delhi,"24 A, Part 4, Ring Road, Lajpat Nagar, Near Max Hospital, New Delhi 110024",7290055631,Mahindra
+Mahindra,Mahindra Worli Mumbai,MAH-MUM-001,Mumbai,Maharashtra,"Ground Floor, Wing 2, Royal Garden Apartment, Wing A, Dr. Annie Besant Road, Worli, Mumbai",,Mahindra
+Mahindra,Mahindra Goregaon Mumbai,MAH-MUM-002,Mumbai,Maharashtra,"Ground Floor, Udhyog Nagar, V.S. Road, Goregaon West, Mumbai 400062",,Mahindra
+Mahindra,Mahindra Kottigepalya,MAH-BLR-001,Bangalore,Karnataka,"Kottigepalya, Magadi Main Road, No 2974, Survey No 57/5, Sri Gandada Kaval, Bangalore 560091",,Mahindra
+Mahindra,Mahindra Chennai,MAH-CHN-001,Chennai,Tamil Nadu,"Chennai (20 showrooms across city)",,Mahindra
+Mahindra,Mahindra Hyderabad,MAH-HYD-001,Hyderabad,Telangana,"Hyderabad (28 showrooms across city)",,Mahindra
+Mahindra,Mahindra Kolkata,MAH-KOL-001,Kolkata,West Bengal,"Kolkata (15 showrooms across city)",,Mahindra
+Mahindra,Mahindra Pune,MAH-PUN-001,Pune,Maharashtra,"Pune (28 showrooms across city)",,Mahindra
+Mahindra,Mahindra Ahmedabad,MAH-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (13 showrooms across city)",,Mahindra
+Toyota,Uttam Toyota,TOY-DEL-001,Delhi,Delhi,"A-Block, Plot No-II, Shalimar District Center, Near Rohini Jail, Outer Ring Road, Delhi 110088",,Toyota
+Toyota,Galaxy Toyota Shahdara,TOY-DEL-002,Delhi,Delhi,"Metro Pillar No 52, PD-24 Jhilmil Industrial Area, Shahdara, GT Road, New Delhi 110095",,Toyota
+Toyota,Espirit Toyota,TOY-DEL-003,Delhi,Delhi,"Beat Business Park No-P2, Netaji Subhash Place, Shakurpur, Delhi 110034",,Toyota
+Toyota,Toyota Bangalore,TOY-BLR-001,Bangalore,Karnataka,"No 526, 529, 100 Feet Rd, Krishna Reddy Layout, Amarjyoti Layout, Domlur, Bangalore 560071",,Toyota
+Toyota,Galaxy Toyota Mumbai,TOY-MUM-001,Mumbai,Maharashtra,"Mumbai (11 showrooms and outlets across city)",,Toyota
+Toyota,Toyota Chennai,TOY-CHN-001,Chennai,Tamil Nadu,"Chennai (8 showrooms across city)",,Toyota
+Toyota,Toyota Hyderabad,TOY-HYD-001,Hyderabad,Telangana,"Hyderabad (10 showrooms across city)",,Toyota
+Toyota,Toyota Kolkata,TOY-KOL-001,Kolkata,West Bengal,"Kolkata (5 showrooms across city)",,Toyota
+Toyota,Toyota Pune,TOY-PUN-001,Pune,Maharashtra,"Pune (13 showrooms across city)",,Toyota
+Toyota,Toyota Ahmedabad,TOY-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple showrooms across city)",,Toyota
+Kia,Allied Kia Connaught Place,KIA-DEL-001,Delhi,Delhi,"No 5, SC India House, Connaught Place, New Delhi 110001",8879885923,Kia
+Kia,Allied Kia Karol Bagh,KIA-DEL-002,Delhi,Delhi,"No 65/9, Upper Ground & 1st Floor, New Rohtak Road, Karol Bagh, New Delhi 110005",8657589652,Kia
+Kia,Lohia Kia Wazirpur,KIA-DEL-003,Delhi,Delhi,"Site No B/95, Phase 2, Pocket C3, Wazirpur Industrial Area Road, New Delhi 110005",9167223341,Kia
+Kia,Kia Mumbai,KIA-MUM-001,Mumbai,Maharashtra,"Mumbai (multiple showrooms across city)",,Kia
+Kia,Kia Bangalore,KIA-BLR-001,Bangalore,Karnataka,"Bangalore (15 showrooms across city)",,Kia
+Kia,Kia Chennai,KIA-CHN-001,Chennai,Tamil Nadu,"Chennai (10 showrooms across city)",,Kia
+Kia,Kia Hyderabad,KIA-HYD-001,Hyderabad,Telangana,"Hyderabad (14 showrooms across city)",,Kia
+Kia,Kia Kolkata,KIA-KOL-001,Kolkata,West Bengal,"Kolkata (7 showrooms across city)",,Kia
+Kia,Kia Pune,KIA-PUN-001,Pune,Maharashtra,"Pune (9 showrooms across city)",,Kia
+Kia,Kia Ahmedabad,KIA-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (8 showrooms across city)",,Kia
+Skoda,Skoda Paschim Vihar,SKO-DEL-001,Delhi,Delhi,"No 9, Rohtak Road, Paschim Vihar Extension, New Delhi 110063",,Skoda
+Skoda,Skoda Delhi,SKO-DEL-002,Delhi,Delhi,"Delhi (12 showrooms across city)",,Skoda
+Skoda,Skoda Mumbai,SKO-MUM-001,Mumbai,Maharashtra,"Mumbai (7 showrooms across city)",,Skoda
+Skoda,Skoda Bangalore,SKO-BLR-001,Bangalore,Karnataka,"Bangalore (multiple showrooms across city)",,Skoda
+Skoda,Skoda Chennai,SKO-CHN-001,Chennai,Tamil Nadu,"Chennai (multiple showrooms across city)",,Skoda
+Skoda,Skoda Hyderabad,SKO-HYD-001,Hyderabad,Telangana,"Hyderabad (multiple showrooms across city)",,Skoda
+Skoda,Skoda Kolkata,SKO-KOL-001,Kolkata,West Bengal,"Kolkata (multiple showrooms across city)",,Skoda
+Skoda,Skoda Pune,SKO-PUN-001,Pune,Maharashtra,"Pune (multiple showrooms across city)",,Skoda
+Skoda,Skoda Ahmedabad,SKO-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple showrooms across city)",,Skoda
+Volkswagen,VW Moti Nagar,VW-DEL-001,Delhi,Delhi,"68/3, Najafgarh Road, Near Moments Mall, Moti Nagar, New Delhi 110015",8045249052,Volkswagen
+Volkswagen,Atrica Automobiles,VW-DEL-002,Delhi,Delhi,"78, Patparganj Industrial Area, New Delhi 110092",,Volkswagen
+Volkswagen,VW Mumbai,VW-MUM-001,Mumbai,Maharashtra,"Kartik Commercial Complex, Ground Floor, New Link Road, Opp. Laxmi Industrial Estate, Mumbai",,Volkswagen
+Volkswagen,VW Bangalore,VW-BLR-001,Bangalore,Karnataka,"Ground Floor, Building No.41, T.M. Industrial Estate, Survey No.26/1 A2, 12th KM Mysore Road, Bangalore 560059",,Volkswagen
+Volkswagen,VW Chennai,VW-CHN-001,Chennai,Tamil Nadu,"Chennai (multiple showrooms across city)",,Volkswagen
+Volkswagen,VW Hyderabad,VW-HYD-001,Hyderabad,Telangana,"Hyderabad (multiple showrooms across city)",,Volkswagen
+Volkswagen,VW Kolkata,VW-KOL-001,Kolkata,West Bengal,"Kolkata (multiple showrooms across city)",,Volkswagen
+Volkswagen,VW Pune,VW-PUN-001,Pune,Maharashtra,"Pune (multiple showrooms across city)",,Volkswagen
+Volkswagen,VW Ahmedabad,VW-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple showrooms across city)",,Volkswagen
+BYD,BYD Delhi,BYD-DEL-001,Delhi,Delhi,"Delhi (3 showrooms across city)",,BYD
+BYD,BYD Mumbai,BYD-MUM-001,Mumbai,Maharashtra,"Mumbai (multiple showrooms across Navi Mumbai and Thane)",,BYD
+BYD,BYD Bangalore,BYD-BLR-001,Bangalore,Karnataka,"Bangalore (4 showrooms across city)",,BYD
+BYD,BYD Chennai,BYD-CHN-001,Chennai,Tamil Nadu,"Chennai (showrooms across city)",,BYD
+BYD,BYD Hyderabad,BYD-HYD-001,Hyderabad,Telangana,"Hyderabad (2 showrooms) and Secunderabad (1 showroom)",,BYD
+BYD,BYD Kolkata,BYD-KOL-001,Kolkata,West Bengal,"Kolkata (showrooms across city)",,BYD
+BYD,BYD Pune,BYD-PUN-001,Pune,Maharashtra,"Pune (showrooms across city)",,BYD
+BYD,BYD Ahmedabad,BYD-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (showrooms across city)",,BYD
+MG,MG Delhi,MG-DEL-001,Delhi,Delhi,"Delhi (15 showrooms across city)",,MG
+MG,MG Mumbai,MG-MUM-001,Mumbai,Maharashtra,"Mumbai (multiple showrooms across city)",,MG
+MG,MG Bangalore,MG-BLR-001,Bangalore,Karnataka,"Bangalore (multiple showrooms across city)",,MG
+MG,MG Chennai,MG-CHN-001,Chennai,Tamil Nadu,"Chennai (multiple showrooms across city)",,MG
+MG,MG Hyderabad,MG-HYD-001,Hyderabad,Telangana,"Hyderabad (multiple showrooms across city)",,MG
+MG,MG Kolkata,MG-KOL-001,Kolkata,West Bengal,"Kolkata (multiple showrooms across city)",,MG
+MG,MG Pune,MG-PUN-001,Pune,Maharashtra,"Pune (multiple showrooms across city)",,MG
+MG,MG Ahmedabad,MG-AHM-001,Ahmedabad,Gujarat,"Ahmedabad (multiple showrooms across city)",,MG

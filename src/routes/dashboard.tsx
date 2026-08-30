@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowDownRight, ArrowUpRight, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -16,8 +17,9 @@ import {
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, ScoreText, StatusPill } from "@/components/status";
 import { Button } from "@/components/ui/button";
+import { getApplications } from "@/lib/api";
+import type { Application } from "@/lib/mock-data";
 import {
-  applications,
   dashboardStats,
   decisionDistribution,
   tatData,
@@ -47,6 +49,12 @@ export const Route = createFileRoute("/dashboard")({
 const donutColors = ["var(--color-success)", "var(--color-warning)", "var(--color-destructive)"];
 
 function Dashboard() {
+  const [applications, setApplications] = useState<Application[]>([]);
+
+  useEffect(() => {
+    getApplications().then(setApplications);
+  }, []);
+
   const total = decisionDistribution.reduce((sum, d) => sum + d.value, 0);
 
   return (

@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Download, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { Pill } from "@/components/status";
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { auditActions, auditLog, users } from "@/lib/mock-data";
+import { getMappedAuditLog } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/audit-log")({
@@ -45,7 +45,37 @@ const actionTone: Record<string, "primary" | "success" | "warning" | "destructiv
   Logout: "muted",
 };
 
+type AuditEntry = {
+  time: string;
+  user: string;
+  action: string;
+  app: string;
+  details: string;
+  ip: string;
+};
+
+type UserEntry = {
+  name: string;
+  email: string;
+  role: string;
+  limit: string;
+  branch: string;
+  status: string;
+};
+
 function AuditLogPage() {
+  const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
+  const [auditActions, setAuditActions] = useState<string[]>([]);
+  const [users, setUsers] = useState<UserEntry[]>([]);
+
+  useEffect(() => {
+    getMappedAuditLog().then(({ log, actions, users: u }) => {
+      setAuditLog(log);
+      setAuditActions(actions);
+      setUsers(u);
+    });
+  }, []);
+
   const [query, setQuery] = useState("");
   const [user, setUser] = useState("All users");
   const [action, setAction] = useState("All actions");
@@ -63,7 +93,7 @@ function AuditLogPage() {
             row.user.toLowerCase().includes(q))
         );
       }),
-    [query, user, action],
+    [auditLog, query, user, action],
   );
 
   return (
