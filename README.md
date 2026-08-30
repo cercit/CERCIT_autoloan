@@ -20,7 +20,7 @@ Built as an end-to-end product — PRD, database design, backend logic, frontend
 | Frontend | React, TanStack Router, shadcn/ui, Tailwind CSS, Vite |
 | Backend | Supabase (PostgreSQL), 8 RPC functions, SECURITY DEFINER |
 | Database | 22 tables, 293 columns, 132 dealers, 16 policy rules |
-| Hosting | Supabase (Mumbai region) |
+| Hosting | GitHub Pages (SPA) / Cloudflare Workers (SSR, planned) |
 | Auth | Not yet implemented (Phase 3) |
 
 ## Quick start
@@ -45,6 +45,8 @@ Run the SQL migrations in order in the Supabase SQL Editor:
 3. `sql/003_seed_dealers.sql` — 132 dealers
 4. `sql/004_functions.sql` — backend functions
 5. `sql/006_submit_application.sql` — submission RPC + recommendation fix
+6. `sql/007_officer_decision.sql` — officer approve/reject/refer
+7. `sql/008_demo_scenarios.sql` — 3 demo applications (APPROVE/REJECT/MAYBE)
 
 See `docs/supabase_integration_guide.md` for full setup instructions.
 
@@ -92,10 +94,13 @@ Six-layer assessment, each independent:
 - [x] Backend functions (8 RPCs, policy engine)
 - [x] Frontend prototype (10 screens)
 - [x] E2E flow (submit -> assess -> review)
-- [ ] Approve/reject actions wired to DB
+- [x] Approve/reject actions wired to DB
+- [x] Dashboard live stats from Supabase
+- [x] Demo scenarios (APPROVE/REJECT/MAYBE)
+- [x] Deploy to GitHub Pages (SPA build + GitHub Actions)
 - [ ] Supabase Auth + RLS
 - [ ] Sanction letter PDF
-- [ ] Deploy to GitHub Pages
+- [ ] Deploy to Cloudflare Workers (SSR build ready, needs account setup)
 - [ ] Security audit (Claude Fable, GPT 5.6, Kimi 3/DeepSeek)
 
 ## Credits

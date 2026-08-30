@@ -1,6 +1,6 @@
 # cercit build progress
 
-Last updated: 30 Aug 2026
+Last updated: 31 Aug 2026
 
 ## Status summary
 
@@ -8,14 +8,14 @@ Last updated: 30 Aug 2026
 |---|---|---|
 | PRD & scope | Done | v3.0, all 20 open items closed |
 | Database | Live | 22 tables on Supabase, Mumbai region |
-| Backend functions | Live | 8 RPCs, policy engine, assessment pipeline |
-| Seed data | Live | 132 dealers, 12 OEMs, rate grid, 16 rules |
+| Backend functions | Live | 9 RPCs, policy engine, assessment pipeline, officer decision |
+| Seed data | Live | 132 dealers, 12 OEMs, rate grid, 16 rules, 3 demo scenarios |
 | Frontend | Live | React + TanStack Router + shadcn/ui, 10 screens |
 | Supabase wiring | Live | Real data flowing, mock fallback retained |
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
 | Git | Pushed | cercit/CERCIT_autoloan (private), main branch |
 | Auth & roles | Not started | Supabase Auth, RLS, officer/manager roles |
-| Deploy | Not started | GitHub Pages (static build) |
+| Deploy | Ready | GitHub Pages via SPA build + GitHub Actions workflow |
 | Security audit | Planned | Post-public-demo, 3 AI models |
 
 ---
@@ -51,6 +51,7 @@ Infrastructure is live on Supabase project `Credit_Appraisal` (Mumbai region, or
 | `fn_assess_application` | Pipeline wrapper: policy engine then recommendation |
 | `fn_list_applications` | Dashboard listing: joins app + customer + vehicle + bureau + decision |
 | `fn_submit_full_application` | Single RPC: creates all records + runs assessment end to end |
+| `fn_officer_decision` | Officer approve/reject/refer with override detection and audit trail |
 
 ### Smoke tests (005_smoke_tests.sql) — both passed
 
@@ -104,20 +105,19 @@ Files in `src/lib/`:
 - Audit log: reads from `audit_events` table
 
 ### Still on mock data
-- Dashboard stat cards (New Applications: 12, etc.) — hardcoded
 - Rate grid page (schema mismatch between DB and UI)
 - Employer/user management screens
 - Login/auth (fake credentials)
+- Decision Distribution pie chart (hardcoded percentages)
 
 ---
 
 ## Known issues
 
 1. `fn_generate_recommendation`: rate_row crash when bureau score doesn't match any rate_grid band — fix deployed in 006 but needs re-run if error persists
-2. Dashboard stat cards are hardcoded, not querying real counts
-3. Approve/Reject buttons on review screen don't update the database yet
-4. No document upload (Supabase Storage not configured)
-5. No real auth — login is fake, RLS is off
+2. No document upload (Supabase Storage not configured)
+3. No real auth — login is fake, RLS is off
+4. SPA build bundles everything into one 1.1 MB JS chunk (no code splitting) — acceptable for demo
 
 ---
 
@@ -131,7 +131,9 @@ cercit/CERCIT_autoloan (private, main branch)
 │   ├── 003_seed_dealers.sql # 132 dealers across 12 OEMs
 │   ├── 004_functions.sql    # 7 PostgreSQL functions
 │   ├── 005_smoke_tests.sql  # APPROVE + REJECT test scenarios
-│   └── 006_submit_application.sql # Full submission RPC + recommendation fix
+│   ├── 006_submit_application.sql # Full submission RPC + recommendation fix
+│   ├── 007_officer_decision.sql   # Officer approve/reject/refer RPC
+│   └── 008_demo_scenarios.sql     # 3 demo applications via fn_submit_full_application
 ├── docs/                   # Documentation
 │   ├── application_flow.md
 │   ├── build_progress.md   # This file
@@ -158,23 +160,26 @@ cercit/CERCIT_autoloan (private, main branch)
 
 ## Roadmap to launch
 
-### Phase 2 — in progress
-- [ ] Fix fn_generate_recommendation rate_row bug
-- [ ] Set up Supabase MCP for direct DB access from Claude
+### Completed
+
+- [x] Wire Approve/Reject buttons to update DB (fn_officer_decision RPC)
+- [x] Dashboard live stats from Supabase
+- [x] Pre-load demo scenarios (APPROVE/REJECT/MAYBE)
+- [x] GitHub Pages deploy pipeline (SPA build + GitHub Actions)
 
 ### Phase 3 — build out
-- [ ] Wire Approve/Reject buttons to update DB status
+- [ ] Fix fn_generate_recommendation rate_row bug
 - [ ] Sanction letter PDF generation
 - [ ] Supabase Auth with officer/manager roles
 - [ ] RLS policies per role
-- [ ] Dashboard live metrics (counts from DB)
 - [ ] Document upload via Supabase Storage
+- [ ] Deploy to Cloudflare Workers (SSR build already works, needs account setup)
 - [ ] Jira epics and stories
 - [ ] Figma wireframes
 
 ### Phase 4 — launch
-- [ ] Deploy to GitHub Pages (static build)
-- [ ] Pre-load demo scenarios (approve, reject, maybe)
+- [ ] Enable GitHub Pages in repo settings (Settings > Pages > GitHub Actions)
+- [ ] Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repo secrets
 - [ ] Portfolio case study and LinkedIn post
 
 ### Phase 5 — post-launch
