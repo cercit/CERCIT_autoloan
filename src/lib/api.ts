@@ -429,6 +429,92 @@ export async function submitFullApplication(
   };
 }
 
+export type OfficerDecisionInput = {
+  applicationId: string;
+  decision: "APPROVE" | "REJECT" | "MAYBE";
+  remarks?: string;
+  reasonCodes?: string[];
+  sanctionedAmount?: number;
+  sanctionedRate?: number;
+  sanctionedTenure?: number;
+  overrideReason?: string;
+};
+
+export type OfficerDecisionResult = {
+  applicationId: string;
+  decision: string;
+  status: string;
+  isOverride: boolean;
+  sanctionedAmount: number;
+  sanctionedRate: number;
+  sanctionedTenure: number;
+  sanctionedEmi: number;
+  message: string;
+};
+
+export async function submitOfficerDecision(
+  input: OfficerDecisionInput
+): Promise<OfficerDecisionResult | null> {
+  if (!isSupabaseConfigured) return null;
+
+  const { data, error } = await supabase.rpc("fn_officer_decision", {
+    p_application_id: input.applicationId,
+    p_decision: input.decision,
+    p_remarks: input.remarks || null,
+    p_reason_codes: input.reasonCodes || null,
+    p_sanctioned_amount: input.sanctionedAmount || null,
+    p_sanctioned_rate: input.sanctionedRate || null,
+    p_sanctioned_tenure: input.sanctionedTenure || null,
+    p_override_reason: input.overrideReason || null,
+  });
+
+  if (error || !data) {
+    console.error("Officer decision failed:", error);
+    return null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = data as any;
+  return {
+    applicationId: r.application_id ?? "",
+    decision: r.decision ?? "",
+    status: r.status ?? "",
+    isOverride: r.is_override ?? false,
+    sanctionedAmount: Number(r.sanctioned_amount) || 0,
+    sanctionedRate: Number(r.sanctioned_rate) || 0,
+    sanctionedTenure: Number(r.sanctioned_tenure) || 0,
+    sanctionedEmi: Number(r.sanctioned_emi) || 0,
+    message: r.message ?? "",
+  };
+}
+
+export async function getDashboardStats(): Promise<{
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}> {
+  if (!isSupabaseConfigured) {
+    return { total: 0, pending: 0, approved: 0, rejected: 0 };
+  }
+
+  const { data, error } = await supabase
+    .from("applications")
+    .select("status");
+
+  if (error || !data) {
+    console.error("Failed to fetch stats:", error);
+    return { total: 0, pending: 0, approved: 0, rejected: 0 };
+  }
+
+  const total = data.length;
+  const approved = data.filter((r) => r.status === "APPROVED").length;
+  const rejected = data.filter((r) => r.status === "REJECTED").length;
+  const pending = total - approved - rejected;
+
+  return { total, pending, approved, rejected };
+}
+
 export async function getEmployers() {
   if (!isSupabaseConfigured) return mockEmployers;
 

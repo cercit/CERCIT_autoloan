@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowDownRight, ArrowUpRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -17,10 +17,9 @@ import {
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, ScoreText, StatusPill } from "@/components/status";
 import { Button } from "@/components/ui/button";
-import { getApplications } from "@/lib/api";
+import { getApplications, getDashboardStats } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 import {
-  dashboardStats,
   decisionDistribution,
   tatData,
 } from "@/lib/mock-data";
@@ -50,10 +49,19 @@ const donutColors = ["var(--color-success)", "var(--color-warning)", "var(--colo
 
 function Dashboard() {
   const [applications, setApplications] = useState<Application[]>([]);
+  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
 
   useEffect(() => {
     getApplications().then(setApplications);
+    getDashboardStats().then(setStats);
   }, []);
+
+  const statCards = [
+    { label: "Total Applications", value: stats.total },
+    { label: "Pending Review", value: stats.pending },
+    { label: "Approved", value: stats.approved },
+    { label: "Rejected", value: stats.rejected },
+  ];
 
   const total = decisionDistribution.reduce((sum, d) => sum + d.value, 0);
 
@@ -70,26 +78,13 @@ function Dashboard() {
       }
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {dashboardStats.map((stat) => (
+        {statCards.map((stat) => (
           <div key={stat.label} className="panel p-4">
             <p className="text-xs text-muted-foreground">{stat.label}</p>
-            <div className="mt-2 flex items-end justify-between">
+            <div className="mt-2">
               <span className="text-3xl font-semibold tabular">{stat.value}</span>
-              <span
-                className={cn(
-                  "flex items-center gap-0.5 text-xs font-medium",
-                  stat.up ? "text-success" : "text-destructive",
-                )}
-              >
-                {stat.up ? (
-                  <ArrowUpRight className="size-3.5" />
-                ) : (
-                  <ArrowDownRight className="size-3.5" />
-                )}
-                {stat.trend}
-              </span>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">vs last week</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">from Supabase</p>
           </div>
         ))}
       </div>

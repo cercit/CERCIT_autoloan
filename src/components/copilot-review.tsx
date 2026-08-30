@@ -1,9 +1,10 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Check,
   ChevronDown,
   FileText,
+  Loader2,
   Sparkles,
   X,
 } from "lucide-react";
@@ -12,6 +13,14 @@ import { useState } from "react";
 import { LabelValue, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, MeterBar, Pill, StatusPill } from "@/components/status";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,6 +31,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { submitOfficerDecision } from "@/lib/api";
+import type { OfficerDecisionResult } from "@/lib/api";
 import { emiFor, inr } from "@/lib/format";
 import {
   activityLog,
@@ -74,11 +85,38 @@ function Collapsible({
 }
 
 export function CopilotReview({ app, manager = false }: { app: Application; manager?: boolean }) {
+  const navigate = useNavigate();
   const [openDoc, setOpenDoc] = useState<string | null>(null);
   const [decision, setDecision] = useState("Approve");
   const [amount, setAmount] = useState(String(app.loanAmount));
   const [rate, setRate] = useState(String(app.rate));
   const [tenure, setTenure] = useState(String(app.tenure));
+  const [remarks, setRemarks] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<OfficerDecisionResult | null>(null);
+  const [showResult, setShowResult] = useState(false);
+
+  async function handleDecisionSubmit(quickDecision?: "APPROVE" | "REJECT") {
+    const finalDecision = quickDecision || decision.toUpperCase();
+    setSubmitting(true);
+    const res = await submitOfficerDecision({
+      applicationId: app.id,
+      decision: finalDecision as "APPROVE" | "REJECT" | "MAYBE",
+      remarks: remarks || undefined,
+      reasonCodes: rejectReason ? [rejectReason] : undefined,
+      sanctionedAmount: Number(amount) || undefined,
+      sanctionedRate: Number(rate) || undefined,
+      sanctionedTenure: Number(tenure) || undefined,
+      overrideReason: overrideReason || undefined,
+    });
+    setSubmitting(false);
+    if (res) {
+      setResult(res);
+      setShowResult(true);
+    }
+  }
 
   const emi = emiFor(Number(amount) || 0, Number(rate) || 0, Number(tenure) || 60);
   const existingEmis = app.obligations.reduce((s, o) => s + o.emi, 0);
@@ -111,8 +149,20 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {manager && <Pill tone="primary">Delegation authority: up to Rs 25,00,000</Pill>}
-          <Button className="bg-success text-success-foreground hover:bg-success/90">Approve</Button>
-          <Button variant="destructive">Reject</Button>
+          <Button
+            className="bg-success text-success-foreground hover:bg-success/90"
+            disabled={submitting}
+            onClick={() => handleDecisionSubmit("APPROVE")}
+          >
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : "Approve"}
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={submitting}
+            onClick={() => handleDecisionSubmit("REJECT")}
+          >
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : "Reject"}
+          </Button>
           <Button variant="outline" className="border-warning text-warning-foreground dark:text-warning">
             {manager ? "Return to officer" : "Send for review"}
           </Button>
@@ -582,13 +632,13 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               {decision === "Approve" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Conditions (optional)</Label>
-                  <Textarea rows={3} placeholder="e.g. Post-dated cheques for first 3 EMIs" />
+                  <Textarea rows={3} placeholder="e.g. Post-dated cheques for first 3 EMIs" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
                 </div>
               )}
               {decision === "Reject" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Reason codes</Label>
-                  <Select>
+                  <Select value={rejectReason} onValueChange={setRejectReason}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select reason" />
                     </SelectTrigger>
@@ -614,7 +664,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                   <Label className="text-xs text-muted-foreground">
                     {manager ? "Notes for credit officer" : "Notes for credit manager"}
                   </Label>
-                  <Textarea rows={3} placeholder="Context for the reviewer" />
+                  <Textarea rows={3} placeholder="Context for the reviewer" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
                 </div>
               )}
 
@@ -623,11 +673,13 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                   <Label className="text-xs font-semibold">
                     Override reason (required — differs from AI recommendation)
                   </Label>
-                  <Textarea rows={2} placeholder="Explain the deviation" />
+                  <Textarea rows={2} placeholder="Explain the deviation" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
                 </div>
               )}
 
-              <Button className="w-full">Submit decision</Button>
+              <Button className="w-full" disabled={submitting} onClick={() => handleDecisionSubmit()}>
+                {submitting ? <><Loader2 className="size-4 animate-spin" /> Submitting...</> : "Submit decision"}
+              </Button>
             </div>
           </SectionCard>
 
@@ -660,6 +712,42 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           </SectionCard>
         </div>
       </div>
+
+      <Dialog open={showResult} onOpenChange={setShowResult}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {result?.decision === "APPROVE" && "Application approved"}
+              {result?.decision === "REJECT" && "Application rejected"}
+              {result?.decision === "MAYBE" && "Application referred"}
+            </DialogTitle>
+            <DialogDescription>{result?.message}</DialogDescription>
+          </DialogHeader>
+          {result?.decision === "APPROVE" && (
+            <div className="grid gap-3 sm:grid-cols-2 text-sm">
+              <LabelValue label="Sanctioned amount" value={inr(result.sanctionedAmount)} />
+              <LabelValue label="Rate" value={`${result.sanctionedRate}%`} />
+              <LabelValue label="Tenure" value={`${result.sanctionedTenure} months`} />
+              <LabelValue label="EMI" value={inr(result.sanctionedEmi)} />
+            </div>
+          )}
+          {result?.isOverride && (
+            <p className="text-xs text-warning">This decision overrides the AI recommendation and has been logged.</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowResult(false); navigate({ to: "/applications" }); }}>
+              Back to queue
+            </Button>
+            {result?.decision === "APPROVE" && (
+              <Button asChild>
+                <Link to="/applications/$id/sanction" params={{ id: app.id }}>
+                  View sanction letter
+                </Link>
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
