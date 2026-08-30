@@ -13,7 +13,7 @@ Last updated: 30 Aug 2026
 | Frontend | Live | React + TanStack Router + shadcn/ui, 10 screens |
 | Supabase wiring | Live | Real data flowing, mock fallback retained |
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
-| Git | Pushed | cercit/cercit (private), main branch |
+| Git | Pushed | cercit/CERCIT_autoloan (private), main branch |
 | Auth & roles | Not started | Supabase Auth, RLS, officer/manager roles |
 | Deploy | Not started | Vercel/Netlify production build |
 | Security audit | Planned | Post-public-demo, 3 AI models |
@@ -124,7 +124,7 @@ Files in `src/lib/`:
 ## Repo structure
 
 ```
-cercit/cercit (private, main branch)
+cercit/CERCIT_autoloan (private, main branch)
 ├── sql/                    # Database migrations (run in order)
 │   ├── 001_schema.sql      # 22 tables
 │   ├── 002_seed_lookups.sql # States, rate grid, reason codes, policy rules, users

@@ -5,7 +5,7 @@
 **Engineering & Architecture:** Claude (AI partner)
 **Version:** 3.0 (consolidated from GPT brainstorm, Claude chat PRD, Copilot spec, Gemini research)
 **Status:** E2E working — submit, assess, review flow live on Supabase
-**Repo:** `cercit/cercit` (private, main branch)
+**Repo:** `cercit/CERCIT_autoloan` (private, main branch)
 **Jira Project:** SCRUM at `samsm.atlassian.net`
 **Supabase Project:** `izlxncfcuvjqzxxbyidt` (hosted PostgreSQL, free tier, Mumbai region)
 **AI Layer:** OpenRouter with guardrails

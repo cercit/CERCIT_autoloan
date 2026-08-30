@@ -26,7 +26,7 @@ Built as an end-to-end product — PRD, database design, backend logic, frontend
 ## Quick start
 
 ```bash
-git clone https://github.com/cercit/cercit.git
+git clone https://github.com/cercit/CERCIT_autoloan.git
 cd cercit
 npm install
 cp .env.example .env
