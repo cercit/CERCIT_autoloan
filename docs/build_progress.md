@@ -15,7 +15,7 @@ Last updated: 30 Aug 2026
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
 | Git | Pushed | cercit/CERCIT_autoloan (private), main branch |
 | Auth & roles | Not started | Supabase Auth, RLS, officer/manager roles |
-| Deploy | Not started | Vercel/Netlify production build |
+| Deploy | Not started | GitHub Pages (static build) |
 | Security audit | Planned | Post-public-demo, 3 AI models |
 
 ---
@@ -173,7 +173,7 @@ cercit/CERCIT_autoloan (private, main branch)
 - [ ] Figma wireframes
 
 ### Phase 4 — launch
-- [ ] Deploy to Vercel with custom domain
+- [ ] Deploy to GitHub Pages (static build)
 - [ ] Pre-load demo scenarios (approve, reject, maybe)
 - [ ] Portfolio case study and LinkedIn post
 

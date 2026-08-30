@@ -95,7 +95,7 @@ Six-layer assessment, each independent:
 - [ ] Approve/reject actions wired to DB
 - [ ] Supabase Auth + RLS
 - [ ] Sanction letter PDF
-- [ ] Deploy to Vercel
+- [ ] Deploy to GitHub Pages
 - [ ] Security audit (Claude Fable, GPT 5.6, Kimi 3/DeepSeek)
 
 ## Credits
