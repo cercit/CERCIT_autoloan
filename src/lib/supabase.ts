@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env["VITE_SUPABASE_URL"];
 const supabaseAnonKey = import.meta.env["VITE_SUPABASE_ANON_KEY"];
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl?.trim() || !supabaseAnonKey?.trim()) {
   console.warn(
     "Supabase env vars missing — app will fall back to mock data. " +
       "Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env"
@@ -11,8 +11,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(
-  supabaseUrl ?? "https://placeholder.supabase.co",
-  supabaseAnonKey ?? "placeholder"
+  supabaseUrl || "https://placeholder.supabase.co",
+  supabaseAnonKey || "placeholder"
 );
 
 export const isSupabaseConfigured =
