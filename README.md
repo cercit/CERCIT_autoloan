@@ -2,6 +2,8 @@
 
 **Credit Evaluation and Risk Compliance Intelligence Tool**
 
+**Live demo:** https://cercit.github.io/CERCIT_autoloan/
+
 AI-powered credit appraisal system for new vehicle finance. Automates the Credit Appraisal Memo (CAM) process: customer submits an application, the policy engine assesses it against 16 rules, and a loan officer reviews the AI recommendation with full evidence.
 
 Built as an end-to-end product — PRD, database design, backend logic, frontend, and documentation — demonstrating PM + technical execution.
@@ -18,9 +20,9 @@ Built as an end-to-end product — PRD, database design, backend logic, frontend
 | Layer | Technology |
 |---|---|
 | Frontend | React, TanStack Router, shadcn/ui, Tailwind CSS, Vite |
-| Backend | Supabase (PostgreSQL), 8 RPC functions, SECURITY DEFINER |
+| Backend | Supabase (PostgreSQL), 9 RPC functions, SECURITY DEFINER |
 | Database | 22 tables, 293 columns, 132 dealers, 16 policy rules |
-| Hosting | GitHub Pages (SPA) / Cloudflare Workers (SSR, planned) |
+| Hosting | [GitHub Pages](https://cercit.github.io/CERCIT_autoloan/) (SPA, live) / Cloudflare Workers (SSR, planned) |
 | Auth | Not yet implemented (Phase 3) |
 
 ## Quick start

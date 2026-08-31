@@ -13,9 +13,9 @@ Last updated: 31 Aug 2026
 | Frontend | Live | React + TanStack Router + shadcn/ui, 10 screens |
 | Supabase wiring | Live | Real data flowing, mock fallback retained |
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
-| Git | Pushed | cercit/CERCIT_autoloan (private), main branch |
+| Git | Pushed | cercit/CERCIT_autoloan (public), main branch |
 | Auth & roles | Not started | Supabase Auth, RLS, officer/manager roles |
-| Deploy | Ready | GitHub Pages via SPA build + GitHub Actions workflow |
+| Deploy | **Live** | GitHub Pages at cercit.github.io/CERCIT_autoloan/ |
 | Security audit | Planned | Post-public-demo, 3 AI models |
 
 ---
@@ -124,7 +124,7 @@ Files in `src/lib/`:
 ## Repo structure
 
 ```
-cercit/CERCIT_autoloan (private, main branch)
+cercit/CERCIT_autoloan (public, main branch)
 ├── sql/                    # Database migrations (run in order)
 │   ├── 001_schema.sql      # 22 tables
 │   ├── 002_seed_lookups.sql # States, rate grid, reason codes, policy rules, users
@@ -178,11 +178,12 @@ cercit/CERCIT_autoloan (private, main branch)
 - [ ] Figma wireframes
 
 ### Phase 4 — launch
-- [ ] Enable GitHub Pages in repo settings (Settings > Pages > GitHub Actions)
-- [ ] Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repo secrets
+- [x] Enable GitHub Pages in repo settings (Settings > Pages > GitHub Actions)
+- [x] Repo made public (cercit/CERCIT_autoloan)
+- [x] Site live at https://cercit.github.io/CERCIT_autoloan/
+- [ ] Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repo secrets (site works with mock data until then)
 - [ ] Portfolio case study and LinkedIn post
 
 ### Phase 5 — post-launch
 - [ ] Security audit by 3 AI models (Claude/Fable, GPT 5.6, Kimi 3/DeepSeek)
 - [ ] Fix audit findings
-- [ ] Make repo public
