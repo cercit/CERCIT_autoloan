@@ -199,12 +199,13 @@ function Dashboard() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    background: "var(--color-popover)",
-                    border: "1px solid var(--color-border)",
+                    background: "oklch(0.235 0.026 264)",
+                    border: "1px solid oklch(0.35 0.02 264)",
                     borderRadius: 8,
-                    color: "var(--color-popover-foreground)",
                     fontSize: 12,
                   }}
+                  itemStyle={{ color: "oklch(0.965 0.006 248)" }}
+                  labelStyle={{ color: "oklch(0.965 0.006 248)" }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -259,12 +260,13 @@ function Dashboard() {
               <Tooltip
                 cursor={{ fill: "var(--color-muted)" }}
                 contentStyle={{
-                  background: "var(--color-popover)",
-                  border: "1px solid var(--color-border)",
+                  background: "oklch(0.235 0.026 264)",
+                  border: "1px solid oklch(0.35 0.02 264)",
                   borderRadius: 8,
-                  color: "var(--color-popover-foreground)",
                   fontSize: 12,
                 }}
+                itemStyle={{ color: "oklch(0.965 0.006 248)" }}
+                labelStyle={{ color: "oklch(0.965 0.006 248)" }}
               />
               <ReferenceLine
                 y={60}
