@@ -603,11 +603,18 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                   <Input defaultValue="5000" />
                 </div>
               </div>
-              <Button variant="outline" className="w-full" asChild>
-                <Link to="/applications/$id/sanction" params={{ id: app.id }}>
-                  Preview sanction letter
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" asChild>
+                  <Link to="/applications/$id/approval" params={{ id: app.id }}>
+                    Approval letter
+                  </Link>
+                </Button>
+                <Button variant="outline" className="flex-1" asChild>
+                  <Link to="/applications/$id/sanction" params={{ id: app.id }}>
+                    Sanction letter
+                  </Link>
+                </Button>
+              </div>
             </div>
           </SectionCard>
 
@@ -739,11 +746,18 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               Back to queue
             </Button>
             {result?.decision === "APPROVE" && (
-              <Button asChild>
-                <Link to="/applications/$id/sanction" params={{ id: app.id }}>
-                  View sanction letter
-                </Link>
-              </Button>
+              <>
+                <Button variant="outline" asChild>
+                  <Link to="/applications/$id/approval" params={{ id: app.id }}>
+                    Approval letter
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/applications/$id/sanction" params={{ id: app.id }}>
+                    Sanction letter
+                  </Link>
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>

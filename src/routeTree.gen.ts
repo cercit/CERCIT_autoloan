@@ -20,6 +20,7 @@ import { Route as ApplicationsIndexRouteImport } from './routes/applications/ind
 import { Route as ApplicationsNewRouteImport } from './routes/applications/new'
 import { Route as ApplicationsIdIndexRouteImport } from './routes/applications/$id/index'
 import { Route as ApplicationsIdManagerReviewRouteImport } from './routes/applications/$id/manager-review'
+import { Route as ApplicationsIdApprovalRouteImport } from './routes/applications/$id/approval'
 import { Route as ApplicationsIdSanctionRouteImport } from './routes/applications/$id/sanction'
 
 const IndexRoute = IndexRouteImport.update({
@@ -78,6 +79,11 @@ const ApplicationsIdManagerReviewRoute =
     path: '/applications/$id/manager-review',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApplicationsIdApprovalRoute = ApplicationsIdApprovalRouteImport.update({
+  id: '/applications/$id/approval',
+  path: '/applications/$id/approval',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApplicationsIdSanctionRoute = ApplicationsIdSanctionRouteImport.update({
   id: '/applications/$id/sanction',
   path: '/applications/$id/sanction',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications/': typeof ApplicationsIndexRoute
+  '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
   '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
   '/applications/$id/': typeof ApplicationsIdIndexRoute
@@ -123,6 +130,7 @@ export interface FileRoutesById {
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications/': typeof ApplicationsIndexRoute
+  '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
   '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
   '/applications/$id/': typeof ApplicationsIdIndexRoute
@@ -139,6 +147,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/applications/new'
     | '/applications/'
+    | '/applications/$id/approval'
     | '/applications/$id/manager-review'
     | '/applications/$id/sanction'
     | '/applications/$id/'
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/applications/new'
     | '/applications'
+    | '/applications/$id/approval'
     | '/applications/$id/manager-review'
     | '/applications/$id/sanction'
     | '/applications/$id'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/applications/new'
     | '/applications/'
+    | '/applications/$id/approval'
     | '/applications/$id/manager-review'
     | '/applications/$id/sanction'
     | '/applications/$id/'
@@ -182,6 +193,7 @@ export interface RootRouteChildren {
   UsersRoute: typeof UsersRoute
   ApplicationsNewRoute: typeof ApplicationsNewRoute
   ApplicationsIndexRoute: typeof ApplicationsIndexRoute
+  ApplicationsIdApprovalRoute: typeof ApplicationsIdApprovalRoute
   ApplicationsIdManagerReviewRoute: typeof ApplicationsIdManagerReviewRoute
   ApplicationsIdSanctionRoute: typeof ApplicationsIdSanctionRoute
   ApplicationsIdIndexRoute: typeof ApplicationsIdIndexRoute
@@ -259,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplicationsIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/applications/$id/approval': {
+      id: '/applications/$id/approval'
+      path: '/applications/$id/approval'
+      fullPath: '/applications/$id/approval'
+      preLoaderRoute: typeof ApplicationsIdApprovalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/applications/$id/manager-review': {
       id: '/applications/$id/manager-review'
       path: '/applications/$id/manager-review'
@@ -286,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   UsersRoute: UsersRoute,
   ApplicationsNewRoute: ApplicationsNewRoute,
   ApplicationsIndexRoute: ApplicationsIndexRoute,
+  ApplicationsIdApprovalRoute: ApplicationsIdApprovalRoute,
   ApplicationsIdManagerReviewRoute: ApplicationsIdManagerReviewRoute,
   ApplicationsIdSanctionRoute: ApplicationsIdSanctionRoute,
   ApplicationsIdIndexRoute: ApplicationsIdIndexRoute,
