@@ -6,7 +6,7 @@ import { AppShell, SectionCard } from "@/components/app-shell";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getMappedPolicyRules } from "@/lib/api";
+import { getMappedPolicyRules, togglePolicyRule } from "@/lib/api";
 import type { PolicyRule } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -108,9 +108,29 @@ function PolicyRulesPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">{rule.from}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{rule.to}</td>
                   <td className="px-4 py-2.5">
-                    <Pill tone={rule.active ? "success" : "muted"}>
-                      {rule.active ? "Active" : "Inactive"}
-                    </Pill>
+                    <button
+                      className="cursor-pointer"
+                      aria-label={`${rule.active ? "Deactivate" : "Activate"} rule ${rule.name}`}
+                      onClick={async () => {
+                        const ok = await togglePolicyRule(rule.id, !rule.active);
+                        if (ok) {
+                          setPolicyRules((prev) => {
+                            const updated = { ...prev };
+                            const rules = updated[tab];
+                            if (rules) {
+                              updated[tab] = rules.map((r) =>
+                                r.id === rule.id ? { ...r, active: !r.active } : r
+                              );
+                            }
+                            return updated;
+                          });
+                        }
+                      }}
+                    >
+                      <Pill tone={rule.active ? "success" : "muted"}>
+                        {rule.active ? "Active" : "Inactive"}
+                      </Pill>
+                    </button>
                   </td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <Button variant="ghost" size="sm">

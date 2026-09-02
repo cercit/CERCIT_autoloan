@@ -35,6 +35,14 @@ const applicationRowSchema = z.object({
   city: z.string().optional().default(""),
   state_code: z.string().optional().default(""),
   state_name: z.string().optional().default(""),
+  address_line1: z.string().optional().default(""),
+  address_line2: z.string().optional().default(""),
+  pincode: z.string().optional().default(""),
+  residence_type: z.string().optional().default(""),
+  designation: z.string().optional().default(""),
+  years_in_current_job: z.coerce.number().optional().default(0),
+  total_work_experience_years: z.coerce.number().optional().default(0),
+  salary_bank_name: z.string().optional().default(""),
   vehicle_make: z.string().optional(),
   vehicle_model: z.string().optional(),
   vehicle_variant: z.string().optional(),
@@ -66,12 +74,12 @@ const applicationRowSchema = z.object({
   email: row.email,
   city: row.city,
   state: row.state_name || row.state_code,
-  address: "",
-  residence: "",
-  designation: "",
-  totalExperience: "",
-  currentTenure: "",
-  salaryBank: "",
+  address: `${row.address_line1 ?? ""}${row.address_line2 ? ", " + row.address_line2 : ""}${row.pincode ? " - " + row.pincode : ""}`,
+  residence: row.residence_type ?? "",
+  designation: row.designation ?? "",
+  totalExperience: row.total_work_experience_years ? row.total_work_experience_years + " years" : "",
+  currentTenure: row.years_in_current_job ? row.years_in_current_job + " years" : "",
+  salaryBank: row.salary_bank_name ?? "",
   vehicle: `${row.vehicle_make ?? ""} ${row.vehicle_model ?? ""} ${row.vehicle_variant ?? ""}`.trim(),
   dealer: row.dealer_name,
   exShowroom: row.ex_showroom_price,
@@ -79,8 +87,6 @@ const applicationRowSchema = z.object({
   obligations: [],
   flags: (row.risk_factors as Array<{ message: string }>).map((f) => f.message),
   reasons: [],
-  referredBy: undefined,
-  referralNote: undefined,
 } as Application));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,11 +153,12 @@ export async function getApplication(
     .select(
       `
       *,
-      customers!inner(full_name, email, mobile, pan_number, age_at_application, employer_name, city, state_code),
+      customers!inner(full_name, email, mobile, pan_number, age_at_application, employer_name, city, state_code, address_line1, address_line2, pincode, residence_type, designation, years_in_current_job, total_work_experience_years, salary_bank_name),
       vehicles!fk_vehicles_app(make, model, variant, ex_showroom_price, on_road_price),
       bureau_reports(score),
       recommendations(recommendation, recommended_rate, foir_calculated, ltv_calculated, risk_factors, summary_text),
-      credit_decisions(decision)
+      credit_decisions(decision),
+      obligations(lender_name, loan_type, emi_amount, outstanding_balance, dpd_current, source)
     `
     )
     .eq("application_id", id)
@@ -167,7 +174,7 @@ export async function getApplication(
   const bureau = data.bureau_reports?.[0];
   const rec = data.recommendations?.[0];
 
-  return mapToApplication({
+  const baseApp = mapToApplication({
     ...data,
     full_name: cust?.full_name,
     email: cust?.email,
@@ -177,6 +184,14 @@ export async function getApplication(
     employer_name: cust?.employer_name,
     city: cust?.city,
     state_name: cust?.state_code,
+    address_line1: cust?.address_line1,
+    address_line2: cust?.address_line2,
+    pincode: cust?.pincode,
+    residence_type: cust?.residence_type,
+    designation: cust?.designation,
+    years_in_current_job: cust?.years_in_current_job,
+    total_work_experience_years: cust?.total_work_experience_years,
+    salary_bank_name: cust?.salary_bank_name,
     vehicle_make: veh?.make,
     vehicle_model: veh?.model,
     vehicle_variant: veh?.variant,
@@ -189,6 +204,21 @@ export async function getApplication(
     risk_factors: rec?.risk_factors,
     cibil_score: bureau?.score ?? 0,
   });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const obligations = ((data as any).obligations ?? []).map((o: any) => ({
+    lender: o.lender_name ?? "",
+    type: o.loan_type ?? "",
+    emi: Number(o.emi_amount) || 0,
+    outstanding: Number(o.outstanding_balance) || 0,
+    dpd: String(o.dpd_current ?? "0"),
+    source: o.source ?? "Bureau",
+  }));
+
+  return {
+    ...baseApp,
+    obligations: obligations.length > 0 ? obligations : baseApp.obligations,
+  };
 }
 
 export async function createApplication(
@@ -282,6 +312,7 @@ export async function getMappedPolicyRules(): Promise<{
   for (const row of data) {
     const tab = categoryLabel[row.category] ?? row.category;
     const rule: PolicyRule = {
+      id: row.rule_id,
       name: row.rule_name,
       parameter: row.parameter,
       operator: operatorMap[row.operator] ?? row.operator,
@@ -300,9 +331,16 @@ export async function getMappedPolicyRules(): Promise<{
   return { rules: grouped, tabs: Object.keys(grouped) };
 }
 
+export async function togglePolicyRule(ruleId: string, isActive: boolean): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+  const { error } = await supabase
+    .from("policy_rules")
+    .update({ is_active: isActive })
+    .eq("rule_id", ruleId);
+  return !error;
+}
+
 export async function getRateGrid() {
-  // # reason: library supabase query; custom transform to match UI shape (band, catA, catB, catC)
-  // Self-review (vibe-check): (a) supabase query; (b) mock fallback preserved; (c) REJECT band (rate_pct=0) skipped; (d) catB/catC computed from base rate.
   if (!isSupabaseConfigured) return [];
 
   const { data, error } = await supabase
@@ -351,14 +389,17 @@ export async function getMappedAuditLog(): Promise<{
     };
   }
 
-  const { data, error } = await supabase
-    .from("audit_events")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const [eventsRes, usersRes] = await Promise.all([
+    supabase
+      .from("audit_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase.from("users").select("id, full_name"),
+  ]);
 
-  if (error || !data || data.length === 0) {
-    console.error("Failed to fetch audit events:", error);
+  if (eventsRes.error || !eventsRes.data || eventsRes.data.length === 0) {
+    console.error("Failed to fetch audit events:", eventsRes.error);
     return {
       log: mockAuditLog,
       actions: mockAuditActions,
@@ -366,12 +407,17 @@ export async function getMappedAuditLog(): Promise<{
     };
   }
 
+  const userMap = new Map<string, string>();
+  (usersRes.data ?? []).forEach((u: { id: string; full_name: string }) => {
+    userMap.set(u.id, u.full_name);
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const log: AuditEntry[] = data.map((row: any) => {
+  const log: AuditEntry[] = eventsRes.data.map((row: any) => {
     const detail = row.event_detail ?? {};
     return {
       time: formatDateTime(row.created_at),
-      user: row.actor_type === "SYSTEM" ? "System" : "Unknown",
+      user: row.actor_type === "SYSTEM" ? "System" : (userMap.get(row.actor_id) ?? "Unknown"),
       action: row.event_type?.replace(/_/g, " ") ?? "",
       app: detail.application_id
         ? String(detail.application_id)
@@ -533,7 +579,7 @@ export async function submitOfficerDecision(
   };
 }
 
-export async function getDashboardStats(): Promise<{
+export async function getDashboardStats(from?: string): Promise<{
   total: number;
   pending: number;
   approved: number;
@@ -543,9 +589,9 @@ export async function getDashboardStats(): Promise<{
     return { total: 0, pending: 0, approved: 0, rejected: 0 };
   }
 
-  const { data, error } = await supabase
-    .from("applications")
-    .select("status");
+  let query = supabase.from("applications").select("status");
+  if (from) query = query.gte("created_at", from);
+  const { data, error } = await query;
 
   if (error || !data) {
     console.error("Failed to fetch stats:", error);
@@ -560,20 +606,20 @@ export async function getDashboardStats(): Promise<{
   return { total, pending, approved, rejected };
 }
 
-// # reason: library supabase query + custom TAT computation; grouped by week from created_at
-// Self-review (vibe-check): (a) supabase query filtered; (b) week grouping; (c) minutes computed; (d) mock fallback preserved.
-export async function getDashboardTat() {
+export async function getDashboardTat(from?: string) {
   if (!isSupabaseConfigured) {
     const { tatData } = await import("./mock-data");
     return tatData;
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("applications")
     .select("created_at, updated_at, status")
     .in("status", ["APPROVED", "REJECTED"])
     .order("created_at", { ascending: false })
     .limit(500);
+  if (from) query = query.gte("created_at", from);
+  const { data, error } = await query;
 
   if (error || !data || data.length === 0) {
     const { tatData } = await import("./mock-data");
@@ -665,4 +711,126 @@ export async function getMakes(): Promise<Record<string, string[]>> {
 
   if (error || !data) return mockMakes;
   return mockMakes;
+}
+
+export async function getUsers() {
+  if (!isSupabaseConfigured) return mockUsers;
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("full_name, email, role, approval_limit, branch_code, is_active")
+    .order("full_name");
+
+  if (error || !data) return mockUsers;
+
+  const { inr } = await import("./format");
+
+  return (data as any[]).map((u) => ({
+    name: u.full_name ?? "",
+    email: u.email ?? "",
+    role: u.role === "CREDIT_OFFICER" ? "Credit Officer"
+      : u.role === "STATE_HEAD" ? "State Credit Head"
+      : u.role === "ADMIN" ? "Admin"
+      : u.role,
+    limit: inr(u.approval_limit ?? 0),
+    branch: u.branch_code ?? "All branches",
+    status: u.is_active ? "Active" : "Inactive",
+  }));
+}
+
+
+export type Document = {
+  id: string;
+  type: string;
+  fileName: string;
+  uploadedAt: string;
+  url: string;
+};
+
+export async function getDocuments(applicationId: string): Promise<Document[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, doc_type, file_name, file_path, uploaded_at, created_at")
+    .eq("application_id", applicationId)
+    .order("created_at", { ascending: false });
+  if (error || !data) {
+    console.error("Failed to fetch documents:", error);
+    return [];
+  }
+  return (data as any[]).map((d: any) => ({
+    id: d.id ?? "",
+    type: d.doc_type ?? "OTHER",
+    fileName: d.file_name ?? "Unknown",
+    uploadedAt: formatDate(d.uploaded_at ?? d.created_at ?? ""),
+    url: d.file_path ?? "",
+  }));
+}
+
+export async function uploadDocument(
+  applicationId: string,
+  file: File,
+  documentType: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  const path = `applications/${applicationId}/${Date.now()}_${file.name}`;
+  const { error: uploadError } = await supabase.storage
+    .from("documents")
+    .upload(path, file);
+  if (uploadError) {
+    console.error("Upload failed:", uploadError);
+    return false;
+  }
+  const { error: dbError } = await supabase.from("documents").insert({
+    application_id: applicationId,
+    doc_type: documentType,
+    file_name: file.name,
+    file_path: path,
+    file_hash: "",
+    file_size_bytes: file.size,
+    mime_type: file.type || "application/octet-stream",
+    upload_status: "UPLOADED",
+  });
+  if (dbError) {
+    console.error("Document record failed:", dbError);
+    return false;
+  }
+  return true;
+}
+
+export type ApplicationNote = {
+  id: string;
+  text: string;
+  author: string;
+  createdAt: string;
+};
+
+export async function getApplicationNotes(applicationId: string): Promise<ApplicationNote[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("audit_events")
+    .select("event_id, event_detail, actor_type, created_at")
+    .eq("entity_type", "APPLICATION")
+    .eq("entity_id", applicationId)
+    .eq("event_type", "OFFICER_NOTE")
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    id: row.event_id,
+    text: (row.event_detail as any)?.note ?? "",
+    author: row.actor_type === "SYSTEM" ? "System" : "Officer",
+    createdAt: new Date(row.created_at).toLocaleString("en-IN"),
+  }));
+}
+
+export async function addApplicationNote(applicationId: string, note: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  const { error } = await supabase.from("audit_events").insert({
+    entity_type: "APPLICATION",
+    entity_id: applicationId,
+    event_type: "OFFICER_NOTE",
+    actor_type: "USER",
+    event_detail: { note },
+  });
+  return !error;
 }

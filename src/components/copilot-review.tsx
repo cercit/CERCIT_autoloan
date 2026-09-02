@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { submitOfficerDecision } from "@/lib/api";
+import { toast } from "sonner";
 import type { OfficerDecisionResult } from "@/lib/api";
 import { emiFor, inr } from "@/lib/format";
 import {
@@ -101,17 +102,25 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   async function handleDecisionSubmit(quickDecision?: "APPROVE" | "REJECT") {
     const finalDecision = quickDecision || decision.toUpperCase();
     setSubmitting(true);
-    const res = await submitOfficerDecision({
+    const payload: Parameters<typeof submitOfficerDecision>[0] = {
       applicationId: app.id,
       decision: finalDecision as "APPROVE" | "REJECT" | "MAYBE",
-      remarks: remarks || undefined,
-      reasonCodes: rejectReason ? [rejectReason] : undefined,
-      sanctionedAmount: Number(amount) || undefined,
-      sanctionedRate: Number(rate) || undefined,
-      sanctionedTenure: Number(tenure) || undefined,
-      overrideReason: overrideReason || undefined,
-    });
+    };
+    if (remarks) payload.remarks = remarks;
+    if (rejectReason) payload.reasonCodes = [rejectReason];
+    if (Number(amount)) payload.sanctionedAmount = Number(amount);
+    if (Number(rate)) payload.sanctionedRate = Number(rate);
+    if (Number(tenure)) payload.sanctionedTenure = Number(tenure);
+    if (overrideReason) payload.overrideReason = overrideReason;
+    const res = await submitOfficerDecision(payload);
     setSubmitting(false);
+    if (res) {
+      toast.success("Decision recorded: " + res.decision);
+    } else if (!res && false) {
+      // no toast for demo mode when res is null (dialog handles it)
+    } else if (!res) {
+      toast.error("Failed to submit decision");
+    }
     if (res) {
       setResult(res);
       setShowResult(true);

@@ -18,7 +18,14 @@ import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, ScoreText, StatusPill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getApplications, getDashboardStats } from "@/lib/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getApplications, getDashboardStats, getDashboardTat } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 import { tatData } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
@@ -43,19 +50,42 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
-const donutColors = ["var(--color-success)", "var(--color-warning)", "var(--color-destructive)"];
+const decisionSlices = [
+  { name: "Approved", key: "approved", color: "var(--color-success)" },
+  { name: "Pending Review", key: "pending", color: "var(--color-warning)" },
+  { name: "Rejected", key: "rejected", color: "var(--color-destructive)" },
+] as const;
+
+function rangeToDate(r: string): string | undefined {
+  const now = new Date();
+  if (r === "today") return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  if (r === "week") {
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff).toISOString();
+  }
+  if (r === "month") return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  if (r === "30d") return new Date(now.getTime() - 30 * 86400000).toISOString();
+  return undefined; // "all"
+}
 
 function Dashboard() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [tatDataFetched, setTatDataFetched] = useState<typeof tatData>([]);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState("30d");
+  const [activeSlice, setActiveSlice] = useState<number | null>(null);
 
   useEffect(() => {
+    setLoading(true);
+    const from = rangeToDate(range);
     Promise.all([
       getApplications().then(setApplications),
-      getDashboardStats().then(setStats),
+      getDashboardStats(from).then(setStats),
+      getDashboardTat(from).then(setTatDataFetched),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [range]);
 
   const statCards = [
     { label: "Total Applications", value: stats.total },
@@ -78,6 +108,21 @@ function Dashboard() {
         </Button>
       }
     >
+      <div className="mb-4 flex items-center gap-3">
+        <Select value={range} onValueChange={(v) => setRange(v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="week">This week</SelectItem>
+            <SelectItem value="month">This month</SelectItem>
+            <SelectItem value="30d">Last 30 days</SelectItem>
+            <SelectItem value="all">All time</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
@@ -177,59 +222,56 @@ function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={[
-                    { name: "Auto-Approved", key: "approved", value: stats.approved },
-                    { name: "Manual Review", key: "pending", value: stats.pending },
-                    { name: "Rejected", key: "rejected", value: stats.rejected },
-                  ]}
+                  data={decisionSlices.map((s) => ({
+                    name: s.name,
+                    value: stats[s.key],
+                  }))}
                   dataKey="value"
                   innerRadius="62%"
                   outerRadius="90%"
                   paddingAngle={2}
                   stroke="none"
                   isAnimationActive={false}
+                  onMouseEnter={(_, i) => setActiveSlice(i)}
+                  onMouseLeave={() => setActiveSlice(null)}
                 >
-                  {[
-                    { key: "approved", value: stats.approved },
-                    { key: "pending", value: stats.pending },
-                    { key: "rejected", value: stats.rejected },
-                  ].map((entry, i) => (
-                    <Cell key={entry.key} fill={donutColors[i]} />
+                  {decisionSlices.map((s, i) => (
+                    <Cell
+                      key={s.key}
+                      fill={s.color}
+                      opacity={activeSlice != null && activeSlice !== i ? 0.4 : 1}
+                      style={{ transition: "opacity 150ms", cursor: "default" }}
+                    />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "oklch(0.235 0.026 264)",
-                    border: "1px solid oklch(0.35 0.02 264)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  itemStyle={{ color: "oklch(0.965 0.006 248)" }}
-                  labelStyle={{ color: "oklch(0.965 0.006 248)" }}
-                />
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-semibold tabular">{total}</span>
-              <span className="text-xs text-muted-foreground">applications</span>
+              {(() => {
+                const slice = activeSlice != null ? decisionSlices[activeSlice] : undefined;
+                return slice ? (
+                  <>
+                    <span className="text-2xl font-semibold tabular">{stats[slice.key]}</span>
+                    <span className="text-xs text-muted-foreground">{slice.name}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-2xl font-semibold tabular">{total}</span>
+                    <span className="text-xs text-muted-foreground">applications</span>
+                  </>
+                );
+              })()}
             </div>
           </div>
           <ul className="mt-3 space-y-2">
-            {[
-              { name: "Auto-Approved", key: "approved", value: stats.approved },
-              { name: "Manual Review", key: "pending", value: stats.pending },
-              { name: "Rejected", key: "rejected", value: stats.rejected },
-            ].map((d, i) => (
-              <li key={d.key} className="flex items-center justify-between text-sm">
+            {decisionSlices.map((s) => (
+              <li key={s.key} className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
-                  <span
-                    className="size-2.5 rounded-full"
-                    style={{ background: donutColors[i] }}
-                  />
-                  {d.name}
+                  <span className="size-2.5 rounded-full" style={{ background: s.color }} />
+                  {s.name}
                 </span>
                 <span className="tabular text-muted-foreground">
-                  {d.value} · {total > 0 ? ((d.value / total) * 100).toFixed(1) : "0.0"}%
+                  {stats[s.key]} · {total > 0 ? ((stats[s.key] / total) * 100).toFixed(1) : "0.0"}%
                 </span>
               </li>
             ))}

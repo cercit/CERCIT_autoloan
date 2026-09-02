@@ -561,6 +561,7 @@ export const overrideHistory = [
 ];
 
 export type PolicyRule = {
+  id: string;
   name: string;
   parameter: string;
   operator: string;
@@ -573,40 +574,40 @@ export type PolicyRule = {
 
 export const policyRules: Record<string, PolicyRule[]> = {
   CIBIL: [
-    { name: "Minimum CIBIL for auto approval", parameter: "cibil_score", operator: ">=", threshold: "750", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "CIBIL manual review band", parameter: "cibil_score", operator: "between", threshold: "650 – 749", action: "Maybe", from: "01 Apr 2026", to: "—", active: true },
-    { name: "CIBIL hard floor", parameter: "cibil_score", operator: "<", threshold: "650", action: "Reject", from: "01 Apr 2026", to: "—", active: true },
-    { name: "New to credit (-1)", parameter: "cibil_score", operator: "=", threshold: "-1", action: "Maybe", from: "01 Jun 2026", to: "—", active: true },
+    { id: "mock-0", name: "Minimum CIBIL for auto approval", parameter: "cibil_score", operator: ">=", threshold: "750", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-1", name: "CIBIL manual review band", parameter: "cibil_score", operator: "between", threshold: "650 – 749", action: "Maybe", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-2", name: "CIBIL hard floor", parameter: "cibil_score", operator: "<", threshold: "650", action: "Reject", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-3", name: "New to credit (-1)", parameter: "cibil_score", operator: "=", threshold: "-1", action: "Maybe", from: "01 Jun 2026", to: "—", active: true },
   ],
   FOIR: [
-    { name: "Max FOIR salaried", parameter: "foir", operator: "<=", threshold: "50%", action: "Approve", from: "28 Aug 2026", to: "—", active: true },
-    { name: "FOIR review band", parameter: "foir", operator: "between", threshold: "50% – 55%", action: "Maybe", from: "28 Aug 2026", to: "—", active: true },
-    { name: "FOIR breach", parameter: "foir", operator: ">", threshold: "55%", action: "Reject", from: "28 Aug 2026", to: "—", active: true },
-    { name: "Legacy FOIR cap", parameter: "foir", operator: "<=", threshold: "55%", action: "Approve", from: "01 Jan 2026", to: "27 Aug 2026", active: false },
+    { id: "mock-4", name: "Max FOIR salaried", parameter: "foir", operator: "<=", threshold: "50%", action: "Approve", from: "28 Aug 2026", to: "—", active: true },
+    { id: "mock-5", name: "FOIR review band", parameter: "foir", operator: "between", threshold: "50% – 55%", action: "Maybe", from: "28 Aug 2026", to: "—", active: true },
+    { id: "mock-6", name: "FOIR breach", parameter: "foir", operator: ">", threshold: "55%", action: "Reject", from: "28 Aug 2026", to: "—", active: true },
+    { id: "mock-7", name: "Legacy FOIR cap", parameter: "foir", operator: "<=", threshold: "55%", action: "Approve", from: "01 Jan 2026", to: "27 Aug 2026", active: false },
   ],
   LTV: [
-    { name: "Max LTV on ex-showroom", parameter: "ltv_ex_showroom", operator: "<=", threshold: "120%", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Max LTV on-road", parameter: "ltv_on_road", operator: "<=", threshold: "100%", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "LTV breach", parameter: "ltv_ex_showroom", operator: ">", threshold: "120%", action: "Reject", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-8", name: "Max LTV on ex-showroom", parameter: "ltv_ex_showroom", operator: "<=", threshold: "120%", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-9", name: "Max LTV on-road", parameter: "ltv_on_road", operator: "<=", threshold: "100%", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-10", name: "LTV breach", parameter: "ltv_ex_showroom", operator: ">", threshold: "120%", action: "Reject", from: "01 Apr 2026", to: "—", active: true },
   ],
   Tenure: [
-    { name: "Max loan tenure", parameter: "tenure_months", operator: "<=", threshold: "84", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Max tenure Category C", parameter: "tenure_months", operator: "<=", threshold: "60", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-11", name: "Max loan tenure", parameter: "tenure_months", operator: "<=", threshold: "84", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-12", name: "Max tenure Category C", parameter: "tenure_months", operator: "<=", threshold: "60", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
   ],
   Age: [
-    { name: "Minimum applicant age", parameter: "age_at_application", operator: ">=", threshold: "21", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Maximum age at maturity", parameter: "age_at_maturity", operator: "<=", threshold: "60", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-13", name: "Minimum applicant age", parameter: "age_at_application", operator: ">=", threshold: "21", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-14", name: "Maximum age at maturity", parameter: "age_at_maturity", operator: "<=", threshold: "60", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
   ],
   Employment: [
-    { name: "Min current employer tenure", parameter: "employer_tenure_years", operator: ">=", threshold: "1", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Min total work experience", parameter: "total_experience_years", operator: ">=", threshold: "2", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Employer category allowed", parameter: "employer_category", operator: "=", threshold: "A, B", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Category C referral", parameter: "employer_category", operator: "=", threshold: "C", action: "Maybe", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-15", name: "Min current employer tenure", parameter: "employer_tenure_years", operator: ">=", threshold: "1", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-16", name: "Min total work experience", parameter: "total_experience_years", operator: ">=", threshold: "2", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-17", name: "Employer category allowed", parameter: "employer_category", operator: "=", threshold: "A, B", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-18", name: "Category C referral", parameter: "employer_category", operator: "=", threshold: "C", action: "Maybe", from: "01 Apr 2026", to: "—", active: true },
   ],
   Documentation: [
-    { name: "Salary variance across sources", parameter: "income_variance", operator: "<=", threshold: "5%", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Name match across KYC", parameter: "kyc_name_match", operator: "=", threshold: "Yes", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
-    { name: "Bank statement months", parameter: "bank_statement_months", operator: ">=", threshold: "6", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-19", name: "Salary variance across sources", parameter: "income_variance", operator: "<=", threshold: "5%", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-20", name: "Name match across KYC", parameter: "kyc_name_match", operator: "=", threshold: "Yes", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
+    { id: "mock-21", name: "Bank statement months", parameter: "bank_statement_months", operator: ">=", threshold: "6", action: "Approve", from: "01 Apr 2026", to: "—", active: true },
   ],
 };
 

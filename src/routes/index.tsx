@@ -1,12 +1,13 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import type { FormEvent } from "react";
+import { useState, useEffect } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
+import { signIn, getSession, isSupabaseConfigured } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,10 +30,39 @@ export const Route = createFileRoute("/")({
 
 function Login() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = (event: FormEvent) => {
+  useEffect(() => {
+    getSession().then((s) => {
+      if (s) navigate({ to: "/dashboard" });
+    });
+  }, []);
+
+  const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    navigate({ to: "/dashboard" });
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (!isSupabaseConfigured) {
+        // Demo mode: navigate straight to dashboard
+        navigate({ to: "/dashboard" });
+      } else {
+        const result = await signIn(email, password);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          navigate({ to: "/dashboard" });
+        }
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -61,6 +91,8 @@ function Login() {
                 type="email"
                 autoComplete="username"
                 placeholder="name@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -70,11 +102,18 @@ function Login() {
                 type="password"
                 autoComplete="current-password"
                 placeholder="Enter any password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button type="submit" className="w-full">
-              Sign in
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
             </Button>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
             <div className="text-center">
               <Link to="/dashboard" className="text-xs text-primary hover:underline">
                 Forgot password?

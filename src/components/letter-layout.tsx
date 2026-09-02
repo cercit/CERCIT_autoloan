@@ -98,7 +98,7 @@ export function LetterLayout({
       >
         <LetterHead />
         <div className="mt-4 flex-1">{children}</div>
-        <LetterFooter showGrievance={showGrievance} />
+        <LetterFooter {...(showGrievance != null ? { showGrievance } : {})} />
       </article>
     </>
   );

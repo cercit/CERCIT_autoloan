@@ -25,11 +25,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { submitFullApplication } from "@/lib/api";
+import { toast } from "sonner";
 import type { SubmitResult } from "@/lib/api";
 import { emiFor, inr } from "@/lib/format";
 import { employers, makes } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-
 export const Route = createFileRoute("/applications/new")({
   head: () => ({
     meta: [
@@ -215,7 +215,7 @@ function NewApplication() {
       case "exShowroom":
         return Number(v) > 0 ? undefined : "Ex-showroom price must be > 0";
       case "onRoad":
-        return Number(v) >= Number(exShowroom || 0) ? undefined : "On-road must be >= ex-showroom";
+        return Number(v) > 0 ? undefined : "On-road price must be > 0";
       case "cibilScore":
         const cibil = Number(v);
         return cibil >= 300 && cibil <= 900 ? undefined : "CIBIL must be 300-900";
@@ -249,9 +249,8 @@ function NewApplication() {
         const err = validateField(name, value);
         if (err) { newErrors[name] = err; hasErrors = true; }
       }
-      // Check onRoad >= exShowroom
-      if (Number(onRoad) < Number(exShowroom || 0)) {
-        newErrors.onRoad = "On-road must be >= ex-showroom";
+      if (Number(onRoad) <= 0) {
+        newErrors["onRoad"] = "On-road price must be > 0";
         hasErrors = true;
       }
     } else if (stepNum === 3) {
@@ -844,6 +843,11 @@ function NewApplication() {
                   });
                   setSubmitResult(result);
                   setSubmitting(false);
+                  if (submitResult) {
+                    toast.success("Application submitted: " + (submitResult?.applicationId ?? ""));
+                  } else {
+                    toast.error("Submission failed — please try again");
+                  }
                   setSubmitted(true);
                 }}
               >

@@ -6,12 +6,14 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
+import { requireAuth } from "@/lib/auth";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -110,6 +112,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
+  beforeLoad: async ({ location }) => {
+    if (location.pathname === "/" || location.pathname === "/CERCIT_autoloan/" || location.pathname === "/CERCIT_autoloan") return;
+    const isAuth = await requireAuth();
+    if (!isAuth) {
+      throw redirect({ to: "/" });
+    }
+  },
   errorComponent: ErrorComponent,
 });
 
@@ -132,8 +141,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <Toaster />
     </QueryClientProvider>
   );
 }

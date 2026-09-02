@@ -11,17 +11,26 @@ import {
   Settings2,
   Table2,
   Users2,
+  X,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Pill } from "@/components/status";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { currentUser } from "@/lib/mock-data";
+import { signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/applications", label: "Applications", icon: ClipboardList, badge: 12 },
@@ -87,14 +96,30 @@ export function AppShell({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { showWarning, dismissWarning } = useSessionTimeout();
 
   return (
     <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 lg:flex">
+      {/* Desktop sidebar: fixed visible on lg+ */}
+      <aside data-sidebar className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 lg:flex">
         <Logo />
         <div className="mt-6 flex-1">
           <NavItems />
+        </div>
+        {/* Sign out button — bottom of sidebar below nav links */}
+        <div className="mt-auto pt-3">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2 text-sm"
+            onClick={async () => {
+              await signOut();
+              window.location.href = "/";
+            }}
+          >
+            <LogOut className="size-4" />
+            Sign out
+          </Button>
         </div>
         <div className="rounded-md bg-sidebar-accent/50 p-3 text-xs text-muted-foreground">
           <p className="font-medium text-sidebar-accent-foreground">Prototype data</p>
@@ -102,22 +127,65 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-card/90 px-3 backdrop-blur sm:px-5">
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
-                <Menu className="size-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-64 bg-sidebar p-4">
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <Logo />
-              <div className="mt-6">
-                <NavItems onNavigate={() => setOpen(false)} />
-              </div>
-            </SheetContent>
-          </Sheet>
+      {/* Mobile sidebar overlay: shown when sidebarOpen */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
+        />
+      )}
+
+      {/* Mobile sidebar: hidden by default, shown with translate-x-0 when open */}
+      <aside
+        data-sidebar
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-60 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 transition-transform duration-200 lg:hidden",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <Logo />
+          <button
+            className="md:hidden rounded-md p-1 text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="mt-6 flex-1">
+          <NavItems onNavigate={() => setSidebarOpen(false)} />
+        </div>
+        <div className="mt-auto pt-3">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2 text-sm"
+            onClick={async () => {
+              await signOut();
+              window.location.href = "/";
+            }}
+          >
+            <LogOut className="size-4" />
+            Sign out
+          </Button>
+        </div>
+        <div className="rounded-md bg-sidebar-accent/50 p-3 text-xs text-muted-foreground">
+          <p className="font-medium text-sidebar-accent-foreground">Prototype data</p>
+          <p className="mt-1">All figures are illustrative sample records.</p>
+        </div>
+      </aside>
+
+      <div data-main-wrapper className="lg:pl-60">
+        <header data-topbar className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-card/90 px-3 backdrop-blur sm:px-5">
+          {/* Mobile hamburger button: visible only on mobile */}
+          <button
+            className="md:hidden rounded-md p-2 text-foreground hover:bg-muted"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle menu"
+          >
+            {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
 
           <div className="relative hidden max-w-md flex-1 sm:block">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -164,6 +232,19 @@ export function AppShell({
           {children}
         </main>
       </div>
+      <Dialog open={showWarning} onOpenChange={(open) => { if (!open) dismissWarning(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Session expiring</DialogTitle>
+            <DialogDescription>
+              You've been inactive for a while. Your session will end in 2 minutes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={dismissWarning}>Stay signed in</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

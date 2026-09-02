@@ -28,6 +28,18 @@ export const Route = createFileRoute("/rate-grid")({
   component: RateGridPage,
 });
 
+function exportCsv(data: typeof rateGrid) {
+  const header = "CIBIL Band,Category A (%),Category B (%),Category C (%)";
+  const rows = data.map((r) => `${r.band},${r.catA.toFixed(2)},${r.catB.toFixed(2)},${r.catC.toFixed(2)}`);
+  const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cercit-rate-grid.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function RateGridPage() {
   const [gridData, setGridData] = useState(rateGrid);
   useEffect(() => {
@@ -54,7 +66,7 @@ function RateGridPage() {
       title="Rate Grid"
       subtitle="Effective 01 Aug 2026 — new car loans, salaried segment"
       actions={
-        <Button variant="outline">
+        <Button variant="outline" onClick={() => exportCsv(gridData)}>
           <Download className="size-4" /> Export CSV
         </Button>
       }

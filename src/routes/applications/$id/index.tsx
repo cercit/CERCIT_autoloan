@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
+import { DocumentList } from "@/components/document-list";
+import { OfficerNotes } from "@/components/officer-notes";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApplication } from "@/lib/api";
@@ -66,6 +68,8 @@ function ApplicationDetail() {
       }
     >
       <CopilotReview app={app} />
+      <DocumentList applicationId={app.id} />
+      <OfficerNotes applicationId={app.id} />
     </AppShell>
   );
 }

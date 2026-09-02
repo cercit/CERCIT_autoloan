@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Filter, Plus, Search } from "lucide-react";
+import { Filter, Plus, Search, ArrowUpDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
@@ -53,6 +53,8 @@ function Applications() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All statuses");
+  const [sortKey, setSortKey] = useState<"name" | "cibil" | "loanAmount" | "status" | "submitted" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     getApplications()
@@ -60,7 +62,7 @@ function Applications() {
       .finally(() => setLoading(false));
   }, []);
 
-  const rows = useMemo(
+  const filteredRows = useMemo(
     () =>
       allApps.filter((app) => {
         const matchesStatus = status === "All statuses" || app.status === status;
@@ -76,10 +78,28 @@ function Applications() {
     [allApps, query, status],
   );
 
+  const sortedRows = useMemo(() => {
+    if (!sortKey) return filteredRows;
+    return [...filteredRows].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
+      else if (sortKey === "cibil") cmp = a.cibil - b.cibil;
+      else if (sortKey === "loanAmount") cmp = a.loanAmount - b.loanAmount;
+      else if (sortKey === "status") cmp = a.status.localeCompare(b.status);
+      else if (sortKey === "submitted") cmp = a.submitted.localeCompare(b.submitted);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [filteredRows, sortKey, sortDir]);
+
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
   return (
     <AppShell
       title="Applications"
-      subtitle={loading ? "Loading..." : `${rows.length} of ${allApps.length} applications`}
+      subtitle={loading ? "Loading..." : `${sortedRows.length} of ${allApps.length} applications`}
       actions={
         <Button asChild>
           <Link to="/applications/new">
@@ -118,14 +138,25 @@ function Applications() {
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-surface-subtle text-xs text-muted-foreground">
               <tr>
-                <th className="px-4 py-2 text-left font-medium">Application</th>
+                <th className="px-4 py-2 text-left font-medium">
+                  <button type="button" className="flex items-center gap-1 font-medium" onClick={() => toggleSort("name")}>Application <ArrowUpDown className={cn("size-3 text-muted-foreground", sortKey === "name" ? "rotate-180" : "")} /></button>
+                </th>
                 <th className="px-4 py-2 text-left font-medium">Applicant</th>
                 <th className="px-4 py-2 text-left font-medium">Employer</th>
-                <th className="px-4 py-2 text-right font-medium">Loan</th>
-                <th className="px-4 py-2 text-right font-medium">CIBIL</th>
+                <th className="px-4 py-2 text-right font-medium">
+                  <button type="button" className="flex items-center gap-1 font-medium justify-end w-full" onClick={() => toggleSort("loanAmount")}>Loan <ArrowUpDown className={cn("size-3 text-muted-foreground", sortKey === "loanAmount" ? "rotate-180" : "")} /></button>
+                </th>
+                <th className="px-4 py-2 text-right font-medium">
+                  <button type="button" className="flex items-center gap-1 font-medium justify-end w-full" onClick={() => toggleSort("cibil")}>CIBIL <ArrowUpDown className={cn("size-3 text-muted-foreground", sortKey === "cibil" ? "rotate-180" : "")} /></button>
+                </th>
                 <th className="px-4 py-2 text-right font-medium">FOIR</th>
                 <th className="px-4 py-2 text-left font-medium">Recommendation</th>
-                <th className="px-4 py-2 text-left font-medium">Status</th>
+                <th className="px-4 py-2 text-left font-medium">
+                  <button type="button" className="flex items-center gap-1 font-medium" onClick={() => toggleSort("status")}>Status <ArrowUpDown className={cn("size-3 text-muted-foreground", sortKey === "status" ? "rotate-180" : "")} /></button>
+                </th>
+                <th className="px-4 py-2 text-right font-medium">
+                  <button type="button" className="flex items-center gap-1 font-medium justify-end w-full" onClick={() => toggleSort("submitted")}>Submitted <ArrowUpDown className={cn("size-3 text-muted-foreground", sortKey === "submitted" ? "rotate-180" : "")} /></button>
+                </th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -145,7 +176,7 @@ function Applications() {
                     </tr>
                 ))
               ) : (
-                rows.map((app, i) => (
+                sortedRows.map((app, i) => (
                 <tr
                   key={app.id}
                   className={cn("border-t border-border", i % 2 === 1 && "bg-surface-subtle/60")}
@@ -200,7 +231,7 @@ function Applications() {
                 </tr>
                 ))
               )}
-              {!loading && rows.length === 0 && (
+              {!loading && sortedRows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                     No applications match those filters.

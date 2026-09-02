@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
+import { ManagerDecisionPanel } from "@/components/manager-decision-panel";
 import { Button } from "@/components/ui/button";
 import { getApplication } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
@@ -43,19 +44,11 @@ function ManagerReview() {
     );
   }
 
-  const withReferral = app.referredBy
-    ? app
-    : {
-        ...app,
-        referredBy: "Rajeev Menon",
-        referralNote:
-          "Borderline file — requesting manager decision within delegated authority.",
-      };
-
+  // No fake referral data injection — use real referral info or show direct review
   return (
     <AppShell
       title="Credit Manager Review"
-      subtitle="Referred file — manager decision required"
+      subtitle={app.referredBy ? `Referred file — manager decision required` : "Direct review — no referral"}
       actions={
         <Button variant="outline" asChild>
           <Link to="/applications/$id" params={{ id: app.id }}>
@@ -64,7 +57,10 @@ function ManagerReview() {
         </Button>
       }
     >
-      <CopilotReview app={withReferral} manager />
+      <div className="space-y-6">
+        <CopilotReview app={app} manager />
+        <ManagerDecisionPanel app={app} />
+      </div>
     </AppShell>
   );
 }
