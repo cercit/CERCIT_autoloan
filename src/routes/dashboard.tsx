@@ -6,13 +6,6 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ReferenceLine,
-  ZAxis,
 } from "recharts";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
@@ -69,14 +62,18 @@ const aiConfidence: Record<string, number> = {
   "APP-2026-00842": 62,
 };
 
-const dealerLtv = [
-  { dealer: "Sri Lakshmi Auto", ltv: 88, volume: 12, risk: "high" },
-  { dealer: "VST Grandeur", ltv: 82, volume: 35, risk: "med" },
-  { dealer: "Khivraj Motors", ltv: 72, volume: 65, risk: "low" },
-  { dealer: "Capital Honda", ltv: 65, volume: 20, risk: "low" },
-  { dealer: "Olympia Motors", ltv: 78, volume: 40, risk: "low" },
-  { dealer: "Kun Exclusive", ltv: 70, volume: 25, risk: "med" },
-];
+function buildFunnel(stats: DashboardStats) {
+  const t = stats.total || 1;
+  const docsVerified = Math.round(t * 0.92);
+  const bureauCleared = Math.round(t * 0.864);
+  return [
+    { stage: "Submitted", count: t, color: "var(--color-primary)" },
+    { stage: "Docs verified", count: docsVerified, color: "var(--color-info)" },
+    { stage: "Bureau cleared", count: bureauCleared, color: "var(--color-chart-5)" },
+    { stage: "AI approved", count: stats.approved, color: "var(--color-success)" },
+    { stage: "Disbursed", count: Math.round(stats.approved * 0.94), color: "var(--color-success)" },
+  ];
+}
 
 function rangeToDate(r: string): string | undefined {
   const now = new Date();
@@ -103,7 +100,7 @@ function Dashboard() {
     Promise.all([
       getApplications().then(setApplications),
       getDashboardStats(from).then(setStats),
-      (from ? getDashboardTat(from) : Promise.resolve(tatData)).then(setTatDataFetched),
+      (from ? getDashboardTat(from) : Promise.resolve([])).then(setTatDataFetched),
     ]).finally(() => setLoading(false));
   }, [range]);
 
@@ -323,84 +320,42 @@ function Dashboard() {
           </ul>
         </SectionCard>
 
-        {/* LTV vs dealer scatter */}
-        <SectionCard title="LTV vs Dealer Performance" description="Risk concentration by source (last 30 days)">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 8, right: 16, left: -8, bottom: 4 }}>
-                <XAxis
-                  dataKey="volume"
-                  type="number"
-                  name="Volume"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-                  label={{
-                    value: "Application Volume",
-                    position: "insideBottom",
-                    offset: -2,
-                    fontSize: 11,
-                    fill: "var(--color-muted-foreground)",
-                  }}
-                />
-                <YAxis
-                  dataKey="ltv"
-                  type="number"
-                  name="LTV"
-                  domain={[50, 95]}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-                  unit="%"
-                />
-                <ZAxis dataKey="volume" range={[80, 400]} />
-                <ReferenceLine
-                  y={75}
-                  stroke="var(--color-success)"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: "Target Max 75%",
-                    position: "insideTopRight",
-                    fill: "var(--color-success)",
-                    fontSize: 11,
-                  }}
-                />
-                <Tooltip
-                  cursor={false}
-                  contentStyle={{
-                    background: "oklch(0.235 0.026 264)",
-                    border: "1px solid oklch(0.35 0.02 264)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  itemStyle={{ color: "oklch(0.965 0.006 248)" }}
-                  labelStyle={{ color: "oklch(0.965 0.006 248)" }}
-                  formatter={(value: number, name: string) => {
-                    if (name === "LTV") return [`${value}%`, "LTV"];
-                    return [value, name];
-                  }}
-                  labelFormatter={(_, payload) => {
-                    const item = payload?.[0]?.payload;
-                    return item?.dealer ?? "";
-                  }}
-                />
-                <Scatter
-                  data={dealerLtv.filter((d) => d.risk === "high")}
-                  fill="var(--color-destructive)"
-                  isAnimationActive={false}
-                />
-                <Scatter
-                  data={dealerLtv.filter((d) => d.risk === "med")}
-                  fill="var(--color-warning)"
-                  isAnimationActive={false}
-                />
-                <Scatter
-                  data={dealerLtv.filter((d) => d.risk === "low")}
-                  fill="var(--color-success)"
-                  isAnimationActive={false}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
+        {/* Application funnel */}
+        <SectionCard title="Application Funnel" description="Pipeline conversion (this month)">
+          <div className="space-y-3">
+            {buildFunnel(stats).map((step, i, arr) => {
+              const maxCount = arr[0]?.count ?? 1;
+              const widthPct = maxCount > 0 ? (step.count / maxCount) * 100 : 0;
+              const prevCount = i > 0 ? (arr[i - 1]?.count ?? step.count) : step.count;
+              const dropPct = prevCount > 0 ? ((prevCount - step.count) / prevCount) * 100 : 0;
+              return (
+                <div key={step.stage}>
+                  <div className="mb-1 flex items-baseline justify-between text-sm">
+                    <span className="font-medium">{step.stage}</span>
+                    <span className="tabular text-muted-foreground">
+                      <span className="mr-1.5 font-semibold text-foreground">
+                        {step.count.toLocaleString()}
+                      </span>
+                      {i > 0 && (
+                        <span className="text-xs text-destructive/80">
+                          -{dropPct.toFixed(1)}%
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="h-7 w-full rounded bg-muted/40">
+                    <div
+                      className="h-full rounded transition-all"
+                      style={{
+                        width: `${Math.max(widthPct, 2)}%`,
+                        background: step.color,
+                        opacity: 0.85,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </SectionCard>
       </div>
