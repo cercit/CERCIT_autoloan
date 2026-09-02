@@ -686,3 +686,72 @@ export const currentUser = {
   role: "Credit Officer",
   initials: "RM",
 };
+
+export type BureauReport = {
+  score: number;
+  activeAccounts: number;
+  closedAccounts: number;
+  totalExposure: number;
+  overdueAccounts: number;
+  writeoffs: boolean;
+  settlements: boolean;
+  suitsFiled: boolean;
+  oldestAccountAge: string;
+  dpdHistory: {
+    account: string;
+    months: string[];
+  }[];
+  enquiries: {
+    last3Months: number;
+    last6Months: number;
+    last12Months: number;
+  };
+};
+
+export const mockBureauReport: BureauReport = {
+  score: 782,
+  activeAccounts: 4,
+  closedAccounts: 2,
+  totalExposure: 1895000,
+  overdueAccounts: 0,
+  writeoffs: false,
+  settlements: false,
+  suitsFiled: false,
+  oldestAccountAge: "9 yr 4 mo",
+  dpdHistory: [
+    { account: "HDFC Home Loan", months: ["0","0","0","0","0","0","0","0","0","0","0","0"] },
+    { account: "Axis Credit Card", months: ["0","0","0","0","0","0","0","0","0","0","0","0"] },
+    { account: "SBI Auto Loan (closed)", months: ["0","0","0","0","0","0","0","0","0","30","0","0"] },
+  ],
+  enquiries: {
+    last3Months: 3,
+    last6Months: 5,
+    last12Months: 8,
+  },
+};
+
+export type BankStatementSummary = {
+  avgMonthlyBalance: number;
+  salaryCreditCount: number;
+  avgSalaryAmount: number;
+  emiDebitCount: number;
+  emiDebitTotal: number;
+  cashDeposits: number;
+  chequeBounceInward: number;
+  chequeBounceOutward: number;
+  minBalanceBreaches: number;
+  months: number;
+};
+
+export const mockBankStatementSummary: BankStatementSummary = {
+  avgMonthlyBalance: 142300,
+  salaryCreditCount: 6,
+  avgSalaryAmount: 83450,
+  emiDebitCount: 12,
+  emiDebitTotal: 162000,
+  cashDeposits: 25000,
+  chequeBounceInward: 0,
+  chequeBounceOutward: 1,
+  minBalanceBreaches: 0,
+  months: 6,
+};

@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getDocuments, uploadDocument } from "@/lib/api";
+import { DocumentPreview } from "@/components/document-preview";
 import type { Document } from "@/lib/api";
 
 const docTypes = [
@@ -27,6 +28,7 @@ export function DocumentList({ applicationId }: { applicationId: string }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedType, setSelectedType] = useState("OTHER");
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -46,16 +48,16 @@ export function DocumentList({ applicationId }: { applicationId: string }) {
     const tick = setInterval(() => {
       setUploadProgress((prev) => (prev < 90 ? prev + 15 : prev));
     }, 200);
-    const ok = await uploadDocument(applicationId, file, selectedType);
+    const result = await uploadDocument(applicationId, file, selectedType);
     clearInterval(tick);
     setUploadProgress(100);
     setUploading(false);
-    if (ok) {
+    if (!result.error) {
       setMessage("Uploaded: " + file.name);
       const updated = await getDocuments(applicationId);
       setDocs(updated);
     } else {
-      setMessage("Upload failed — please try again.");
+      setMessage("Upload failed: " + (result.error ?? "please try again."));
     }
     e.target.value = "";
   }
@@ -115,7 +117,11 @@ export function DocumentList({ applicationId }: { applicationId: string }) {
           <ul className="divide-y divide-border">
             {docs.map((doc) => (
               <li key={doc.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="flex items-center gap-2 min-w-0">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 min-w-0 text-left hover:underline"
+                  onClick={() => setPreviewDoc(doc)}
+                >
                   <FileText className="size-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0">
                     <p className="text-sm truncate font-medium">{doc.fileName}</p>
@@ -125,12 +131,18 @@ export function DocumentList({ applicationId }: { applicationId: string }) {
                       <span>{doc.uploadedAt}</span>
                     </div>
                   </div>
-                </div>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </div>
+      <DocumentPreview
+        open={previewDoc !== null}
+        onOpenChange={(open) => { if (!open) setPreviewDoc(null); }}
+        fileName={previewDoc?.fileName ?? ""}
+        storagePath={previewDoc?.url ?? ""}
+      />
     </SectionCard>
   );
 }

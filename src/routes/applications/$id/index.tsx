@@ -5,7 +5,13 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
 import { DocumentList } from "@/components/document-list";
+import { DocumentUpload } from "@/components/document-upload";
 import { OfficerNotes } from "@/components/officer-notes";
+import { BureauReport } from "@/components/bureau-report";
+import { ExtractionResult } from "@/components/extraction-result";
+import { getBureauReport } from "@/lib/api";
+import type { BureauReport as BureauReportType } from "@/lib/mock-data";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApplication } from "@/lib/api";
@@ -33,6 +39,11 @@ export const Route = createFileRoute("/applications/$id/")({
 function ApplicationDetail() {
   const { id } = Route.useParams();
   const [app, setApp] = useState<Application | null>(null);
+  const [bureauData, setBureauData] = useState<BureauReportType | null>(null);
+
+  useEffect(() => {
+    getBureauReport(id).then(setBureauData);
+  }, [id]);
 
   useEffect(() => {
     getApplication(id).then((result) => setApp(result ?? null));
@@ -67,9 +78,32 @@ function ApplicationDetail() {
         </Button>
       }
     >
-      <CopilotReview app={app} />
-      <DocumentList applicationId={app.id} />
-      <OfficerNotes applicationId={app.id} />
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="extracted">Extracted Data</TabsTrigger>
+          <TabsTrigger value="bureau">Bureau</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+          <CopilotReview app={app} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          <DocumentList applicationId={app.id} />
+          <DocumentUpload applicationId={app.id} onUpload={() => {}} />
+          <OfficerNotes applicationId={app.id} />
+        </TabsContent>
+
+        <TabsContent value="extracted">
+          <ExtractionResult />
+        </TabsContent>
+
+        <TabsContent value="bureau">
+          {bureauData ? <BureauReport data={bureauData} /> : <Skeleton className="h-64 w-full" />}
+        </TabsContent>
+      </Tabs>
     </AppShell>
   );
 }
