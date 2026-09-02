@@ -63,9 +63,11 @@ function LetterFooter({ showGrievance }: { showGrievance?: boolean }) {
 }
 
 export function LetterLayout({
+  id,
   children,
   showGrievance,
 }: {
+  id?: string;
   children: ReactNode;
   showGrievance?: boolean;
 }) {
@@ -90,6 +92,7 @@ export function LetterLayout({
         }
       `}</style>
       <article
+        id={id}
         className="letter-page mx-auto flex min-h-[297mm] w-full max-w-[210mm] flex-col bg-white p-[15mm_20mm] text-[11px] leading-[1.6] text-slate-800 shadow-lg"
         style={{ fontFamily: "'Inter', 'Noto Sans', sans-serif" }}
       >

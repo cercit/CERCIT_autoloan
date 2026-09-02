@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -35,7 +36,7 @@ function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background px-4 py-10">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 via-background to-slate-100 px-4 py-10">
       <div className="flex justify-end">
         <ThemeToggle />
       </div>
@@ -48,18 +49,18 @@ function Login() {
             </span>
             <h1 className="mt-4 text-2xl font-semibold tracking-tight">cercit</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Credit Evaluation and Risk Compliance Intelligence Tool
+              Credit Appraisal System — Vehicle Finance Intelligence
             </p>
           </div>
 
-          <form onSubmit={onSubmit} className="panel space-y-4 p-6">
+          <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 autoComplete="username"
-                defaultValue="rajeev.menon@cercit.in"
+                placeholder="name@company.com"
               />
             </div>
             <div className="space-y-1.5">
@@ -68,7 +69,7 @@ function Login() {
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                defaultValue="demo-password"
+                placeholder="Enter any password"
               />
             </div>
             <Button type="submit" className="w-full">
@@ -83,7 +84,7 @@ function Login() {
 
           <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5" />
-            Powered by cercit v1.0
+            Demo mode — any credentials accepted · cercit v1.0
           </p>
         </div>
       </div>

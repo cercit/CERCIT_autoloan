@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getApplications } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Application } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -129,7 +130,22 @@ function Applications() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((app, i) => (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`skel-${i}`} className="border-t border-border">
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-12" /></td>
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-14" /></td>
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-4 py-2.5"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-4 py-2.5 text-right" />
+                    </tr>
+                ))
+              ) : (
+                rows.map((app, i) => (
                 <tr
                   key={app.id}
                   className={cn("border-t border-border", i % 2 === 1 && "bg-surface-subtle/60")}
@@ -182,8 +198,9 @@ function Applications() {
                     </Button>
                   </td>
                 </tr>
-              ))}
-              {rows.length === 0 && (
+                ))
+              )}
+              {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                     No applications match those filters.

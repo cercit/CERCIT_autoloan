@@ -55,7 +55,7 @@ const recTone = {
 function Collapsible({
   title,
   children,
-  defaultOpen = true,
+  defaultOpen = false,
   right,
 }: {
   title: string;
@@ -221,7 +221,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </section>
 
-          <Collapsible title="Customer Profile">
+          <Collapsible title="Customer Profile" defaultOpen={true}>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <LabelValue label="Name" value={app.name} />
               <LabelValue label="Age" value={`${app.age} years`} />

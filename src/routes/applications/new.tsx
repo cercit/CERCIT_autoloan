@@ -89,16 +89,19 @@ function Field({
   label,
   children,
   hint,
+  error,
 }: {
   label: string;
   children: React.ReactNode;
   hint?: string;
+  error?: string;
 }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      {error && <p className="text-destructive text-xs mt-1">{error}</p>}
     </div>
   );
 }
@@ -144,6 +147,9 @@ function NewApplication() {
   ]);
   const [uploaded, setUploaded] = useState<string[]>(["PAN Card", "Aadhaar Card"]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
   const emi = useMemo(
     () => emiFor(Number(loanAmount) || 0, 8.99, Number(tenure) || 60),
     [loanAmount, tenure],
@@ -170,8 +176,113 @@ function NewApplication() {
       },
     ]);
 
+
   const update = (id: number, key: keyof ObligationRow, value: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+
+  // Validation helpers
+  const validateField = (name: string, value: string): string | undefined => {
+    const v = value.trim();
+    switch (name) {
+      case "firstName":
+      case "middleName":
+      case "lastName":
+        return v.length < 2 ? "Name must be at least 2 characters" : undefined;
+      case "email":
+        return v.includes("@") ? undefined : "Invalid email format";
+      case "mobile":
+        return /^\d{10}$/.test(v) ? undefined : "Mobile must be 10 digits";
+      case "dob":
+        return v ? undefined : "Date of birth required";
+      case "pan":
+        return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v) ? undefined : "Invalid PAN format (ABCDE1234F)";
+      case "employer":
+        return v ? undefined : "Select an employer";
+      case "city":
+        return v ? undefined : "City required";
+      case "stateCode":
+        return v ? undefined : "State required";
+      case "netSalary":
+        return Number(v) > 0 ? undefined : "Net salary must be > 0";
+      case "loanAmount":
+        return Number(v) > 0 ? undefined : "Loan amount must be > 0";
+      case "tenure":
+        return Number(v) >= 12 && Number(v) <= 84 ? undefined : "Tenure must be 12-84 months";
+      case "make":
+        return v ? undefined : "Select vehicle make";
+      case "model":
+        return v ? undefined : "Select vehicle model";
+      case "exShowroom":
+        return Number(v) > 0 ? undefined : "Ex-showroom price must be > 0";
+      case "onRoad":
+        return Number(v) >= Number(exShowroom || 0) ? undefined : "On-road must be >= ex-showroom";
+      case "cibilScore":
+        const cibil = Number(v);
+        return cibil >= 300 && cibil <= 900 ? undefined : "CIBIL must be 300-900";
+      default:
+        return undefined;
+    }
+  };
+
+  const validateStep = (stepNum: number): boolean => {
+    const newErrors: Record<string, string> = {};
+    let hasErrors = false;
+
+    if (stepNum === 0) {
+      // Step 1: Customer Details
+      const fields = { firstName, middleName, lastName, email, mobile, dob, pan, city, selectedState };
+      for (const [name, value] of Object.entries(fields)) {
+        const err = validateField(name, value);
+        if (err) { newErrors[name] = err; hasErrors = true; }
+      }
+    } else if (stepNum === 1) {
+      // Step 2: Employment
+      const fields = { employer, city, selectedState, netSalary };
+      for (const [name, value] of Object.entries(fields)) {
+        const err = validateField(name, value);
+        if (err) { newErrors[name] = err; hasErrors = true; }
+      }
+    } else if (stepNum === 2) {
+      // Step 3: Vehicle & Deal
+      const fields = { make, loanAmount, tenure };
+      for (const [name, value] of Object.entries(fields)) {
+        const err = validateField(name, value);
+        if (err) { newErrors[name] = err; hasErrors = true; }
+      }
+      // Check onRoad >= exShowroom
+      if (Number(onRoad) < Number(exShowroom || 0)) {
+        newErrors.onRoad = "On-road must be >= ex-showroom";
+        hasErrors = true;
+      }
+    } else if (stepNum === 3) {
+      // Step 4: Obligations - optional if noObligations
+      if (!noObligations && rows.length > 0) {
+        for (const row of rows) {
+          if (!row.lender) { newErrors[`obligation-${row.id}-lender`] = "Lender required"; hasErrors = true; }
+          if (!row.emi || Number(row.emi) <= 0) { newErrors[`obligation-${row.id}-emi`] = "EMI required"; hasErrors = true; }
+        }
+      }
+    } else if (stepNum === 4) {
+      // Step 5: Documents - check required docs uploaded
+      for (const doc of docSlots) {
+        if (doc.required && !uploaded.includes(doc.name)) {
+          newErrors[`doc-${doc.name}`] = `${doc.name} is required`;
+          hasErrors = true;
+        }
+      }
+    }
+
+    setErrors(newErrors);
+    return !hasErrors;
+  };
+
+  const handleFieldChange = (name: string, value: string) => {
+    // Clear error when user types
+    if (errors[name]) {
+      setErrors((prev) => { const next = { ...prev }; delete next[name]; return next; });
+    }
+    // Also update the appropriate state - this is a simplified approach
+  };
 
   return (
     <AppShell title="New Application" subtitle="Car loan — salaried applicant">

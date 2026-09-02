@@ -17,12 +17,10 @@ import {
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, ScoreText, StatusPill } from "@/components/status";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getApplications, getDashboardStats } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
-import {
-  decisionDistribution,
-  tatData,
-} from "@/lib/mock-data";
+import { tatData } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -50,10 +48,13 @@ const donutColors = ["var(--color-success)", "var(--color-warning)", "var(--colo
 function Dashboard() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getApplications().then(setApplications);
-    getDashboardStats().then(setStats);
+    Promise.all([
+      getApplications().then(setApplications),
+      getDashboardStats().then(setStats),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const statCards = [
@@ -63,7 +64,7 @@ function Dashboard() {
     { label: "Rejected", value: stats.rejected },
   ];
 
-  const total = decisionDistribution.reduce((sum, d) => sum + d.value, 0);
+  const total = stats.approved + stats.pending + stats.rejected;
 
   return (
     <AppShell
@@ -78,15 +79,24 @@ function Dashboard() {
       }
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {statCards.map((stat) => (
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={`skel-${i}`} className="panel p-4 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-8 w-12" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ))
+        ) : (
+        statCards.map((stat) => (
           <div key={stat.label} className="panel p-4">
             <p className="text-xs text-muted-foreground">{stat.label}</p>
             <div className="mt-2">
               <span className="text-3xl font-semibold tabular">{stat.value}</span>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">from Supabase</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">this month</p>
           </div>
-        ))}
+        )))}
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]">
@@ -167,7 +177,11 @@ function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={decisionDistribution}
+                  data={[
+                    { name: "Auto-Approved", key: "approved", value: stats.approved },
+                    { name: "Manual Review", key: "pending", value: stats.pending },
+                    { name: "Rejected", key: "rejected", value: stats.rejected },
+                  ]}
                   dataKey="value"
                   innerRadius="62%"
                   outerRadius="90%"
@@ -175,7 +189,11 @@ function Dashboard() {
                   stroke="none"
                   isAnimationActive={false}
                 >
-                  {decisionDistribution.map((entry, i) => (
+                  {[
+                    { key: "approved", value: stats.approved },
+                    { key: "pending", value: stats.pending },
+                    { key: "rejected", value: stats.rejected },
+                  ].map((entry, i) => (
                     <Cell key={entry.key} fill={donutColors[i]} />
                   ))}
                 </Pie>
@@ -196,7 +214,11 @@ function Dashboard() {
             </div>
           </div>
           <ul className="mt-3 space-y-2">
-            {decisionDistribution.map((d, i) => (
+            {[
+              { name: "Auto-Approved", key: "approved", value: stats.approved },
+              { name: "Manual Review", key: "pending", value: stats.pending },
+              { name: "Rejected", key: "rejected", value: stats.rejected },
+            ].map((d, i) => (
               <li key={d.key} className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <span
@@ -206,7 +228,7 @@ function Dashboard() {
                   {d.name}
                 </span>
                 <span className="tabular text-muted-foreground">
-                  {d.value} · {((d.value / total) * 100).toFixed(1)}%
+                  {d.value} · {total > 0 ? ((d.value / total) * 100).toFixed(1) : "0.0"}%
                 </span>
               </li>
             ))}
@@ -221,7 +243,7 @@ function Dashboard() {
       >
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={tatData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <BarChart data={tatDataFetched.length > 0 ? tatDataFetched : tatData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <XAxis
                 dataKey="week"
                 tickLine={false}

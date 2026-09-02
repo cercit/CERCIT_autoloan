@@ -19,8 +19,8 @@ import { Route as UsersRouteImport } from './routes/users'
 import { Route as ApplicationsIndexRouteImport } from './routes/applications/index'
 import { Route as ApplicationsNewRouteImport } from './routes/applications/new'
 import { Route as ApplicationsIdIndexRouteImport } from './routes/applications/$id/index'
-import { Route as ApplicationsIdManagerReviewRouteImport } from './routes/applications/$id/manager-review'
 import { Route as ApplicationsIdApprovalRouteImport } from './routes/applications/$id/approval'
+import { Route as ApplicationsIdManagerReviewRouteImport } from './routes/applications/$id/manager-review'
 import { Route as ApplicationsIdSanctionRouteImport } from './routes/applications/$id/sanction'
 
 const IndexRoute = IndexRouteImport.update({
@@ -73,17 +73,17 @@ const ApplicationsIdIndexRoute = ApplicationsIdIndexRouteImport.update({
   path: '/applications/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApplicationsIdApprovalRoute = ApplicationsIdApprovalRouteImport.update({
+  id: '/applications/$id/approval',
+  path: '/applications/$id/approval',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApplicationsIdManagerReviewRoute =
   ApplicationsIdManagerReviewRouteImport.update({
     id: '/applications/$id/manager-review',
     path: '/applications/$id/manager-review',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApplicationsIdApprovalRoute = ApplicationsIdApprovalRouteImport.update({
-  id: '/applications/$id/approval',
-  path: '/applications/$id/approval',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApplicationsIdSanctionRoute = ApplicationsIdSanctionRouteImport.update({
   id: '/applications/$id/sanction',
   path: '/applications/$id/sanction',
@@ -115,6 +115,7 @@ export interface FileRoutesByTo {
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications': typeof ApplicationsIndexRoute
+  '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
   '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
   '/applications/$id': typeof ApplicationsIdIndexRoute

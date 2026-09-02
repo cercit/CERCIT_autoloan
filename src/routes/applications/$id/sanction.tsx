@@ -11,6 +11,7 @@ import {
 } from "@/components/letter-layout";
 import { Button } from "@/components/ui/button";
 import { emiFor, inr } from "@/lib/format";
+import { downloadLetterPdf } from "@/lib/pdf";
 import { getApplication } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 
@@ -99,7 +100,7 @@ function SanctionLetter() {
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="size-4" /> Print
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => downloadLetterPdf("sanction-letter", `sanction_${app.id}_${new Date().toISOString().split("T")[0]}.pdf`)}>
             <Download className="size-4" /> PDF
           </Button>
           <Button>
@@ -108,7 +109,7 @@ function SanctionLetter() {
         </div>
       }
     >
-      <LetterLayout showGrievance>
+      <LetterLayout id="sanction-letter" showGrievance>
         {/* Reference and date */}
         <div className="flex justify-between text-[10.5px]">
           <div>

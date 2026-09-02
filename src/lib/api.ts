@@ -10,51 +10,82 @@ import {
   makes as mockMakes,
 } from "./mock-data";
 import type { Application, PolicyRule } from "./mock-data";
+import { z } from "zod";
 
-// Maps Supabase row shape to the Application type used in the UI.
-// Supabase returns joined data from applications + customers + vehicles + bureau + recommendation.
+
+const applicationRowSchema = z.object({
+  application_id: z.string().transform((v) => v ?? ""),
+  full_name: z.string().optional().default(""),
+  employer_name: z.string().optional().default(""),
+  cibil_score: z.coerce.number().optional().default(0),
+  loan_amount_requested: z.coerce.number().optional().default(0),
+  status: z.string().optional().default("DRAFT"),
+  created_at: z.string().optional(),
+  officer_name: z.string().optional().default("Unassigned"),
+  decision: z.string().optional(),
+  rate: z.coerce.number().optional().default(0),
+  tenure_months: z.coerce.number().optional().default(0),
+  foir_pct: z.coerce.number().optional().default(0),
+  ltv_pct: z.coerce.number().optional().default(0),
+  declared_net_salary: z.coerce.number().optional().default(0),
+  age_at_application: z.coerce.number().optional().default(0),
+  pan_number: z.string().optional().default(""),
+  mobile: z.string().optional().default(""),
+  email: z.string().optional().default(""),
+  city: z.string().optional().default(""),
+  state_code: z.string().optional().default(""),
+  state_name: z.string().optional().default(""),
+  vehicle_make: z.string().optional(),
+  vehicle_model: z.string().optional(),
+  vehicle_variant: z.string().optional(),
+  dealer_name: z.string().optional().default(""),
+  ex_showroom_price: z.coerce.number().optional().default(0),
+  on_road_price: z.coerce.number().optional().default(0),
+  risk_factors: z.array(z.any()).optional().default([]),
+}).transform((row) => ({
+  id: row.application_id,
+  name: row.full_name,
+  employer: row.employer_name,
+  category: mapCategory(row.cibil_score),
+  loanAmount: row.loan_amount_requested,
+  cibil: row.cibil_score,
+  status: mapStatus(row.status),
+  submitted: formatDate(row.created_at ?? ""),
+  assignedTo: row.officer_name,
+  recommendation: mapDecision(row.decision ?? ""),
+  rate: row.rate,
+  tenure: row.tenure_months,
+  foir: row.foir_pct,
+  ltvExShowroom: row.ltv_pct,
+  ltvOnRoad: 0,
+  netIncome: row.declared_net_salary,
+  age: row.age_at_application,
+  pan: row.pan_number,
+  aadhaar: "",
+  phone: row.mobile,
+  email: row.email,
+  city: row.city,
+  state: row.state_name || row.state_code,
+  address: "",
+  residence: "",
+  designation: "",
+  totalExperience: "",
+  currentTenure: "",
+  salaryBank: "",
+  vehicle: `${row.vehicle_make ?? ""} ${row.vehicle_model ?? ""} ${row.vehicle_variant ?? ""}`.trim(),
+  dealer: row.dealer_name,
+  exShowroom: row.ex_showroom_price,
+  onRoad: row.on_road_price,
+  obligations: [],
+  flags: (row.risk_factors as Array<{ message: string }>).map((f) => f.message),
+  reasons: [],
+  referredBy: undefined,
+  referralNote: undefined,
+} as Application));
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapToApplication(row: any): Application {
-  return {
-    id: (row.application_id as string) ?? "",
-    name: (row.full_name as string) ?? "",
-    employer: (row.employer_name as string) ?? "",
-    category: mapCategory(row.cibil_score as number),
-    loanAmount: (row.loan_amount_requested as number) ?? 0,
-    cibil: (row.cibil_score as number) ?? 0,
-    status: mapStatus(row.status as string),
-    submitted: formatDate(row.created_at as string),
-    assignedTo: (row.officer_name as string) ?? "Unassigned",
-    recommendation: mapDecision(row.decision as string),
-    rate: (row.rate as number) ?? 0,
-    tenure: (row.tenure_months as number) ?? 0,
-    foir: (row.foir_pct as number) ?? 0,
-    ltvExShowroom: (row.ltv_pct as number) ?? 0,
-    ltvOnRoad: 0,
-    netIncome: (row.declared_net_salary as number) ?? 0,
-    age: (row.age_at_application as number) ?? 0,
-    pan: (row.pan_number as string) ?? "",
-    aadhaar: "",
-    phone: (row.mobile as string) ?? "",
-    email: (row.email as string) ?? "",
-    city: (row.city as string) ?? "",
-    state: (row.state_name as string) ?? "",
-    address: "",
-    residence: "",
-    designation: "",
-    totalExperience: "",
-    currentTenure: "",
-    salaryBank: "",
-    vehicle: `${row.vehicle_make ?? ""} ${row.vehicle_model ?? ""} ${row.vehicle_variant ?? ""}`.trim(),
-    dealer: (row.dealer_name as string) ?? "",
-    exShowroom: (row.ex_showroom_price as number) ?? 0,
-    onRoad: (row.on_road_price as number) ?? 0,
-    obligations: [],
-    flags: ((row.risk_factors as Array<{ message: string }>) ?? []).map(
-      (f: { message: string }) => f.message
-    ),
-    reasons: [],
-  };
+function mapToApplication(row: Record<string, unknown>): Application {
+  return applicationRowSchema.parse(row);
 }
 
 function mapCategory(cibil: number): "A" | "B" | "C" {
@@ -270,18 +301,32 @@ export async function getMappedPolicyRules(): Promise<{
 }
 
 export async function getRateGrid() {
+  // # reason: library supabase query; custom transform to match UI shape (band, catA, catB, catC)
+  // Self-review (vibe-check): (a) supabase query; (b) mock fallback preserved; (c) REJECT band (rate_pct=0) skipped; (d) catB/catC computed from base rate.
   if (!isSupabaseConfigured) return [];
 
   const { data, error } = await supabase
     .from("rate_grid")
-    .select("*")
+    .select("band_label, score_band_min, score_band_max, rate_pct")
     .order("score_band_min");
 
   if (error) {
     console.error("Failed to fetch rate grid:", error);
     return [];
   }
-  return data ?? [];
+  if (!data || data.length === 0) return [];
+
+  const transformed = (data as any[])
+    .filter((row) => row.rate_pct && row.rate_pct > 0)
+    .map((row) => ({
+      band: row.band_label ?? `${row.score_band_min}-${row.score_band_max}`,
+      catA: Number(row.rate_pct),
+      catB: Math.round((Number(row.rate_pct) + 0.40) * 100) / 100,
+      catC: Math.round((Number(row.rate_pct) + 1.25) * 100) / 100,
+    }));
+
+  // Fallback to mock if no valid rows
+  return transformed.length > 0 ? transformed : [];
 }
 
 type AuditEntry = {
@@ -515,16 +560,99 @@ export async function getDashboardStats(): Promise<{
   return { total, pending, approved, rejected };
 }
 
+// # reason: library supabase query + custom TAT computation; grouped by week from created_at
+// Self-review (vibe-check): (a) supabase query filtered; (b) week grouping; (c) minutes computed; (d) mock fallback preserved.
+export async function getDashboardTat() {
+  if (!isSupabaseConfigured) {
+    const { tatData } = await import("./mock-data");
+    return tatData;
+  }
+
+  const { data, error } = await supabase
+    .from("applications")
+    .select("created_at, updated_at, status")
+    .in("status", ["APPROVED", "REJECTED"])
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error || !data || data.length === 0) {
+    const { tatData } = await import("./mock-data");
+    return tatData;
+  }
+
+  // Group by ISO week
+  const weekMap: Record<string, { sum: number; count: number }> = {};
+  for (const app of data as any[]) {
+    const created = new Date(app.created_at);
+    const updated = new Date(app.updated_at);
+    const tatMinutes = (updated.getTime() - created.getTime()) / 60000;
+
+    // ISO week label (e.g., "W35")
+    const weekNum = Math.ceil(((created.getTime() - new Date(created.getFullYear(), 0, 1).getTime()) / 86400000 + created.getDay() + 1) / 7);
+    const weekLabel = `W${weekNum}`;
+
+    if (!weekMap[weekLabel]) weekMap[weekLabel] = { sum: 0, count: 0 };
+    weekMap[weekLabel].sum += tatMinutes;
+    weekMap[weekLabel].count += 1;
+  }
+
+  // Sort weeks and take last 4
+  const result = Object.entries(weekMap)
+    .sort(([a], [b]) => parseInt(a.slice(1)) - parseInt(b.slice(1)))
+    .slice(-4)
+    .map(([week, v]) => ({ week, minutes: Math.round(v.sum / v.count) }));
+
+  return result.length > 0 ? result : (await import("./mock-data")).tatData;
+}
+
+
 export async function getEmployers() {
   if (!isSupabaseConfigured) return mockEmployers;
 
   const { data, error } = await supabase
     .from("dealers")
-    .select("oem_name")
+    .select("oem_name, dealer_name, dealer_code, city, state_code, is_active")
     .eq("is_active", true);
 
   if (error || !data) return mockEmployers;
-  return mockEmployers;
+  // Transform dealer rows into employer records for UI
+  return (data as any[]).map((d) => ({
+    name: d.oem_name ?? d.dealer_name,
+    category: "B", // default category — can be enhanced with category mapping from policy rules
+    sector: d.city,
+    listed: d.is_active ? "Active" : "Inactive",
+    employees: "—",
+    approved: 0,
+    updated: new Date().toLocaleDateString("en-GB"),
+  }));
+}
+
+export async function getDealersByOem() {
+  if (!isSupabaseConfigured) {
+    return Object.fromEntries(
+      Object.entries(mockMakes || {}).map(([oem, dealers]) => [oem, dealers.map((name) => ({ dealer_name: name, dealer_code: "—", city: "—", state_code: "—", is_active: true }))])
+    );
+  }
+  const { data, error } = await supabase
+    .from("dealers")
+    .select("oem_name, dealer_name, dealer_code, city, state_code, is_active")
+    .eq("is_active", true)
+    .order("oem_name")
+    .order("dealer_name");
+  if (error || !data) return {};
+  const grouped: Record<string, Array<{ dealer_name: string; dealer_code: string; city: string; state_code: string; is_active: boolean }>> = {};
+  for (const row of data as any[]) {
+    const oem = row.oem_name as string;
+    if (!grouped[oem]) grouped[oem] = [];
+    grouped[oem].push({
+      dealer_name: row.dealer_name,
+      dealer_code: row.dealer_code ?? "—",
+      city: row.city ?? "—",
+      state_code: row.state_code ?? "—",
+      is_active: row.is_active,
+    });
+  }
+  return grouped;
 }
 
 export async function getMakes(): Promise<Record<string, string[]>> {

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getApplication } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 
@@ -37,8 +38,17 @@ function ApplicationDetail() {
 
   if (!app) {
     return (
-      <AppShell title="Application Review" subtitle="Loading...">
-        <div className="py-20 text-center text-muted-foreground">Loading application...</div>
+      <AppShell title="Application Review" subtitle="Loading application...">
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <Skeleton className="h-24 w-64 rounded-xl" />
+            <Skeleton className="h-24 w-48 rounded-xl" />
+          </div>
+          <Skeleton className="h-8 w-full max-w-md" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-32 w-full rounded-lg" />
+        </div>
       </AppShell>
     );
   }

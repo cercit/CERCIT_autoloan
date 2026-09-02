@@ -1,6 +1,6 @@
 # cercit build progress
 
-Last updated: 31 Aug 2026
+Last updated: 02 Sep 2026
 
 ## Status summary
 
@@ -10,12 +10,13 @@ Last updated: 31 Aug 2026
 | Database | Live | 22 tables on Supabase, Mumbai region |
 | Backend functions | Live | 9 RPCs, policy engine, assessment pipeline, officer decision |
 | Seed data | Live | 132 dealers, 12 OEMs, rate grid, 16 rules, 3 demo scenarios |
-| Frontend | Live | React + TanStack Router + shadcn/ui, 10 screens |
+| Frontend | Live | React + TanStack Router + shadcn/ui, 12 screens |
 | Supabase wiring | Live | Real data flowing, mock fallback retained |
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
 | Git | Pushed | cercit/CERCIT_autoloan (public), main branch |
 | Auth & roles | Not started | Supabase Auth, RLS, officer/manager roles |
 | Deploy | **Live** | GitHub Pages at cercit.github.io/CERCIT_autoloan/ |
+| Jira | Live | 6 epics, 16 stories at samsm.atlassian.net (SCRUM project) |
 | Security audit | Planned | Post-public-demo, 3 AI models |
 
 ---
@@ -86,7 +87,8 @@ React + Vite + TanStack Router + shadcn/ui + Tailwind CSS.
 | New application (5-step) | `/applications/new` | Supabase via `fn_submit_full_application` |
 | Application review | `/applications/:id` | Supabase (direct table queries) |
 | Manager review | `/applications/:id/manager-review` | Supabase |
-| Sanction letter | `/applications/:id/sanction` | Supabase |
+| In-principle approval | `/applications/:id/approval` | Supabase (RBI-compliant conditional letter) |
+| Sanction letter | `/applications/:id/sanction` | Supabase (RBI-compliant final letter with APR) |
 | Policy rules | `/policy-rules` | Supabase (policy_rules table) |
 | Audit log | `/audit-log` | Supabase (audit_events table) |
 | Rate grid | `/rate-grid` | Mock data (schema mismatch) |
@@ -95,7 +97,7 @@ React + Vite + TanStack Router + shadcn/ui + Tailwind CSS.
 
 Files in `src/lib/`:
 - `supabase.ts` — client init, reads env vars, warns if not configured
-- `api.ts` — wraps Supabase queries and RPCs, maps DB rows to UI types, falls back to mock data
+- `api.ts` — wraps Supabase queries and RPCs, zod schema validates + transforms DB rows to UI types, falls back to mock data
 
 ### What's fully wired to Supabase
 - Application queue with real applicant names, employers, CIBIL categories
@@ -166,15 +168,19 @@ cercit/CERCIT_autoloan (public, main branch)
 - [x] Dashboard live stats from Supabase
 - [x] Pre-load demo scenarios (APPROVE/REJECT/MAYBE)
 - [x] GitHub Pages deploy pipeline (SPA build + GitHub Actions)
+- [x] In-principle approval letter (conditional, revocable, per RBI FPC)
+- [x] Sanction letter rewrite (8 sections, APR via IRR, per RBI DLG 2025)
+- [x] Shared letter-layout component with A4 print CSS and letterhead
+- [x] Zod schema migration (replaced 28-field manual mapping in api.ts)
+- [x] Jira setup: 6 epics, 16 stories (SCRUM-6 through SCRUM-27)
 
 ### Phase 3 — build out
 - [ ] Fix fn_generate_recommendation rate_row bug
-- [ ] Sanction letter PDF generation
+- [ ] Letter PDF generation (approval + sanction)
 - [ ] Supabase Auth with officer/manager roles
 - [ ] RLS policies per role
 - [ ] Document upload via Supabase Storage
 - [ ] Deploy to Cloudflare Workers (SSR build already works, needs account setup)
-- [ ] Jira epics and stories
 - [ ] Figma wireframes
 
 ### Phase 4 — launch

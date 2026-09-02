@@ -5,6 +5,8 @@ import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { rateGrid } from "@/lib/mock-data";
+import { getRateGrid } from "@/lib/api";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/rate-grid")({
@@ -27,6 +29,26 @@ export const Route = createFileRoute("/rate-grid")({
 });
 
 function RateGridPage() {
+  const [gridData, setGridData] = useState(rateGrid);
+  useEffect(() => {
+    getRateGrid().then((rows) => {
+      if (rows && rows.length > 0) {
+        setGridData(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rows.map((r: any) => {
+            const base = Number(r.rate_pct ?? 0);
+            return {
+              band: r.band_label ?? `${r.score_band_min}-${r.score_band_max}`,
+              catA: base,
+              catB: +(base + 0.4).toFixed(2),
+              catC: +(base + 1.25).toFixed(2),
+            };
+          })
+        );
+      }
+    }).catch(() => {});
+  }, []);
+
   return (
     <AppShell
       title="Rate Grid"
@@ -49,7 +71,7 @@ function RateGridPage() {
               </tr>
             </thead>
             <tbody>
-              {rateGrid.map((row, i) => (
+              {gridData.map((row, i) => (
                 <tr
                   key={row.band}
                   className={cn("border-t border-border", i % 2 === 1 && "bg-surface-subtle/60")}
@@ -70,7 +92,7 @@ function RateGridPage() {
           <SectionCard key={cat}>
             <div className="flex items-center gap-2">
               <CategoryBadge category={cat} />
-              <h3 className="text-sm font-semibold">Category {cat} loading</h3>
+              <h3 className="text-sm font-semibold">Category {cat}</h3>
             </div>
             <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
               <li>Max LTV: {cat === "A" ? "120%" : cat === "B" ? "110%" : "90%"}</li>
