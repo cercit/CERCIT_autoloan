@@ -196,7 +196,17 @@ export function AppShell({
             />
           </div>
 
-          <div className="flex flex-1 items-center justify-end gap-1 sm:flex-none">
+          <div className="hidden flex-1 items-center justify-center md:flex">
+            <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/8 px-3.5 py-1.5 text-xs font-semibold text-success">
+              <span className="relative flex size-2.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-40" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-success" />
+              </span>
+              Automated Underwriting: Active
+            </span>
+          </div>
+
+          <div className="flex items-center justify-end gap-1 sm:flex-none">
             <ThemeToggle />
             <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
               <Bell className="size-4" />
