@@ -153,14 +153,17 @@ export async function getBureauReport(applicationId: string): Promise<BureauRepo
     score: Number(data.score) || 0,
     activeAccounts: Number(data.active_accounts) || 0,
     closedAccounts: Number(data.closed_accounts) || 0,
-    totalExposure: Number(data.total_exposure) || 0,
     overdueAccounts: Number(data.overdue_accounts) || 0,
+    totalOutstanding: Number(data.total_outstanding) || 0,
+    totalExposure: Number(data.total_exposure) || 0,
+    enquiries90Days: Number(data.enquiries_90_days) || 0,
+    enquiries: data.enquiries ?? mockBureauReport.enquiries,
+    oldestAccountMonths: Number(data.oldest_account_months) || 0,
+    oldestAccountAge: String(data.oldest_account_age ?? "—"),
     writeoffs: Boolean(data.writeoffs),
     settlements: Boolean(data.settlements),
     suitsFiled: Boolean(data.suits_filed),
-    oldestAccountAge: String(data.oldest_account_age ?? "—"),
     dpdHistory: Array.isArray(data.dpd_history) ? data.dpd_history : mockBureauReport.dpdHistory,
-    enquiries: data.enquiries ?? mockBureauReport.enquiries,
   };
 }
 

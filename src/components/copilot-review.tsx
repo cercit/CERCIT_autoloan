@@ -46,6 +46,7 @@ import {
   type Application,
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { calculateIncome, calculateLTV } from "@/lib/engine";
 
 const recTone = {
   Approve: "success",
@@ -131,6 +132,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const variance =
     ((Math.max(...incomeSources.map((s) => s.amount)) - computedIncome) / computedIncome) * 100;
   const overrideNeeded = decision !== app.recommendation;
+  const incomeAssessment = calculateIncome(app);
+  const ltvAssessment = calculateLTV(app);
 
   return (
     <div className="space-y-4">
@@ -445,6 +448,78 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </Collapsible>
 
+          <Collapsible title="Income & Affordability (Engine)">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <LabelValue
+                label="Declared monthly income"
+                value={inr(incomeAssessment.declaredMonthlyIncome)}
+              />
+              <LabelValue
+                label="Verified monthly income"
+                value={inr(incomeAssessment.verifiedMonthlyIncome)}
+              />
+              <LabelValue
+                label="Income variance"
+                value={
+                  <span className={incomeAssessment.incomeVarianceFlag ? "text-destructive" : "text-success"}>
+                    {incomeAssessment.incomeVariancePct}%
+                    {incomeAssessment.incomeVarianceFlag && " — exceeds 10%"}
+                  </span>
+                }
+              />
+              <LabelValue label="Net monthly income" value={inr(incomeAssessment.netMonthlyIncome)} />
+              <LabelValue label="Existing EMI total" value={inr(incomeAssessment.existingEmiTotal)} />
+              <LabelValue label="Proposed EMI" value={inr(incomeAssessment.proposedEmi)} />
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between text-sm">
+                  <span className="font-medium">FOIR</span>
+                  <span
+                    className={cn(
+                      "font-semibold tabular",
+                      incomeAssessment.foir > 65
+                        ? "text-destructive"
+                        : incomeAssessment.foir > 50
+                          ? "text-warning"
+                          : "text-success",
+                    )}
+                  >
+                    {incomeAssessment.foir}%
+                  </span>
+                </div>
+                <MeterBar
+                  value={incomeAssessment.foir}
+                  max={80}
+                  threshold={50}
+                  tone={
+                    incomeAssessment.foir > 65
+                      ? "destructive"
+                      : incomeAssessment.foir > 50
+                        ? "warning"
+                        : "success"
+                  }
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Green &lt;50% · Amber 50-65% · Red &gt;65%
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <LabelValue label="DBR" value={`${incomeAssessment.dbr}%`} />
+                <LabelValue
+                  label="Net surplus after EMIs"
+                  value={
+                    <span className={incomeAssessment.netSurplus >= 0 ? "text-success" : "text-destructive"}>
+                      {inr(incomeAssessment.netSurplus)}
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+          </Collapsible>
+
           <Collapsible title="Vehicle & LTV">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <LabelValue label="Vehicle" value={app.vehicle} />
@@ -471,6 +546,64 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                   <span className="font-semibold tabular">{app.ltvOnRoad}%</span>
                 </div>
                 <MeterBar value={app.ltvOnRoad} max={150} threshold={100} tone="success" />
+              </div>
+            </div>
+          </Collapsible>
+
+          <Collapsible title="LTV Assessment (Engine)">
+            <div className="space-y-4">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between text-sm">
+                  <span>LTV on ex-showroom</span>
+                  <span
+                    className={cn(
+                      "font-semibold tabular",
+                      ltvAssessment.breached ? "text-destructive" : "text-success",
+                    )}
+                  >
+                    {ltvAssessment.ltvExShowroom}%
+                  </span>
+                </div>
+                <MeterBar
+                  value={ltvAssessment.ltvExShowroom}
+                  max={150}
+                  threshold={ltvAssessment.maxAllowedLtv}
+                  tone={ltvAssessment.breached ? "destructive" : "success"}
+                />
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex items-center justify-between text-sm">
+                  <span>LTV on on-road</span>
+                  <span className="font-semibold tabular">{ltvAssessment.ltvOnRoad}%</span>
+                </div>
+                <MeterBar
+                  value={ltvAssessment.ltvOnRoad}
+                  max={150}
+                  threshold={100}
+                  tone={ltvAssessment.ltvOnRoad > 100 ? "destructive" : "success"}
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <LabelValue
+                  label="Max allowed LTV"
+                  value={ltvAssessment.categoryLabel}
+                />
+                <LabelValue
+                  label="LTV check"
+                  value={
+                    ltvAssessment.breached ? (
+                      <span className="flex items-center gap-1.5 text-destructive">
+                        <X className="size-4" /> Breached
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-success">
+                        <Check className="size-4" /> Pass
+                      </span>
+                    )
+                  }
+                />
               </div>
             </div>
           </Collapsible>

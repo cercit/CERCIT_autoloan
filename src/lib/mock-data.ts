@@ -691,43 +691,38 @@ export type BureauReport = {
   score: number;
   activeAccounts: number;
   closedAccounts: number;
-  totalExposure: number;
   overdueAccounts: number;
+  totalOutstanding: number;
+  totalExposure: number;
+  enquiries90Days: number;
+  enquiries: { last3Months: number; last6Months: number; last12Months: number };
+  oldestAccountMonths: number;
+  oldestAccountAge: string;
   writeoffs: boolean;
   settlements: boolean;
   suitsFiled: boolean;
-  oldestAccountAge: string;
-  dpdHistory: {
-    account: string;
-    months: string[];
-  }[];
-  enquiries: {
-    last3Months: number;
-    last6Months: number;
-    last12Months: number;
-  };
+  dpdHistory: { account: string; months: string[] }[];
 };
 
 export const mockBureauReport: BureauReport = {
   score: 782,
   activeAccounts: 4,
   closedAccounts: 2,
-  totalExposure: 1895000,
   overdueAccounts: 0,
+  totalOutstanding: 1895000,
+  totalExposure: 2450000,
+  enquiries90Days: 3,
+  enquiries: { last3Months: 3, last6Months: 4, last12Months: 5 },
+  oldestAccountMonths: 112,
+  oldestAccountAge: "9 years 4 months",
   writeoffs: false,
   settlements: false,
   suitsFiled: false,
-  oldestAccountAge: "9 yr 4 mo",
   dpdHistory: [
     { account: "HDFC Home Loan", months: ["0","0","0","0","0","0","0","0","0","0","0","0"] },
     { account: "Axis Credit Card", months: ["0","0","0","0","0","0","0","0","0","0","0","0"] },
     { account: "SBI Auto Loan (closed)", months: ["0","0","0","0","0","0","0","0","0","30","0","0"] },
   ],
-  enquiries: {
-    last3Months: 3,
-    last6Months: 5,
-    last12Months: 8,
-  },
 };
 
 export type BankStatementSummary = {
@@ -784,3 +779,27 @@ export const mockTransactions: BankTransaction[] = [
   { date: "28 Aug 2026", description: "UPI/PETROL/IOCL", debit: 3500, credit: 0, balance: 132022, category: "Other" },
   { date: "30 Aug 2026", description: "NEFT/IN/BONUS", debit: 0, credit: 15000, balance: 147022, category: "Transfer" },
 ];
+
+export function buildMockBureau(app: Application): BureauReport {
+  const outstanding = app.obligations.reduce((sum, o) => sum + o.outstanding, 0);
+  const enq = app.flags.some((f) => f.toLowerCase().includes("enquiries")) ? 3 : 1;
+  return {
+    score: app.cibil,
+    activeAccounts: app.obligations.length + 1,
+    closedAccounts: 1,
+    overdueAccounts: app.obligations.filter((o) => parseInt(o.dpd, 10) > 0).length,
+    totalOutstanding: outstanding,
+    totalExposure: outstanding,
+    enquiries90Days: enq,
+    enquiries: { last3Months: enq, last6Months: enq + 1, last12Months: enq + 2 },
+    oldestAccountMonths: 60,
+    oldestAccountAge: "5 years",
+    writeoffs: false,
+    settlements: false,
+    suitsFiled: false,
+    dpdHistory: app.obligations.map((o) => ({
+      account: `${o.lender} ${o.type}`,
+      months: Array.from({ length: 12 }, (_, i) => (i === 0 ? o.dpd : "0")),
+    })),
+  };
+}

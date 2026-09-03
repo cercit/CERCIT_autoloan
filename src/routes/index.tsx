@@ -123,7 +123,9 @@ function Login() {
 
           <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5" />
-            Demo mode — any credentials accepted · cercit v1.0
+            {isSupabaseConfigured
+              ? "Secured by Supabase Auth · cercit v1.0"
+              : "Demo mode — any credentials accepted · cercit v1.0"}
           </p>
         </div>
       </div>
