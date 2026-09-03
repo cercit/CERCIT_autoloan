@@ -141,14 +141,15 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
       <div className="panel flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">{app.id}</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{app.name}</h2>
+            <span className="text-sm tabular text-muted-foreground">{app.id}</span>
             <StatusPill status={app.status} />
             <Pill tone={recTone[app.recommendation]}>
               <Sparkles className="size-3" /> AI: {app.recommendation}
             </Pill>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {app.name} · Submitted {app.submitted} · Assigned to {app.assignedTo}
+            Submitted {app.submitted} · Assigned to {app.assignedTo}
           </p>
           {manager && app.referredBy && (
             <p className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
@@ -175,6 +176,41 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           <Button variant="outline" className="border-warning text-warning-foreground dark:text-warning">
             {manager ? "Return to officer" : "Send for review"}
           </Button>
+        </div>
+      </div>
+
+      {/* Key metrics strip */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="panel p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">CIBIL</p>
+          <p className={cn(
+            "mt-1 text-2xl font-bold tabular tracking-tight",
+            app.cibil >= 750 ? "text-success" : app.cibil >= 650 ? "text-warning" : "text-destructive",
+          )}>{app.cibil}</p>
+          <p className="text-[11px] text-muted-foreground">{app.cibil >= 750 ? "Above threshold" : app.cibil >= 650 ? "Marginal" : "Below threshold"}</p>
+        </div>
+        <div className="panel p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">FOIR</p>
+          <p className={cn(
+            "mt-1 text-2xl font-bold tabular tracking-tight",
+            foir > 50 ? "text-destructive" : "text-success",
+          )}>{foir.toFixed(1)}%</p>
+          <p className="text-[11px] text-muted-foreground">Threshold: 50%</p>
+        </div>
+        <div className="panel p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">LTV (ex-showroom)</p>
+          <p className="mt-1 text-2xl font-bold tabular tracking-tight">{app.ltvExShowroom}%</p>
+          <p className="text-[11px] text-muted-foreground">Max: 120%</p>
+        </div>
+        <div className="panel p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Loan amount</p>
+          <p className="mt-1 text-2xl font-bold tabular tracking-tight">{inr(app.loanAmount)}</p>
+          <p className="text-[11px] text-muted-foreground">{app.vehicle}</p>
+        </div>
+        <div className="panel p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Net income</p>
+          <p className="mt-1 text-2xl font-bold tabular tracking-tight">{inr(app.netIncome)}</p>
+          <p className="text-[11px] text-muted-foreground">EMI: {inr(emi)}</p>
         </div>
       </div>
 
@@ -284,7 +320,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </p>
           </Collapsible>
 
-          <Collapsible title="Bureau Summary">
+          <Collapsible title="Bureau Summary" defaultOpen>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="sm:w-48">
                 <p className="text-xs text-muted-foreground">CIBIL Score</p>
@@ -341,7 +377,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </Collapsible>
 
-          <Collapsible title="Obligations & FOIR">
+          <Collapsible title="Obligations & FOIR" defaultOpen>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-surface-subtle text-xs text-muted-foreground">
