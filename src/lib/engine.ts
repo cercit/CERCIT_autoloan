@@ -337,6 +337,7 @@ export type AssessmentResult = {
   ltv: LTVAssessment;
   policy: PolicyCheckResult;
   decision: DecisionResult;
+  fraud: FraudCheckResult;
   timestamp: string;
 };
 
@@ -353,6 +354,8 @@ export function runAssessment(
   const policy = checkPolicyRules(app, income, ltv, bureau);
   const decision = routeDecision(hardFilters, bureau, income, ltv, policy);
 
+  const fraud = detectFraudFlags(app);
+
   return {
     hardFilters,
     bureau,
@@ -360,6 +363,209 @@ export function runAssessment(
     ltv,
     policy,
     decision,
+    fraud,
     timestamp: new Date().toISOString(),
   };
+}
+
+// -- Task 58: Fraud flag detection -----------------------------------------------
+
+export type FraudFlag = {
+  code: string;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  message: string;
+};
+
+export type FraudCheckResult = {
+  flags: FraudFlag[];
+  hasCritical: boolean;
+};
+
+export function detectFraudFlags(
+  app: Application,
+  banking?: BankStatementSummary,
+): FraudCheckResult {
+  const flags: FraudFlag[] = [];
+
+  if (app.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(app.pan)) {
+    flags.push({ code: "PAN_FORMAT", severity: "HIGH", message: "PAN format invalid" });
+  }
+
+  if (app.age < 23 && app.loanAmount > 2000000) {
+    flags.push({
+      code: "AGE_LOAN_MISMATCH",
+      severity: "MEDIUM",
+      message: `Applicant age ${app.age} with loan amount > 20L`,
+    });
+  }
+
+  if (banking) {
+    const salaryGap = Math.abs(app.netIncome - banking.avgSalaryAmount);
+    const salaryPct = app.netIncome > 0 ? (salaryGap / app.netIncome) * 100 : 0;
+    if (salaryPct > 25) {
+      flags.push({
+        code: "SALARY_MISMATCH",
+        severity: "HIGH",
+        message: `Declared income differs from bank credits by ${Math.round(salaryPct)}%`,
+      });
+    }
+
+    if (banking.cashDeposits > app.netIncome * 3) {
+      flags.push({
+        code: "LARGE_CASH_DEPOSITS",
+        severity: "MEDIUM",
+        message: "Cash deposits exceed 3x declared monthly income",
+      });
+    }
+  }
+
+  return {
+    flags,
+    hasCritical: flags.some((f) => f.severity === "HIGH"),
+  };
+}
+
+// -- Task 63: Cross-document income validation -----------------------------------
+
+export type ExtractedIncome = {
+  source: "salary_slip" | "form_16" | "bank_statement";
+  monthlyGross: number;
+  annualGross: number;
+  monthlyNet: number;
+};
+
+export type IncomeValidationResult = {
+  sources: ExtractedIncome[];
+  maxVariance: number;
+  threshold: number;
+  passed: boolean;
+  flags: string[];
+};
+
+export function validateIncomeAcrossDocuments(
+  incomes: ExtractedIncome[],
+  threshold = 15,
+): IncomeValidationResult {
+  if (incomes.length < 2) {
+    return { sources: incomes, maxVariance: 0, threshold, passed: true, flags: [] };
+  }
+
+  const flags: string[] = [];
+  let maxVariance = 0;
+
+  for (let i = 0; i < incomes.length; i++) {
+    for (let j = i + 1; j < incomes.length; j++) {
+      const a = incomes[i]!;
+      const b = incomes[j]!;
+      const avg = (a.monthlyGross + b.monthlyGross) / 2;
+      if (avg === 0) continue;
+      const variance = (Math.abs(a.monthlyGross - b.monthlyGross) / avg) * 100;
+      if (variance > maxVariance) maxVariance = variance;
+      if (variance > threshold) {
+        flags.push(
+          `${a.source} vs ${b.source}: ${variance.toFixed(1)}% variance (${a.monthlyGross} vs ${b.monthlyGross})`,
+        );
+      }
+    }
+  }
+
+  return {
+    sources: incomes,
+    maxVariance: Math.round(maxVariance * 10) / 10,
+    threshold,
+    passed: flags.length === 0,
+    flags,
+  };
+}
+
+// -- Task 65: Employer consistency check -----------------------------------------
+
+export type EmployerCheckResult = {
+  salarySlipEmployer: string;
+  form16Employer: string;
+  bankNarration: string;
+  allMatch: boolean;
+  mismatches: string[];
+};
+
+export function checkEmployerConsistency(
+  salarySlipEmployer: string,
+  form16Employer: string,
+  bankNarration: string,
+): EmployerCheckResult {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const mismatches: string[] = [];
+
+  const salNorm = normalize(salarySlipEmployer);
+  const f16Norm = normalize(form16Employer);
+  const bankNorm = normalize(bankNarration);
+
+  if (salNorm && f16Norm && salNorm !== f16Norm) {
+    mismatches.push(
+      `Salary slip ("${salarySlipEmployer}") differs from Form 16 ("${form16Employer}")`,
+    );
+  }
+  if (salNorm && bankNorm && !bankNorm.includes(salNorm) && !salNorm.includes(bankNorm)) {
+    mismatches.push(
+      `Bank narration ("${bankNarration}") does not contain salary slip employer name`,
+    );
+  }
+
+  return {
+    salarySlipEmployer,
+    form16Employer,
+    bankNarration,
+    allMatch: mismatches.length === 0,
+    mismatches,
+  };
+}
+
+// -- Task 73: Quick eligibility --------------------------------------------------
+
+export type QuickEligibilityResult = {
+  signal: "LIKELY_APPROVE" | "MAYBE" | "LIKELY_REJECT" | "INSUFFICIENT_DATA";
+  reasons: string[];
+  foir: number | null;
+  emi: number | null;
+};
+
+export function quickEligibility(
+  cibilScore: number | null,
+  monthlyIncome: number | null,
+  loanAmount: number | null,
+  tenure: number | null,
+  existingEmi: number | null,
+): QuickEligibilityResult {
+  if (!cibilScore || !monthlyIncome || !loanAmount) {
+    return {
+      signal: "INSUFFICIENT_DATA",
+      reasons: ["Fill CIBIL score, income, and loan amount"],
+      foir: null,
+      emi: null,
+    };
+  }
+
+  const reasons: string[] = [];
+  const rate = cibilScore >= 750 ? 8.99 : cibilScore >= 700 ? 9.5 : 10.5;
+  const months = tenure ?? 60;
+  const monthlyRate = rate / 100 / 12;
+  const emi = Math.round(
+    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months)) /
+      (Math.pow(1 + monthlyRate, months) - 1),
+  );
+  const totalEmi = emi + (existingEmi ?? 0);
+  const foir = Math.round((totalEmi / monthlyIncome) * 100 * 10) / 10;
+
+  if (cibilScore < 650) reasons.push("CIBIL below 650 threshold");
+  if (cibilScore >= 750) reasons.push("Strong CIBIL score");
+  if (foir > 65) reasons.push(`FOIR ${foir}% exceeds 65% limit`);
+  else if (foir > 50) reasons.push(`FOIR ${foir}% is elevated`);
+  else reasons.push(`FOIR ${foir}% is healthy`);
+
+  let signal: QuickEligibilityResult["signal"];
+  if (cibilScore < 650 || foir > 65) signal = "LIKELY_REJECT";
+  else if (cibilScore < 700 || foir > 50) signal = "MAYBE";
+  else signal = "LIKELY_APPROVE";
+
+  return { signal, reasons, foir, emi };
 }

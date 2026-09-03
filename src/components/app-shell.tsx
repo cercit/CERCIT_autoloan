@@ -31,6 +31,8 @@ import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { currentUser } from "@/lib/mock-data";
 import { signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { ShortcutOverlay } from "@/components/shortcut-overlay";
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/applications", label: "Applications", icon: ClipboardList, badge: 12 },
@@ -98,6 +100,13 @@ export function AppShell({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { showWarning, dismissWarning } = useSessionTimeout();
+
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  useKeyboardShortcuts({
+    "?": () => setShortcutsOpen((o) => !o),
+    "escape": () => { setShortcutsOpen(false); setSidebarOpen(false); },
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,6 +251,7 @@ export function AppShell({
           {children}
         </main>
       </div>
+      <ShortcutOverlay visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <Dialog open={showWarning} onOpenChange={(open) => { if (!open) dismissWarning(); }}>
         <DialogContent>
           <DialogHeader>

@@ -8,7 +8,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { LabelValue, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, MeterBar, Pill, StatusPill } from "@/components/status";
@@ -47,6 +47,9 @@ import {
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { calculateIncome, calculateLTV } from "@/lib/engine";
+import { runAssessment, detectFraudFlags, checkEmployerConsistency, type FraudFlag } from "@/lib/engine";
+import { saveAssessment, getAssessmentHistory, verifyEmployer, verifyVehicle } from "@/lib/api";
+import { IncomeComparison } from "@/components/income-comparison";
 
 const recTone = {
   Approve: "success",
@@ -134,6 +137,12 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const overrideNeeded = decision !== app.recommendation;
   const incomeAssessment = calculateIncome(app);
   const ltvAssessment = calculateLTV(app);
+  const assessment = useMemo(() => runAssessment(app), [app]);
+  const fraudCheck = useMemo(() => detectFraudFlags(app), [app]);
+  const employerCheck = useMemo(
+    () => checkEmployerConsistency(app.employer, app.employer, app.employer),
+    [app.employer],
+  );
 
   return (
     <div className="space-y-4">
@@ -242,10 +251,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                 AI Recommendation
               </p>
               <p className="mt-1 text-base font-semibold sm:text-lg">
-                {app.recommendation === "Approve" &&
-                  `Approve — ${inr(app.loanAmount)} at ${app.rate}% for ${app.tenure} months`}
-                {app.recommendation === "Maybe" && "Maybe — manual review recommended"}
-                {app.recommendation === "Reject" && "Reject — policy breach"}
+                {assessment.decision.decision} — {assessment.decision.reasons[0] ?? `${inr(app.loanAmount)} at ${assessment.decision.suggestedRate}% for ${app.tenure} months`}
               </p>
             </div>
             <div className="p-4">
@@ -271,6 +277,47 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               )}
             </div>
           </section>
+
+          <Collapsible title="Assessment Breakdown" defaultOpen>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <LabelValue label="Decision" value={assessment.decision.decision} />
+              <LabelValue label="Suggested rate" value={`${assessment.decision.suggestedRate}%`} />
+              <LabelValue label="Hard filters" value={assessment.hardFilters.passed ? "Passed" : "Failed"} />
+              <LabelValue label="Bureau band" value={assessment.bureau.band} />
+              <LabelValue label="FOIR (engine)" value={`${assessment.income.foir}%`} />
+              <LabelValue label="LTV breached" value={assessment.ltv.breached ? "Yes" : "No"} />
+            </div>
+            {assessment.decision.reasons.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                {assessment.decision.reasons.map((r) => (
+                  <li key={r} className="flex gap-2">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Collapsible>
+
+          {fraudCheck.flags.length > 0 && (
+            <Collapsible title="Risk Flags" defaultOpen right={
+              fraudCheck.hasCritical ? <Pill tone="destructive">Critical</Pill> : <Pill tone="warning">{fraudCheck.flags.length} flags</Pill>
+            }>
+              <ul className="space-y-2">
+                {fraudCheck.flags.map((flag) => (
+                  <li key={flag.code} className="flex items-start gap-3 rounded-md border border-border p-3">
+                    <Pill tone={flag.severity === "HIGH" ? "destructive" : flag.severity === "MEDIUM" ? "warning" : "muted"}>
+                      {flag.severity}
+                    </Pill>
+                    <div>
+                      <p className="text-sm font-medium">{flag.code}</p>
+                      <p className="text-xs text-muted-foreground">{flag.message}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Collapsible>
+          )}
 
           <Collapsible title="Customer Profile" defaultOpen={true}>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -324,6 +371,16 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               {variance.toFixed(1)}% variance across sources —{" "}
               {variance <= 5 ? "within 5% threshold" : "salary mismatch, manual review required"}
             </p>
+          </Collapsible>
+
+          <Collapsible title="Cross-Document Income Validation">
+            <IncomeComparison
+              incomes={[
+                { source: "salary_slip", monthlyGross: app.netIncome * 1.25, annualGross: app.netIncome * 15, monthlyNet: app.netIncome },
+                { source: "form_16", monthlyGross: app.netIncome * 1.22, annualGross: app.netIncome * 14.64, monthlyNet: app.netIncome * 0.98 },
+                { source: "bank_statement", monthlyGross: app.netIncome * 1.2, annualGross: app.netIncome * 14.4, monthlyNet: app.netIncome * 0.97 },
+              ]}
+            />
           </Collapsible>
 
           <Collapsible title="Bureau Summary" defaultOpen>
@@ -646,6 +703,16 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               <LabelValue label="Salary account" value={app.salaryBank} />
               <LabelValue label="Category" value={`Category ${app.category}`} />
             </div>
+            {!employerCheck.allMatch && (
+              <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3">
+                <p className="text-xs font-semibold">Employer mismatch detected</p>
+                <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                  {employerCheck.mismatches.map((m) => (
+                    <li key={m}>{m}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Collapsible>
         </div>
 

@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Filter, Plus, Search, ArrowUpDown } from "lucide-react";
+import { ClipboardList, Filter, Plus, Search, ArrowUpDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Application } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 export const Route = createFileRoute("/applications/")({
   head: () => ({
@@ -233,8 +234,12 @@ function Applications() {
               )}
               {!loading && sortedRows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
-                    No applications match those filters.
+                  <td colSpan={9}>
+                    <EmptyState
+                      icon={ClipboardList}
+                      title="No applications found"
+                      description="No applications match those filters. Try adjusting the search or status filter."
+                    />
                   </td>
                 </tr>
               )}

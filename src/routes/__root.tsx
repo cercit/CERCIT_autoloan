@@ -113,7 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   beforeLoad: async ({ location }) => {
-    if (location.pathname === "/" || location.pathname === "/CERCIT_autoloan/" || location.pathname === "/CERCIT_autoloan") return;
+    if (location.pathname === "/" || location.pathname === "/CERCIT_autoloan/" || location.pathname === "/CERCIT_autoloan" || location.pathname === "/check-eligibility") return;
     const isAuth = await requireAuth();
     if (!isAuth) {
       throw redirect({ to: "/" });

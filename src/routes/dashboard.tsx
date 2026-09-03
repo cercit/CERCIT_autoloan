@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { AppShell, SectionCard } from "@/components/app-shell";
+import { AppShell, Pill, SectionCard } from "@/components/app-shell";
 import { CategoryBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +18,12 @@ import type { DashboardStats } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SlaTimer } from "@/components/sla-timer";
+import { DecisionTrendChart } from "@/components/decision-trend-chart";
+import { PortfolioQuality } from "@/components/portfolio-quality";
+import { getDecisionTrend, getPortfolioMetrics } from "@/lib/api";
+import type { DecisionTrendPoint, PortfolioMetrics } from "@/lib/api";
+import { currentUser } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -93,6 +99,8 @@ function Dashboard() {
   const [range, setRange] = useState("30d");
   const [tatDataFetched, setTatDataFetched] = useState<any[]>([]);
   const [activeSlice, setActiveSlice] = useState<number | null>(null);
+  const [trendData, setTrendData] = useState<DecisionTrendPoint[]>([]);
+  const [portfolio, setPortfolio] = useState<PortfolioMetrics | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -101,6 +109,8 @@ function Dashboard() {
       getApplications().then(setApplications),
       getDashboardStats(from).then(setStats),
       (from ? getDashboardTat(from) : Promise.resolve([])).then(setTatDataFetched),
+      getDecisionTrend().then(setTrendData),
+      getPortfolioMetrics().then(setPortfolio),
     ]).finally(() => setLoading(false));
   }, [range]);
 
@@ -185,6 +195,47 @@ function Dashboard() {
           </>
         )}
       </div>
+
+      {/* My Queue */}
+      <SectionCard
+        title="My Queue"
+        description={`Assigned to ${currentUser.name}`}
+        className="mt-4"
+      >
+        <ul className="divide-y divide-border">
+          {applications
+            .filter((a) => a.assignedTo === currentUser.name)
+            .slice(0, 5)
+            .map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+                <Link
+                  to="/applications/$id"
+                  params={{ id: a.id }}
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  {a.id} — {a.name}
+                </Link>
+                <div className="flex items-center gap-3">
+                  <SlaTimer since={a.submitted} />
+                  <Pill
+                    tone={
+                      a.recommendation === "Approve"
+                        ? "success"
+                        : a.recommendation === "Maybe"
+                          ? "warning"
+                          : "destructive"
+                    }
+                  >
+                    {a.recommendation}
+                  </Pill>
+                </div>
+              </li>
+            ))}
+          {applications.filter((a) => a.assignedTo === currentUser.name).length === 0 && (
+            <li className="py-6 text-center text-sm text-muted-foreground">No applications in your queue</li>
+          )}
+        </ul>
+      </SectionCard>
 
       {/* Exception queue */}
       <SectionCard
@@ -357,6 +408,24 @@ function Dashboard() {
               );
             })}
           </div>
+        </SectionCard>
+      </div>
+
+      {/* Trend + Portfolio */}
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <SectionCard title="Decision Trend" description="Last 30 days">
+          {trendData.length > 0 ? (
+            <DecisionTrendChart data={trendData} />
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading trend data...</p>
+          )}
+        </SectionCard>
+        <SectionCard title="Portfolio Quality" description="Current book">
+          {portfolio ? (
+            <PortfolioQuality metrics={portfolio} />
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading metrics...</p>
+          )}
         </SectionCard>
       </div>
     </AppShell>

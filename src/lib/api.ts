@@ -921,6 +921,640 @@ export async function getDocumentUrl(path: string): Promise<string> {
   return data?.signedUrl ?? "https://placehold.co/600x800?text=Preview+Unavailable";
 }
 
+// -- Task 52: Assessment persistence --------------------------------------------
+
+export type SavedAssessment = {
+  id: string;
+  decision: string;
+  score: number;
+  rate: number;
+  timestamp: string;
+};
+
+export async function saveAssessment(
+  applicationId: string,
+  result: Record<string, unknown>,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return new Promise((r) => setTimeout(() => r({ error: null }), 400));
+  }
+  const { error } = await supabase.from("assessments").insert({
+    application_id: applicationId,
+    result_json: result,
+  });
+  return { error: error?.message ?? null };
+}
+
+export async function getAssessmentHistory(
+  applicationId: string,
+): Promise<SavedAssessment[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("assessments")
+    .select("id, result_json, created_at")
+    .eq("application_id", applicationId)
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    id: row.id,
+    decision: (row.result_json as any)?.decision?.decision ?? "UNKNOWN",
+    score: (row.result_json as any)?.bureau?.score ?? 0,
+    rate: (row.result_json as any)?.decision?.suggestedRate ?? 0,
+    timestamp: row.created_at,
+  }));
+}
+
+// -- Task 53: Status transitions -------------------------------------------------
+
+const reverseStatusMap: Record<string, string> = {
+  New: "DRAFT",
+  "Documents Uploaded": "DOCUMENTS_SUBMITTED",
+  "Under Review": "UNDER_ASSESSMENT",
+  Referred: "UNDER_REVIEW",
+  Sanctioned: "APPROVED",
+  Rejected: "REJECTED",
+  ESCALATED: "ESCALATED",
+  HOLD: "HOLD",
+};
+
+export async function transitionStatus(
+  applicationId: string,
+  newStatus: string,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return new Promise((r) => setTimeout(() => r({ error: null }), 400));
+  }
+  const dbStatus = reverseStatusMap[newStatus] ?? newStatus;
+  const { error } = await supabase
+    .from("applications")
+    .update({ status: dbStatus })
+    .eq("application_id", applicationId);
+  return { error: error?.message ?? null };
+}
+
+// -- Task 55: Assignment ---------------------------------------------------------
+
+export async function assignApplication(
+  applicationId: string,
+  userId: string,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return new Promise((r) => setTimeout(() => r({ error: null }), 400));
+  }
+  const { error } = await supabase
+    .from("applications")
+    .update({ assigned_officer_id: userId })
+    .eq("application_id", applicationId);
+  return { error: error?.message ?? null };
+}
+
+export async function getOfficerQueue(
+  officerName: string,
+): Promise<Application[]> {
+  if (!isSupabaseConfigured) {
+    return mockApplications.filter((a) => a.assignedTo === officerName).slice(0, 10);
+  }
+  const { data, error } = await supabase.rpc("fn_list_applications");
+  if (error || !data) return [];
+  return (data as any[])
+    .map(mapToApplication)
+    .filter((a) => a.assignedTo === officerName)
+    .slice(0, 10);
+}
+
+// -- Task 60: Duplicate check ----------------------------------------------------
+
+export type DuplicateMatch = {
+  applicationId: string;
+  name: string;
+  status: string;
+  matchField: string;
+};
+
+export async function checkDuplicates(
+  pan: string,
+  mobile: string,
+  currentApplicationId: string,
+): Promise<DuplicateMatch[]> {
+  if (!isSupabaseConfigured) {
+    return [];
+  }
+  const { data, error } = await supabase
+    .from("customers")
+    .select("application_id, full_name, pan_number, mobile")
+    .or(`pan_number.eq.${pan},mobile.eq.${mobile}`)
+    .neq("application_id", currentApplicationId)
+    .limit(5);
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    applicationId: row.application_id,
+    name: row.full_name ?? "",
+    status: "Active",
+    matchField: row.pan_number === pan ? "PAN" : "Mobile",
+  }));
+}
+
+// -- Task 61: Override -----------------------------------------------------------
+
+export type OverridePayload = {
+  applicationId: string;
+  originalDecision: string;
+  overrideDecision: "APPROVE" | "REJECT" | "HOLD";
+  reason: string;
+  overriddenBy: string;
+};
+
+export async function submitOverride(
+  payload: OverridePayload,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return new Promise((r) => setTimeout(() => r({ error: null }), 500));
+  }
+  const { error } = await supabase.from("decision_overrides").insert({
+    application_id: payload.applicationId,
+    original_decision: payload.originalDecision,
+    override_decision: payload.overrideDecision,
+    reason: payload.reason,
+    overridden_by: payload.overriddenBy,
+  });
+  if (error) return { error: error.message };
+  await supabase
+    .from("applications")
+    .update({ status: payload.overrideDecision, is_overridden: true })
+    .eq("application_id", payload.applicationId);
+  return { error: null };
+}
+
+// -- Task 62: Escalation ---------------------------------------------------------
+
+export type EscalationPayload = {
+  applicationId: string;
+  reason:
+    | "HIGH_EXPOSURE"
+    | "POLICY_EXCEPTION"
+    | "FRAUD_SUSPICION"
+    | "INCOMPLETE_DOCS"
+    | "OTHER";
+  notes: string;
+  escalatedBy: string;
+};
+
+export async function escalateApplication(
+  payload: EscalationPayload,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return new Promise((r) => setTimeout(() => r({ error: null }), 500));
+  }
+  const { error } = await supabase.from("escalations").insert({
+    application_id: payload.applicationId,
+    reason: payload.reason,
+    notes: payload.notes,
+    escalated_by: payload.escalatedBy,
+  });
+  if (error) return { error: error.message };
+  await supabase
+    .from("applications")
+    .update({ status: "ESCALATED" })
+    .eq("application_id", payload.applicationId);
+  return { error: null };
+}
+
+export async function getEscalationHistory(
+  applicationId: string,
+): Promise<
+  { reason: string; notes: string; escalatedBy: string; createdAt: string }[]
+> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("escalations")
+    .select("reason, notes, escalated_by, created_at")
+    .eq("application_id", applicationId)
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    reason: row.reason,
+    notes: row.notes,
+    escalatedBy: row.escalated_by,
+    createdAt: row.created_at,
+  }));
+}
+
+// -- Task 66: Employer verification ----------------------------------------------
+
+export type EmployerVerification = {
+  employerName: string;
+  found: boolean;
+  category: "CAT_A" | "CAT_B" | "CAT_C" | "UNVERIFIED";
+  rateImpact: string;
+};
+
+export async function verifyEmployer(
+  employerName: string,
+): Promise<EmployerVerification> {
+  if (!isSupabaseConfigured) {
+    const knownEmployers: Record<string, "CAT_A" | "CAT_B" | "CAT_C"> = {
+      Infosys: "CAT_A",
+      TCS: "CAT_A",
+      Wipro: "CAT_A",
+      HCL: "CAT_A",
+      Reliance: "CAT_A",
+      "HDFC Bank": "CAT_A",
+      SBI: "CAT_A",
+      "Tech Mahindra": "CAT_B",
+      Mindtree: "CAT_B",
+      "L&T": "CAT_B",
+    };
+    const cat = knownEmployers[employerName];
+    return {
+      employerName,
+      found: !!cat,
+      category: cat ?? "UNVERIFIED",
+      rateImpact:
+        cat === "CAT_A"
+          ? "Best rate eligible"
+          : cat === "CAT_B"
+            ? "Standard rate"
+            : cat === "CAT_C"
+              ? "Higher rate bracket"
+              : "Manual verification required",
+    };
+  }
+  const { data, error } = await supabase
+    .from("employers")
+    .select("category")
+    .ilike("name", employerName)
+    .limit(1)
+    .single();
+  if (error || !data) {
+    return {
+      employerName,
+      found: false,
+      category: "UNVERIFIED",
+      rateImpact: "Manual verification required",
+    };
+  }
+  const cat = data.category as EmployerVerification["category"];
+  return {
+    employerName,
+    found: true,
+    category: cat,
+    rateImpact:
+      cat === "CAT_A"
+        ? "Best rate eligible"
+        : cat === "CAT_B"
+          ? "Standard rate"
+          : "Higher rate bracket",
+  };
+}
+
+// -- Task 67: Vehicle verification -----------------------------------------------
+
+export type VehicleVerification = {
+  make: string;
+  model: string;
+  variant: string;
+  exShowroomVerified: number | null;
+  priceDelta: number | null;
+  dealerFound: boolean;
+  riskTier: "LOW" | "MEDIUM" | "HIGH";
+};
+
+export async function verifyVehicle(
+  make: string,
+  model: string,
+  variant: string,
+  declaredExShowroom: number,
+): Promise<VehicleVerification> {
+  if (!isSupabaseConfigured) {
+    return {
+      make,
+      model,
+      variant,
+      exShowroomVerified: declaredExShowroom,
+      priceDelta: 0,
+      dealerFound: true,
+      riskTier: "LOW",
+    };
+  }
+  const { data: dealer } = await supabase
+    .from("dealers")
+    .select("oem, risk_tier")
+    .ilike("oem", make)
+    .limit(1)
+    .single();
+  return {
+    make,
+    model,
+    variant,
+    exShowroomVerified: declaredExShowroom,
+    priceDelta: 0,
+    dealerFound: !!dealer,
+    riskTier:
+      (dealer?.risk_tier as VehicleVerification["riskTier"]) ?? "MEDIUM",
+  };
+}
+
+// -- Task 68: Application timeline -----------------------------------------------
+
+export type TimelineEvent = {
+  stage: string;
+  timestamp: string;
+  actor: string;
+  detail: string;
+};
+
+export async function getApplicationTimeline(
+  applicationId: string,
+): Promise<TimelineEvent[]> {
+  if (!isSupabaseConfigured) {
+    return [
+      {
+        stage: "Created",
+        timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),
+        actor: "System",
+        detail: "Application submitted",
+      },
+      {
+        stage: "Documents Uploaded",
+        timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
+        actor: "Applicant",
+        detail: "Salary slip, PAN uploaded",
+      },
+      {
+        stage: "Bureau Check",
+        timestamp: new Date(
+          Date.now() - 86400000 * 2 + 3600000,
+        ).toISOString(),
+        actor: "System",
+        detail: "CIBIL score: 745",
+      },
+      {
+        stage: "Auto Assessment",
+        timestamp: new Date(Date.now() - 86400000).toISOString(),
+        actor: "System",
+        detail: "Decision: Approve",
+      },
+      {
+        stage: "Pending Review",
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        actor: "System",
+        detail: "Awaiting officer review",
+      },
+    ];
+  }
+  const { data, error } = await supabase
+    .from("audit_events")
+    .select("event_type, created_at, actor_id, details")
+    .eq("entity_id", applicationId)
+    .eq("entity_type", "APPLICATION")
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    stage: row.event_type,
+    timestamp: row.created_at,
+    actor: row.actor_id ?? "System",
+    detail:
+      typeof row.details === "string"
+        ? row.details
+        : JSON.stringify(row.details ?? {}),
+  }));
+}
+
+// -- Task 69: Decision trend -----------------------------------------------------
+
+export type DecisionTrendPoint = {
+  date: string;
+  approved: number;
+  rejected: number;
+  review: number;
+};
+
+export async function getDecisionTrend(): Promise<DecisionTrendPoint[]> {
+  if (!isSupabaseConfigured) {
+    const points: DecisionTrendPoint[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      points.push({
+        date: d.toISOString().slice(0, 10),
+        approved: Math.floor(Math.random() * 15) + 5,
+        rejected: Math.floor(Math.random() * 5) + 1,
+        review: Math.floor(Math.random() * 8) + 2,
+      });
+    }
+    return points;
+  }
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const { data, error } = await supabase
+    .from("applications")
+    .select("status, updated_at")
+    .gte("updated_at", since.toISOString())
+    .in("status", ["APPROVED", "REJECTED", "REVIEW"]);
+  if (error || !data) return [];
+  const byDate = new Map<string, DecisionTrendPoint>();
+  for (const row of data as any[]) {
+    const date = (row.updated_at as string).slice(0, 10);
+    const existing = byDate.get(date) ?? {
+      date,
+      approved: 0,
+      rejected: 0,
+      review: 0,
+    };
+    if (row.status === "APPROVED") existing.approved++;
+    else if (row.status === "REJECTED") existing.rejected++;
+    else existing.review++;
+    byDate.set(date, existing);
+  }
+  return Array.from(byDate.values()).sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+}
+
+// -- Task 70: Portfolio metrics --------------------------------------------------
+
+export type PortfolioMetrics = {
+  avgCibilScore: number;
+  avgFoir: number;
+  avgLtv: number;
+  npaPredictionRate: number;
+  riskDistribution: { name: string; value: number; color: string }[];
+};
+
+export async function getPortfolioMetrics(): Promise<PortfolioMetrics> {
+  if (!isSupabaseConfigured) {
+    return {
+      avgCibilScore: 712,
+      avgFoir: 42.3,
+      avgLtv: 78.5,
+      npaPredictionRate: 3.2,
+      riskDistribution: [
+        { name: "Low Risk", value: 62, color: "#22c55e" },
+        { name: "Medium Risk", value: 25, color: "#eab308" },
+        { name: "High Risk", value: 13, color: "#ef4444" },
+      ],
+    };
+  }
+  const { data, error } = await supabase
+    .from("applications")
+    .select("cibil_score, foir, ltv_ex_showroom")
+    .in("status", ["APPROVED", "DISBURSED"]);
+  if (error || !data || data.length === 0) {
+    return {
+      avgCibilScore: 0,
+      avgFoir: 0,
+      avgLtv: 0,
+      npaPredictionRate: 0,
+      riskDistribution: [],
+    };
+  }
+  const rows = data as any[];
+  const avg = (arr: number[]) =>
+    arr.reduce((s, v) => s + v, 0) / arr.length;
+  const scores = rows
+    .map((r) => r.cibil_score ?? 0)
+    .filter((v: number) => v > 0);
+  const foirs = rows.map((r) => r.foir ?? 0).filter((v: number) => v > 0);
+  const ltvs = rows
+    .map((r) => r.ltv_ex_showroom ?? 0)
+    .filter((v: number) => v > 0);
+  const low = rows.filter((r) => (r.cibil_score ?? 0) >= 750).length;
+  const high = rows.filter((r) => (r.cibil_score ?? 0) < 650).length;
+  const med = rows.length - low - high;
+  return {
+    avgCibilScore: Math.round(avg(scores)),
+    avgFoir: Math.round(avg(foirs) * 10) / 10,
+    avgLtv: Math.round(avg(ltvs) * 10) / 10,
+    npaPredictionRate:
+      Math.round((high / rows.length) * 100 * 10) / 10,
+    riskDistribution: [
+      { name: "Low Risk", value: low, color: "#22c55e" },
+      { name: "Medium Risk", value: med, color: "#eab308" },
+      { name: "High Risk", value: high, color: "#ef4444" },
+    ],
+  };
+}
+
+// -- Task 71: Location hierarchy -------------------------------------------------
+
+export type LocationNode = {
+  state: string;
+  cities: { city: string; branches: string[] }[];
+};
+
+export async function getLocationHierarchy(): Promise<LocationNode[]> {
+  if (!isSupabaseConfigured) {
+    return [
+      {
+        state: "Tamil Nadu",
+        cities: [
+          {
+            city: "Chennai",
+            branches: ["Anna Nagar", "T. Nagar", "Adyar"],
+          },
+          {
+            city: "Coimbatore",
+            branches: ["RS Puram", "Gandhipuram"],
+          },
+        ],
+      },
+      {
+        state: "Karnataka",
+        cities: [
+          {
+            city: "Bengaluru",
+            branches: ["Koramangala", "Whitefield", "Jayanagar"],
+          },
+          { city: "Mysuru", branches: ["Saraswathipuram"] },
+        ],
+      },
+      {
+        state: "Maharashtra",
+        cities: [
+          {
+            city: "Mumbai",
+            branches: ["Andheri", "Bandra", "Powai"],
+          },
+          { city: "Pune", branches: ["Kothrud", "Hinjewadi"] },
+        ],
+      },
+      {
+        state: "Delhi",
+        cities: [
+          {
+            city: "New Delhi",
+            branches: [
+              "Connaught Place",
+              "Nehru Place",
+              "Karol Bagh",
+            ],
+          },
+        ],
+      },
+    ];
+  }
+  const { data, error } = await supabase
+    .from("branches")
+    .select("state, city, branch_name")
+    .order("state")
+    .order("city")
+    .order("branch_name");
+  if (error || !data) return [];
+  const map = new Map<string, Map<string, string[]>>();
+  for (const row of data as any[]) {
+    if (!map.has(row.state)) map.set(row.state, new Map());
+    const cityMap = map.get(row.state)!;
+    if (!cityMap.has(row.city)) cityMap.set(row.city, []);
+    cityMap.get(row.city)!.push(row.branch_name);
+  }
+  return Array.from(map.entries()).map(([state, cityMap]) => ({
+    state,
+    cities: Array.from(cityMap.entries()).map(([city, branches]) => ({
+      city,
+      branches,
+    })),
+  }));
+}
+
+// -- Task 72: Employer search ----------------------------------------------------
+
+export type EmployerSuggestion = {
+  name: string;
+  category: "CAT_A" | "CAT_B" | "CAT_C";
+};
+
+export async function searchEmployers(
+  query: string,
+): Promise<EmployerSuggestion[]> {
+  if (!isSupabaseConfigured) {
+    const all: EmployerSuggestion[] = [
+      { name: "Infosys", category: "CAT_A" },
+      { name: "TCS", category: "CAT_A" },
+      { name: "Wipro", category: "CAT_A" },
+      { name: "HCL Technologies", category: "CAT_A" },
+      { name: "Reliance Industries", category: "CAT_A" },
+      { name: "HDFC Bank", category: "CAT_A" },
+      { name: "SBI", category: "CAT_A" },
+      { name: "ICICI Bank", category: "CAT_A" },
+      { name: "Tech Mahindra", category: "CAT_B" },
+      { name: "Mindtree", category: "CAT_B" },
+      { name: "L&T", category: "CAT_B" },
+      { name: "Bajaj Finance", category: "CAT_B" },
+      { name: "Axis Bank", category: "CAT_B" },
+      { name: "Mphasis", category: "CAT_B" },
+    ];
+    const q = query.toLowerCase();
+    return all.filter((e) => e.name.toLowerCase().includes(q)).slice(0, 8);
+  }
+  const { data, error } = await supabase
+    .from("employers")
+    .select("name, category")
+    .ilike("name", `%${query}%`)
+    .limit(8);
+  if (error || !data) return [];
+  return data as EmployerSuggestion[];
+}
+
 export async function getBankingAnalysis(applicationId: string, from?: string): Promise<{
   summary: BankStatementSummary;
   transactions: BankTransaction[];

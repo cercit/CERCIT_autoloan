@@ -1,0 +1,102 @@
+import type { Application } from "@/lib/mock-data";
+import { inr } from "@/lib/format";
+import { runAssessment } from "@/lib/engine";
+
+export function CamReport({ app }: { app: Application }) {
+  const assessment = runAssessment(app);
+
+  return (
+    <div className="cam-report space-y-6 text-sm">
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          .cam-report, .cam-report * { visibility: visible !important; }
+          .cam-report { position: absolute; top: 0; left: 0; width: 100%; }
+        }
+      `}</style>
+
+      <header className="border-b border-black pb-4 text-center">
+        <h1 className="text-xl font-bold">Credit Appraisal Memorandum</h1>
+        <p className="text-xs text-muted-foreground">
+          Application: {app.id} · Generated: {new Date().toLocaleString("en-IN")}
+        </p>
+      </header>
+
+      <section>
+        <h2 className="mb-2 font-semibold border-b pb-1">1. Applicant details</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <p><span className="text-muted-foreground">Name:</span> {app.name}</p>
+          <p><span className="text-muted-foreground">PAN:</span> {app.pan}</p>
+          <p><span className="text-muted-foreground">Employer:</span> {app.employer}</p>
+          <p><span className="text-muted-foreground">Designation:</span> {app.designation}</p>
+          <p><span className="text-muted-foreground">Age:</span> {app.age} years</p>
+          <p><span className="text-muted-foreground">City:</span> {app.city}, {app.state}</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-semibold border-b pb-1">2. Loan details</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <p><span className="text-muted-foreground">Loan amount:</span> {inr(app.loanAmount)}</p>
+          <p><span className="text-muted-foreground">Tenure:</span> {app.tenure} months</p>
+          <p><span className="text-muted-foreground">EMI:</span> {inr(assessment.income.proposedEmi)}</p>
+          <p><span className="text-muted-foreground">Vehicle:</span> {app.vehicle}</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-semibold border-b pb-1">3. Income assessment</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <p><span className="text-muted-foreground">Gross income:</span> {inr(assessment.income.declaredMonthlyIncome)}</p>
+          <p><span className="text-muted-foreground">Net income:</span> {inr(assessment.income.netMonthlyIncome)}</p>
+          <p><span className="text-muted-foreground">FOIR:</span> {assessment.income.foir}%</p>
+          <p><span className="text-muted-foreground">DBR:</span> {assessment.income.dbr}%</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-semibold border-b pb-1">4. Bureau summary</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <p><span className="text-muted-foreground">CIBIL score:</span> {assessment.bureau.score}</p>
+          <p><span className="text-muted-foreground">Band:</span> {assessment.bureau.band}</p>
+          <p><span className="text-muted-foreground">Active accounts:</span> {assessment.bureau.activeAccounts}</p>
+          <p><span className="text-muted-foreground">Total exposure:</span> {inr(assessment.bureau.totalExposure)}</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-semibold border-b pb-1">5. Vehicle and LTV</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <p><span className="text-muted-foreground">Ex-showroom:</span> {inr(app.exShowroom)}</p>
+          <p><span className="text-muted-foreground">On-road:</span> {inr(app.onRoad)}</p>
+          <p><span className="text-muted-foreground">LTV (ex-showroom):</span> {assessment.ltv.ltvExShowroom}%</p>
+          <p><span className="text-muted-foreground">Max allowed:</span> {assessment.ltv.maxAllowedLtv}%</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-semibold border-b pb-1">6. Decision</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <p><span className="text-muted-foreground">Recommendation:</span> {assessment.decision.decision}</p>
+          <p><span className="text-muted-foreground">Suggested rate:</span> {assessment.decision.suggestedRate}%</p>
+        </div>
+        {assessment.decision.reasons.length > 0 && (
+          <ul className="mt-2 list-disc pl-5 space-y-0.5 text-xs">
+            {assessment.decision.reasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-semibold border-b pb-1">7. Officer remarks</h2>
+        <p className="text-xs text-muted-foreground italic">Pending officer review</p>
+      </section>
+
+      <footer className="border-t border-black pt-4 text-center text-xs text-muted-foreground">
+        Generated by cercit · {new Date().toLocaleString("en-IN")}
+      </footer>
+    </div>
+  );
+}

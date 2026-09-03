@@ -30,6 +30,8 @@ import type { SubmitResult } from "@/lib/api";
 import { emiFor, inr } from "@/lib/format";
 import { employers, makes } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { EmployerAutocomplete } from "@/components/employer-autocomplete";
+import { EligibilityIndicator } from "@/components/eligibility-indicator";
 export const Route = createFileRoute("/applications/new")({
   head: () => ({
     meta: [
@@ -402,22 +404,11 @@ function NewApplication() {
 
         {step === 1 && (
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Employer name" hint="Category shown from employer master">
-              <Select value={employer} onValueChange={setEmployer}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {employers.map((e) => (
-                    <SelectItem key={e.name} value={e.name}>
-                      <span className="flex items-center gap-2">
-                        <CategoryBadge category={e.category} />
-                        {e.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Field label="Employer name" hint="Type to search employer master">
+              <EmployerAutocomplete
+                value={employer}
+                onChange={(name) => setEmployer(name)}
+              />
             </Field>
             <Field label="Monthly gross salary (Rs)">
               <Input placeholder="e.g. 104200" />
@@ -785,6 +776,18 @@ function NewApplication() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {(Number(cibilScore) > 0 || Number(netSalary) > 0 || Number(loanAmount) > 0) && (
+          <div className="mt-4">
+            <EligibilityIndicator
+              cibilScore={Number(cibilScore) || null}
+              monthlyIncome={Number(netSalary) || null}
+              loanAmount={Number(loanAmount) || null}
+              tenure={Number(tenure) || null}
+              existingEmi={existingEmis || null}
+            />
           </div>
         )}
 

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditLogRouteImport } from './routes/audit-log'
+import { Route as CheckEligibilityRouteImport } from './routes/check-eligibility'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EmployersRouteImport } from './routes/employers'
 import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
@@ -31,6 +32,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuditLogRoute = AuditLogRouteImport.update({
   id: '/audit-log',
   path: '/audit-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckEligibilityRoute = CheckEligibilityRouteImport.update({
+  id: '/check-eligibility',
+  path: '/check-eligibility',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -93,6 +99,7 @@ const ApplicationsIdSanctionRoute = ApplicationsIdSanctionRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit-log': typeof AuditLogRoute
+  '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
   '/employers': typeof EmployersRoute
   '/policy-rules': typeof PolicyRulesRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit-log': typeof AuditLogRoute
+  '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
   '/employers': typeof EmployersRoute
   '/policy-rules': typeof PolicyRulesRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit-log': typeof AuditLogRoute
+  '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
   '/employers': typeof EmployersRoute
   '/policy-rules': typeof PolicyRulesRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audit-log'
+    | '/check-eligibility'
     | '/dashboard'
     | '/employers'
     | '/policy-rules'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/audit-log'
+    | '/check-eligibility'
     | '/dashboard'
     | '/employers'
     | '/policy-rules'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/audit-log'
+    | '/check-eligibility'
     | '/dashboard'
     | '/employers'
     | '/policy-rules'
@@ -187,6 +199,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditLogRoute: typeof AuditLogRoute
+  CheckEligibilityRoute: typeof CheckEligibilityRoute
   DashboardRoute: typeof DashboardRoute
   EmployersRoute: typeof EmployersRoute
   PolicyRulesRoute: typeof PolicyRulesRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/audit-log'
       fullPath: '/audit-log'
       preLoaderRoute: typeof AuditLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/check-eligibility': {
+      id: '/check-eligibility'
+      path: '/check-eligibility'
+      fullPath: '/check-eligibility'
+      preLoaderRoute: typeof CheckEligibilityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -299,6 +319,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditLogRoute: AuditLogRoute,
+  CheckEligibilityRoute: CheckEligibilityRoute,
   DashboardRoute: DashboardRoute,
   EmployersRoute: EmployersRoute,
   PolicyRulesRoute: PolicyRulesRoute,
@@ -314,13 +335,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
