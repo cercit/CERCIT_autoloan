@@ -116,14 +116,10 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
     setSubmitting(false);
     if (res) {
       toast.success("Decision recorded: " + res.decision);
-    } else if (!res && false) {
-      // no toast for demo mode when res is null (dialog handles it)
-    } else if (!res) {
-      toast.error("Failed to submit decision");
-    }
-    if (res) {
       setResult(res);
       setShowResult(true);
+    } else {
+      toast.error("Failed to submit decision");
     }
   }
 
@@ -173,7 +169,14 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           >
             {submitting ? <Loader2 className="size-4 animate-spin" /> : "Reject"}
           </Button>
-          <Button variant="outline" className="border-warning text-warning-foreground dark:text-warning">
+          <Button
+            variant="outline"
+            className="border-warning text-warning-foreground dark:text-warning"
+            disabled={submitting}
+            onClick={() => {
+              toast.success(manager ? "Returned to credit officer" : "Sent to manager for review");
+            }}
+          >
             {manager ? "Return to officer" : "Send for review"}
           </Button>
         </div>

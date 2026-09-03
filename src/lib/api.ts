@@ -9,8 +9,10 @@ import {
   employers as mockEmployers,
   makes as mockMakes,
   mockBureauReport,
+  mockBankStatementSummary,
+  mockTransactions,
 } from "./mock-data";
-import type { Application, PolicyRule, BureauReport } from "./mock-data";
+import type { Application, PolicyRule, BureauReport, BankStatementSummary, BankTransaction } from "./mock-data";
 import { z } from "zod";
 
 
@@ -513,7 +515,19 @@ export type SubmitResult = {
 export async function submitFullApplication(
   form: ApplicationFormData
 ): Promise<SubmitResult | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured) {
+    await new Promise((r) => setTimeout(r, 800));
+    const score = form.cibilScore || 750;
+    const foirEst = form.existingEmis / (form.netSalary || 1) * 100;
+    const decision = score >= 750 && foirEst < 50 ? "APPROVE" : score >= 650 ? "MAYBE" : "REJECT";
+    const seq = String(Math.floor(Math.random() * 900) + 100);
+    return {
+      applicationId: `APP-2026-${seq.padStart(5, "0")}`,
+      decision,
+      rate: decision === "APPROVE" ? 8.99 : decision === "MAYBE" ? 9.9 : 0,
+      summary: decision === "APPROVE" ? "All policy checks passed" : decision === "MAYBE" ? "Officer review needed — FOIR marginal" : "Bureau score below threshold",
+    };
+  }
 
   const { data, error } = await supabase.rpc("fn_submit_full_application", {
     p_full_name: form.fullName,
@@ -579,7 +593,23 @@ export type OfficerDecisionResult = {
 export async function submitOfficerDecision(
   input: OfficerDecisionInput
 ): Promise<OfficerDecisionResult | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured) {
+    await new Promise((r) => setTimeout(r, 600));
+    const emi = input.sanctionedAmount && input.sanctionedRate && input.sanctionedTenure
+      ? Math.round(input.sanctionedAmount * (input.sanctionedRate / 1200) * Math.pow(1 + input.sanctionedRate / 1200, input.sanctionedTenure) / (Math.pow(1 + input.sanctionedRate / 1200, input.sanctionedTenure) - 1))
+      : 0;
+    return {
+      applicationId: input.applicationId,
+      decision: input.decision,
+      status: input.decision === "APPROVE" ? "Approved" : input.decision === "REJECT" ? "Rejected" : "Referred",
+      isOverride: false,
+      sanctionedAmount: input.sanctionedAmount || 0,
+      sanctionedRate: input.sanctionedRate || 0,
+      sanctionedTenure: input.sanctionedTenure || 0,
+      sanctionedEmi: emi,
+      message: input.decision === "APPROVE" ? "Application approved" : input.decision === "REJECT" ? "Application rejected" : "Referred for review",
+    };
+  }
 
   const { data, error } = await supabase.rpc("fn_officer_decision", {
     p_application_id: input.applicationId,
@@ -784,13 +814,24 @@ export type Document = {
   fileName: string;
   uploadedAt: string;
   url: string;
+  status: "Uploaded" | "Extracted" | "Verified" | "Failed";
 };
+
+function mapDocStatus(raw: string | null | undefined): Document["status"] {
+  const map: Record<string, Document["status"]> = {
+    UPLOADED: "Uploaded",
+    EXTRACTED: "Extracted",
+    VERIFIED: "Verified",
+    FAILED: "Failed",
+  };
+  return map[raw ?? ""] ?? "Uploaded";
+}
 
 export async function getDocuments(applicationId: string): Promise<Document[]> {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from("documents")
-    .select("id, doc_type, file_name, file_path, uploaded_at, created_at")
+    .select("id, doc_type, file_name, file_path, uploaded_at, created_at, upload_status")
     .eq("application_id", applicationId)
     .order("created_at", { ascending: false });
   if (error || !data) {
@@ -803,6 +844,7 @@ export async function getDocuments(applicationId: string): Promise<Document[]> {
     fileName: d.file_name ?? "Unknown",
     uploadedAt: formatDate(d.uploaded_at ?? d.created_at ?? ""),
     url: d.file_path ?? "",
+    status: mapDocStatus(d.upload_status),
   }));
 }
 
@@ -874,4 +916,50 @@ export async function getDocumentUrl(path: string): Promise<string> {
     .from("documents")
     .createSignedUrl(path, 3600);
   return data?.signedUrl ?? "https://placehold.co/600x800?text=Preview+Unavailable";
+}
+
+export async function getBankingAnalysis(applicationId: string, from?: string): Promise<{
+  summary: BankStatementSummary;
+  transactions: BankTransaction[];
+}> {
+  if (!isSupabaseConfigured) {
+    return { summary: mockBankStatementSummary, transactions: mockTransactions };
+  }
+  const [summaryRes, txnRes] = await Promise.all([
+    supabase
+      .from("bank_statement_analysis")
+      .select("*")
+      .eq("application_id", applicationId)
+      .single(),
+    supabase
+      .from("bank_transactions")
+      .select("*")
+      .eq("application_id", applicationId)
+      .order("transaction_date", { ascending: true }),
+  ]);
+  const summary: BankStatementSummary = summaryRes.data
+    ? {
+        avgMonthlyBalance: Number(summaryRes.data.avg_monthly_balance) || 0,
+        salaryCreditCount: Number(summaryRes.data.salary_credit_count) || 0,
+        avgSalaryAmount: Number(summaryRes.data.avg_salary_amount) || 0,
+        emiDebitCount: Number(summaryRes.data.emi_debit_count) || 0,
+        emiDebitTotal: Number(summaryRes.data.emi_debit_total) || 0,
+        cashDeposits: Number(summaryRes.data.cash_deposits) || 0,
+        chequeBounceInward: Number(summaryRes.data.cheque_bounce_inward) || 0,
+        chequeBounceOutward: Number(summaryRes.data.cheque_bounce_outward) || 0,
+        minBalanceBreaches: Number(summaryRes.data.min_balance_breaches) || 0,
+        months: Number(summaryRes.data.months) || 6,
+      }
+    : mockBankStatementSummary;
+  const transactions: BankTransaction[] = txnRes.data
+    ? (txnRes.data as any[]).map((t) => ({
+        date: formatDate(t.transaction_date ?? ""),
+        description: t.description ?? "",
+        debit: Number(t.debit) || 0,
+        credit: Number(t.credit) || 0,
+        balance: Number(t.balance) || 0,
+        category: (t.category ?? "Other") as BankTransaction["category"],
+      }))
+    : mockTransactions;
+  return { summary, transactions };
 }

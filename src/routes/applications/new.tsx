@@ -113,39 +113,28 @@ function NewApplication() {
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
 
-  const [firstName, setFirstName] = useState("Rajesh");
-  const [middleName, setMiddleName] = useState("Kumar");
-  const [lastName, setLastName] = useState("Sharma");
-  const [email, setEmail] = useState("rajesh.sharma@tcs.com");
-  const [mobile, setMobile] = useState("9840012345");
-  const [dob, setDob] = useState("1994-03-14");
-  const [pan, setPan] = useState("ABCDE1234F");
-  const [city, setCity] = useState("Chennai");
-  const [selectedState, setSelectedState] = useState("Tamil Nadu");
-  const [pincode, setPincode] = useState("600102");
-  const [employer, setEmployer] = useState("Tata Consultancy Services");
-  const [cibilScore, setCibilScore] = useState("780");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [dob, setDob] = useState("");
+  const [pan, setPan] = useState("");
+  const [city, setCity] = useState("");
+  const [selectedState, setSelectedState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [employer, setEmployer] = useState("");
+  const [cibilScore, setCibilScore] = useState("");
 
-  const [netSalary, setNetSalary] = useState("85000");
-  const [make, setMake] = useState("Hyundai");
-  const [onRoad, setOnRoad] = useState("2115000");
-  const [loanAmount, setLoanAmount] = useState("850000");
+  const [netSalary, setNetSalary] = useState("");
+  const [make, setMake] = useState("");
+  const [onRoad, setOnRoad] = useState("");
+  const [loanAmount, setLoanAmount] = useState("");
   const [tenure, setTenure] = useState("60");
   const [showEmi, setShowEmi] = useState(false);
   const [noObligations, setNoObligations] = useState(false);
-  const [rows, setRows] = useState<ObligationRow[]>([
-    {
-      id: 1,
-      lender: "HDFC Bank",
-      type: "Home",
-      original: "2500000",
-      outstanding: "1850000",
-      emi: "22000",
-      tenure: "168",
-      dpd: "0",
-    },
-  ]);
-  const [uploaded, setUploaded] = useState<string[]>(["PAN Card", "Aadhaar Card"]);
+  const [rows, setRows] = useState<ObligationRow[]>([]);
+  const [uploaded, setUploaded] = useState<string[]>([]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -342,7 +331,7 @@ function NewApplication() {
               <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </Field>
             <Field label="Current address">
-              <Textarea rows={2} defaultValue="12/4 Anna Nagar East, 3rd Street" />
+              <Textarea rows={2} placeholder="12/4 Anna Nagar East, 3rd Street" />
             </Field>
             <Field label="Date of birth">
               <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
@@ -351,7 +340,7 @@ function NewApplication() {
               <Input value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
             <Field label="Gender">
-              <Select defaultValue="Male">
+              <Select>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -385,10 +374,10 @@ function NewApplication() {
               <Input value={pincode} onChange={(e) => setPincode(e.target.value)} />
             </Field>
             <Field label="Aadhaar number" hint="12 digits">
-              <Input defaultValue="4321 8765 9012" />
+              <Input placeholder="XXXX XXXX XXXX" />
             </Field>
             <Field label="Residence type">
-              <Select defaultValue="Owned">
+              <Select>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -403,7 +392,7 @@ function NewApplication() {
             </Field>
             <div className="hidden md:block" />
             <Field label="Years at current address">
-              <Input defaultValue="4" />
+              <Input placeholder="e.g. 4" />
             </Field>
             <Field label="CIBIL score" hint="Enter bureau score for assessment">
               <Input value={cibilScore} onChange={(e) => setCibilScore(e.target.value)} />
@@ -431,34 +420,34 @@ function NewApplication() {
               </Select>
             </Field>
             <Field label="Monthly gross salary (Rs)">
-              <Input defaultValue="104200" />
+              <Input placeholder="e.g. 104200" />
             </Field>
             <Field label="Designation">
-              <Input defaultValue="Senior Software Engineer" />
+              <Input placeholder="e.g. Senior Software Engineer" />
             </Field>
             <Field label="Monthly net salary (Rs)">
               <Input value={netSalary} onChange={(e) => setNetSalary(e.target.value)} />
             </Field>
             <Field label="Department">
-              <Input defaultValue="Digital Engineering" />
+              <Input placeholder="e.g. Digital Engineering" />
             </Field>
             <Field label="Total work experience (years)">
-              <Input defaultValue="8" />
+              <Input placeholder="e.g. 8" />
             </Field>
             <Field label="Employee ID">
-              <Input defaultValue="TCS-884210" />
+              <Input placeholder="e.g. TCS-884210" />
             </Field>
             <Field label="Current employer tenure">
               <div className="grid grid-cols-2 gap-2">
-                <Input defaultValue="3" placeholder="Years" />
-                <Input defaultValue="6" placeholder="Months" />
+                <Input placeholder="Years" />
+                <Input placeholder="Months" />
               </div>
             </Field>
             <Field label="Official email">
-              <Input defaultValue="rajesh.sharma@tcs.com" />
+              <Input placeholder="name@company.com" />
             </Field>
             <Field label="Salary account bank">
-              <Select defaultValue="HDFC Bank">
+              <Select>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -475,7 +464,7 @@ function NewApplication() {
             </Field>
             <div className="hidden md:block" />
             <Field label="Salary account number">
-              <Input defaultValue="50100288417721" />
+              <Input placeholder="e.g. 50100288417721" />
             </Field>
           </div>
         )}
@@ -498,7 +487,7 @@ function NewApplication() {
                 </Select>
               </Field>
               <Field label="Dealer name">
-                <Select defaultValue="Lakshmi Hyundai">
+                <Select>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -514,7 +503,7 @@ function NewApplication() {
                 </Select>
               </Field>
               <Field label="Model">
-                <Select defaultValue={makes[make]?.[0] ?? ""} key={make}>
+                <Select key={make}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -528,10 +517,10 @@ function NewApplication() {
                 </Select>
               </Field>
               <Field label="Dealer city">
-                <Input defaultValue="Chennai" />
+                <Input placeholder="e.g. Chennai" />
               </Field>
               <Field label="Variant">
-                <Select defaultValue="SX(O) 1.5 Turbo DCT">
+                <Select>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -545,23 +534,23 @@ function NewApplication() {
                 </Select>
               </Field>
               <Field label="Ex-showroom price (Rs)" hint="Auto-filled from variant, editable">
-                <Input defaultValue="1840000" />
+                <Input placeholder="e.g. 1840000" />
               </Field>
               <Field label="Fuel type" hint="Auto-filled from variant">
-                <Input defaultValue="Petrol" readOnly className="bg-muted" />
+                <Input placeholder="Petrol / Diesel / EV" readOnly className="bg-muted" />
               </Field>
               <Field label="On-road price (Rs)">
                 <Input value={onRoad} onChange={(e) => setOnRoad(e.target.value)} />
               </Field>
               <Field label="Transmission" hint="Auto-filled from variant">
-                <Input defaultValue="DCT Automatic" readOnly className="bg-muted" />
+                <Input placeholder="Manual / Automatic" readOnly className="bg-muted" />
               </Field>
               <Field label="Insurance amount (Rs)">
-                <Input defaultValue="68000" />
+                <Input placeholder="e.g. 68000" />
               </Field>
               <div className="hidden md:block" />
               <Field label="Registration + road tax (Rs)">
-                <Input defaultValue="207000" />
+                <Input placeholder="e.g. 207000" />
               </Field>
             </div>
 
@@ -843,8 +832,8 @@ function NewApplication() {
                   });
                   setSubmitResult(result);
                   setSubmitting(false);
-                  if (submitResult) {
-                    toast.success("Application submitted: " + (submitResult?.applicationId ?? ""));
+                  if (result) {
+                    toast.success("Application submitted: " + result.applicationId);
                   } else {
                     toast.error("Submission failed — please try again");
                   }
