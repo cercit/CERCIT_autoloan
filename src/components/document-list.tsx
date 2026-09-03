@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FileText, Upload, Check, Loader2 } from "lucide-react";
 import { SectionCard } from "@/components/app-shell";
+import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -22,7 +23,20 @@ const docTypes = [
   { value: "OTHER", label: "Other" },
 ];
 
-export function DocumentList({ applicationId }: { applicationId: string }) {
+const docStatusTone = {
+  Uploaded: "muted",
+  Extracted: "primary",
+  Verified: "success",
+  Failed: "destructive",
+} as const;
+
+export function DocumentList({
+  applicationId,
+  refreshKey = 0,
+}: {
+  applicationId: string;
+  refreshKey?: number;
+}) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -36,7 +50,7 @@ export function DocumentList({ applicationId }: { applicationId: string }) {
       setDocs(list);
       setLoading(false);
     });
-  }, [applicationId]);
+  }, [applicationId, refreshKey]);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -132,6 +146,7 @@ export function DocumentList({ applicationId }: { applicationId: string }) {
                     </div>
                   </div>
                 </button>
+                <Pill tone={docStatusTone[doc.status]}>{doc.status}</Pill>
               </li>
             ))}
           </ul>

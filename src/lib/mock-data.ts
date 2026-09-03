@@ -755,3 +755,32 @@ export const mockBankStatementSummary: BankStatementSummary = {
   minBalanceBreaches: 0,
   months: 6,
 };
+
+export type BankTransaction = {
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  category: "Salary" | "EMI" | "Rent" | "ATM" | "Transfer" | "UPI" | "Other";
+};
+
+export const mockTransactions: BankTransaction[] = [
+  { date: "01 Aug 2026", description: "SAL/AUG/TCS/834210", debit: 0, credit: 85000, balance: 198400, category: "Salary" },
+  { date: "02 Aug 2026", description: "EMI/HDFC/HOMELOAN/8834", debit: 22000, credit: 0, balance: 176400, category: "EMI" },
+  { date: "03 Aug 2026", description: "UPI/SWIGGY/ORDER", debit: 450, credit: 0, balance: 175950, category: "UPI" },
+  { date: "05 Aug 2026", description: "RENT/NEFT/LANDLORD", debit: 18000, credit: 0, balance: 157950, category: "Rent" },
+  { date: "05 Aug 2026", description: "EMI/AXIS/CC/MIN", debit: 5000, credit: 0, balance: 152950, category: "EMI" },
+  { date: "07 Aug 2026", description: "ATM/CASH/ANB001", debit: 10000, credit: 0, balance: 142950, category: "ATM" },
+  { date: "10 Aug 2026", description: "UPI/AMAZON/PURCHASE", debit: 3200, credit: 0, balance: 139750, category: "UPI" },
+  { date: "12 Aug 2026", description: "NEFT/FRIEND/TRANSFER", debit: 5000, credit: 0, balance: 134750, category: "Transfer" },
+  { date: "14 Aug 2026", description: "UPI/BIGBASKET/GROCER", debit: 2800, credit: 0, balance: 131950, category: "UPI" },
+  { date: "15 Aug 2026", description: "UPI/NETFLIX/SUB", debit: 649, credit: 0, balance: 131301, category: "Other" },
+  { date: "18 Aug 2026", description: "NEFT/IN/FREELANCE", debit: 0, credit: 12000, balance: 143301, category: "Transfer" },
+  { date: "20 Aug 2026", description: "UPI/ZOMATO/ORDER", debit: 580, credit: 0, balance: 142721, category: "UPI" },
+  { date: "22 Aug 2026", description: "ATM/CASH/ANB002", debit: 5000, credit: 0, balance: 137721, category: "ATM" },
+  { date: "25 Aug 2026", description: "UPI/ELECTRICITY/TNEB", debit: 1800, credit: 0, balance: 135921, category: "Other" },
+  { date: "27 Aug 2026", description: "UPI/MOBILE/JIO", debit: 399, credit: 0, balance: 135522, category: "Other" },
+  { date: "28 Aug 2026", description: "UPI/PETROL/IOCL", debit: 3500, credit: 0, balance: 132022, category: "Other" },
+  { date: "30 Aug 2026", description: "NEFT/IN/BONUS", debit: 0, credit: 15000, balance: 147022, category: "Transfer" },
+];

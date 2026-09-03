@@ -5,16 +5,15 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
 import { DocumentList } from "@/components/document-list";
+import { BankStatementSummary } from "@/components/bank-statement-summary";
+import { BankStatementTransactions } from "@/components/bank-statement-transactions";
 import { DocumentUpload } from "@/components/document-upload";
 import { OfficerNotes } from "@/components/officer-notes";
-import { BureauReport } from "@/components/bureau-report";
 import { ExtractionResult } from "@/components/extraction-result";
-import { getBureauReport } from "@/lib/api";
-import type { BureauReport as BureauReportType } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getApplication } from "@/lib/api";
+import { getApplication, getBankingAnalysis } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/applications/$id/")({
@@ -39,15 +38,23 @@ export const Route = createFileRoute("/applications/$id/")({
 function ApplicationDetail() {
   const { id } = Route.useParams();
   const [app, setApp] = useState<Application | null>(null);
-  const [bureauData, setBureauData] = useState<BureauReportType | null>(null);
-
-  useEffect(() => {
-    getBureauReport(id).then(setBureauData);
-  }, [id]);
+  const [bankingSummary, setBankingSummary] = useState<any>(null);
+  const [bankingTxns, setBankingTxns] = useState<any[]>([]);
+  const [bankingLoading, setBankingLoading] = useState(false);
 
   useEffect(() => {
     getApplication(id).then((result) => setApp(result ?? null));
   }, [id]);
+
+  useEffect(() => {
+    if (!app?.id) return;
+    setBankingLoading(true);
+    getBankingAnalysis(app.id).then((res: { summary: any; transactions: any[] }) => {
+      setBankingSummary(res.summary);
+      setBankingTxns(res.transactions);
+      setBankingLoading(false);
+    });
+  }, [app?.id]);
 
   if (!app) {
     return (
@@ -83,7 +90,7 @@ function ApplicationDetail() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="extracted">Extracted Data</TabsTrigger>
-          <TabsTrigger value="bureau">Bureau</TabsTrigger>
+          <TabsTrigger value="banking">Banking</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -92,7 +99,7 @@ function ApplicationDetail() {
 
         <TabsContent value="documents" className="space-y-4">
           <DocumentList applicationId={app.id} />
-          <DocumentUpload applicationId={app.id} onUpload={() => {}} />
+          <DocumentUpload applicationId={app.id} />
           <OfficerNotes applicationId={app.id} />
         </TabsContent>
 
@@ -100,8 +107,17 @@ function ApplicationDetail() {
           <ExtractionResult />
         </TabsContent>
 
-        <TabsContent value="bureau">
-          {bureauData ? <BureauReport data={bureauData} /> : <Skeleton className="h-64 w-full" />}
+        <TabsContent value="banking" className="space-y-4">
+          {bankingLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : bankingSummary ? (
+            <>
+              <BankStatementSummary data={bankingSummary} />
+              <BankStatementTransactions transactions={bankingTxns} />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No banking data available.</p>
+          )}
         </TabsContent>
       </Tabs>
     </AppShell>
