@@ -1,6 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Bell,
   Building2,
   ClipboardList,
   Clock,
@@ -31,6 +30,8 @@ import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { currentUser } from "@/lib/mock-data";
 import { signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { NotificationDropdown } from "@/components/notification-dropdown";
+import type { NotificationItem } from "@/components/notification-dropdown";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ShortcutOverlay } from "@/components/shortcut-overlay";
 const nav = [
@@ -86,6 +87,13 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
     </nav>
   );
 }
+
+const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
+  { id: "1", type: "success", title: "APP-2026-00847 approved", message: "Auto-approved by policy engine — CIBIL 782, FOIR 53.3%", timestamp: new Date(Date.now() - 12 * 60000).toISOString(), read: false },
+  { id: "2", type: "warning", title: "APP-2026-00845 flagged", message: "FOIR 48.9% near threshold — manual review required", timestamp: new Date(Date.now() - 45 * 60000).toISOString(), read: false },
+  { id: "3", type: "info", title: "Rate grid updated", message: "New rate card effective from 01 Sep 2026 — Band A now 8.75%", timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), read: false },
+  { id: "4", type: "error", title: "Bureau fetch failed", message: "CIBIL API timeout for APP-2026-00843 — retry in progress", timestamp: new Date(Date.now() - 5 * 3600000).toISOString(), read: false },
+];
 
 export function AppShell({
   title,
@@ -217,12 +225,7 @@ export function AppShell({
 
           <div className="flex items-center justify-end gap-1 sm:flex-none">
             <ThemeToggle />
-            <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-              <Bell className="size-4" />
-              <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-semibold text-destructive-foreground">
-                4
-              </span>
-            </Button>
+            <NotificationDropdown notifications={SAMPLE_NOTIFICATIONS} unreadCount={SAMPLE_NOTIFICATIONS.filter(n => !n.read).length} />
             <div className="ml-1 hidden items-center gap-2 md:flex">
               <span className="flex size-8 items-center justify-center rounded-full bg-primary/12 text-xs font-semibold text-primary">
                 {currentUser.initials}
