@@ -1,0 +1,72 @@
+﻿[
+    {
+        "status":  "pass",
+        "task":  "task-81",
+        "model":  "inkling",
+        "target":  "src/components/score-gauge.tsx",
+        "chars":  1428
+    },
+    {
+        "status":  "pass",
+        "task":  "task-82",
+        "model":  "inkling",
+        "target":  "src/components/stat-card.tsx",
+        "chars":  953
+    },
+    {
+        "status":  "pass",
+        "task":  "task-83",
+        "model":  "inkling",
+        "target":  "src/components/confirmation-dialog.tsx",
+        "chars":  1389
+    },
+    {
+        "status":  "pass",
+        "task":  "task-84",
+        "model":  "inkling",
+        "target":  "src/components/scheme-card.tsx",
+        "chars":  1882
+    },
+    {
+        "status":  "pass",
+        "task":  "task-85",
+        "model":  "inkling",
+        "target":  "src/components/document-checklist.tsx",
+        "chars":  2312
+    },
+    {
+        "status":  "pass",
+        "task":  "task-86",
+        "model":  "inkling",
+        "target":  "src/components/foir-calculator.tsx",
+        "chars":  3230
+    },
+    {
+        "errors":  "npm notice run npx\r\r\nnpm notice run tsc --noEmit\r\r\nsrc/components/risk-matrix.tsx(71,31): error TS2532: Object is possibly \u0027undefined\u0027.\r\r\nsrc/components/risk-matrix.tsx(78,33): error TS2345: Argument of type \u0027string | undefined\u0027 is not assignable to parameter of type \u0027string\u0027.\r\r\n  Type \u0027undefined\u0027 is not assignable to type \u0027string\u0027.",
+        "status":  "fail",
+        "task":  "task-87",
+        "model":  "inkling",
+        "target":  "src/components/risk-matrix.tsx"
+    },
+    {
+        "status":  "pass",
+        "task":  "task-88",
+        "model":  "inkling",
+        "target":  "src/components/emi-schedule.tsx",
+        "chars":  3826
+    },
+    {
+        "status":  "pass",
+        "task":  "task-89",
+        "model":  "inkling",
+        "target":  "src/components/notification-bell.tsx",
+        "chars":  3573
+    },
+    {
+        "errors":  "npm notice run npx\r\r\nnpm notice run tsc --noEmit\r\r\nsrc/components/application-card.tsx(44,5): error TS2367: This comparison appears to be unintentional because the types \u0027\"warning\" | \"destructive\" | \"success\"\u0027 and \u0027\"good\"\u0027 have no overlap.\r\r\nsrc/components/application-card.tsx(46,9): error TS2367: This comparison appears to be unintentional because the types \u0027\"warning\" | \"destructive\" | \"success\"\u0027 and \u0027\"average\"\u0027 have no overlap.\r\r\nsrc/components/application-card.tsx(46,31): error TS2367: This comparison appears to be unintentional because the types \u0027\"warning\" | \"destructive\" | \"success\"\u0027 and \u0027\"fair\"\u0027 have no overlap.",
+        "status":  "fail",
+        "task":  "task-90",
+        "model":  "inkling",
+        "target":  "src/components/application-card.tsx"
+    }
+]

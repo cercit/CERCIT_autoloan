@@ -13,6 +13,19 @@ export interface AppUser {
   dailyCaseLimit: number | null;
 }
 
+export type UserRole = "admin" | "credit_officer" | "reviewer" | "viewer";
+
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
+  admin: ["view_assigned", "create", "evaluate", "override", "approve", "decline", "manage_users", "view_reports", "export", "audit"],
+  credit_officer: ["view_assigned", "create", "evaluate", "approve", "decline", "view_reports", "export"],
+  reviewer: ["view_assigned", "view_reports", "override", "export"],
+  viewer: ["view_assigned", "view_reports", "export"],
+};
+
+export function hasPermission(role: string, action: string): boolean {
+  return (ROLE_PERMISSIONS[role] || []).includes(action);
+}
+
 const DEMO_USER: AppUser = {
   id: "00000000-0000-0000-0000-000000000001",
   email: "demo@cercit.in",
@@ -79,4 +92,17 @@ export async function signOut(): Promise<{ error: string | null }> {
   }
   const { error } = await supabase.auth.signOut();
   return { error: error?.message ?? null };
+}
+
+export async function resetPassword(email: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) return { error: null };
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  return { error: error?.message ?? null };
+}
+
+export function onAuthStateChange(callback: (event: string, session: unknown) => void): { unsubscribe: () => void } {
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(event, session);
+  });
+  return { unsubscribe: data.subscription.unsubscribe };
 }

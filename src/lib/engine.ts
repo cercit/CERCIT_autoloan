@@ -569,3 +569,12 @@ export function quickEligibility(
 
   return { signal, reasons, foir, emi };
 }
+
+export {
+  POLICY_RULES,
+  evaluatePolicy,
+  type PolicyRule,
+  type PolicyInput as PolicyRuleInput,
+  type PolicyResult,
+  type Severity,
+} from "./policy-rule-engine";
