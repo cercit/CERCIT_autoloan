@@ -44,14 +44,14 @@ export function parseMMYY(value: string): { month: number; year: number; label: 
   const clean = value.replace(/\s/g, "");
   const match4 = clean.match(/^([01]\d)[/]?([0-9]{4})$/);
   if (match4) {
-    const m = parseInt(match4[1], 10);
-    const y = parseInt(match4[2], 10);
+    const m = parseInt(match4[1]!, 10);
+    const y = parseInt(match4[2]!, 10);
     if (m >= 1 && m <= 12) return { month: m, year: y, label: `${MONTH_NAMES_SHORT[m - 1]}-${y.toString().slice(-2)}` };
   }
   const match2 = clean.match(/^([01]\d)[/]?([0-9]{2})$/);
   if (match2) {
-    const m = parseInt(match2[1], 10);
-    const yShort = parseInt(match2[2], 10);
+    const m = parseInt(match2[1]!, 10);
+    const yShort = parseInt(match2[2]!, 10);
     const y = yShort >= 50 ? 1900 + yShort : 2000 + yShort;
     if (m >= 1 && m <= 12) return { month: m, year: y, label: `${MONTH_NAMES_SHORT[m - 1]}-${y.toString().slice(-2)}` };
   }

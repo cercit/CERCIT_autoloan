@@ -44,7 +44,7 @@ export function RateCardPicker({
     E: [],
   };
 
-  const opts = options || defaults[riskGrade] || defaults.C;
+  const opts = options ?? defaults[riskGrade] ?? defaults['C']!;
 
   const calcEmi = (rate: number) => {
     const r = rate / 100 / 12;

@@ -142,6 +142,6 @@ function getMockApplications(filters?: { status?: string; limit?: number; offset
 }
 
 function getMockApplication(app: Partial<ApplicationRow>): ApplicationRow {
-  const base = getMockApplications()[0];
+  const base = getMockApplications()[0]!;
   return { ...base, ...app, id: app.id || `mock-${Date.now()}`, updated_at: new Date().toISOString() };
 }

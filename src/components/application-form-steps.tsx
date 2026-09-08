@@ -25,29 +25,29 @@ export function ApplicationFormSteps({ onSaveDraft, onSubmit, initialData, class
 
   const validateStep0 = () => {
     const errs: Record<string, string> = {};
-    if (!data.name.trim()) errs.name = "Required";
-    if (!data.dob) errs.dob = "Required";
-    if (!data.pan || data.pan.length !== 10) errs.pan = "Valid PAN required";
-    if (!data.mobile || !/^\d{10}$/.test(data.mobile)) errs.mobile = "10-digit mobile required";
-    if (data.pincode && !/^\d{6}$/.test(data.pincode)) errs.pincode = "6-digit pincode";
+    if (!data.name.trim()) errs['name'] = "Required";
+    if (!data.dob) errs['dob'] = "Required";
+    if (!data.pan || data.pan.length !== 10) errs['pan'] = "Valid PAN required";
+    if (!data.mobile || !/^\d{10}$/.test(data.mobile)) errs['mobile'] = "10-digit mobile required";
+    if (data.pincode && !/^\d{6}$/.test(data.pincode)) errs['pincode'] = "6-digit pincode";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const validateStep1 = () => {
     const errs: Record<string, string> = {};
-    if (!data.employer.trim()) errs.employer = "Required";
-    if (data.grossIncome <= 0) errs.grossIncome = "Must be > 0";
+    if (!data.employer.trim()) errs['employer'] = "Required";
+    if (data.grossIncome <= 0) errs['grossIncome'] = "Must be > 0";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const validateStep2 = () => {
     const errs: Record<string, string> = {};
-    if (!data.vehicleMake.trim()) errs.vehicleMake = "Required";
-    if (!data.vehicleModel.trim()) errs.vehicleModel = "Required";
-    if (data.loanAmount <= 0) errs.loanAmount = "Must be > 0";
-    if (data.tenure < 12 || data.tenure > 84) errs.tenure = "12-84 months";
+    if (!data.vehicleMake.trim()) errs['vehicleMake'] = "Required";
+    if (!data.vehicleModel.trim()) errs['vehicleModel'] = "Required";
+    if (data.loanAmount <= 0) errs['loanAmount'] = "Must be > 0";
+    if (data.tenure < 12 || data.tenure > 84) errs['tenure'] = "12-84 months";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -80,7 +80,7 @@ export function ApplicationFormSteps({ onSaveDraft, onSubmit, initialData, class
             { label: "Address", key: "address", type: "text" },
             { label: "Pincode", key: "pincode", type: "text", span: 2 },
           ] as const).map((f) => (
-            <div key={f.key} className={cn("space-y-1", f.span === 2 && "col-span-2")}>
+            <div key={f.key} className={cn("space-y-1", 'span' in f && f.span === 2 && "col-span-2")}>
               <label htmlFor={f.key} className="text-xs font-medium text-muted-foreground">{f.label}</label>
               <input id={f.key} type={f.type} value={(data as any)[f.key] || ""} onChange={(e) => setData({ ...data, [f.key]: e.target.value })} className="w-full rounded-md border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
               {errors[f.key] && <p className="text-[10px] text-red-600">{errors[f.key]}</p>}

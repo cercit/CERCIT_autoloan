@@ -21,9 +21,9 @@ export function OTPVerificationStep({ maskedTarget = "XXXX XXX 5678", length = 6
     if (timer > 0) {
       const interval = setInterval(() => setTimer((t) => t - 1), 1000);
       return () => clearInterval(interval);
-    } else {
-      setResendReady(true);
     }
+    setResendReady(true);
+    return undefined;
   }, [timer]);
 
   const handleResend = () => {
@@ -64,7 +64,7 @@ export function OTPVerificationStep({ maskedTarget = "XXXX XXX 5678", length = 6
     if (!pasted) return;
     const nextDigits = [...digits];
     for (let j = 0; j < pasted.length && startIndex + j < length; j++) {
-      nextDigits[startIndex + j] = pasted[j];
+      nextDigits[startIndex + j] = pasted[j]!;
     }
     setDigits(nextDigits);
   };
@@ -96,7 +96,7 @@ export function OTPVerificationStep({ maskedTarget = "XXXX XXX 5678", length = 6
         {digits.map((d, i) => (
           <input
             key={i}
-            ref={(el) => (inputRefs.current[i] = el)}
+            ref={(el) => { inputRefs.current[i] = el; }}
             type="text"
             inputMode="numeric"
             maxLength={1}

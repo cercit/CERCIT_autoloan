@@ -19,16 +19,16 @@ export interface DealerRow {
 }
 
 const MOCK_DEALERS: DealerRow[] = [
-  { id: "d1", name: "Maruti Arena Mumbai West", oem: "Maruti Suzuki", city: "Mumbai", state: "Maharashtra", tier: "A", contact_name: "Rajesh Patel", contact_phone: "+91 9876543210", active: true, total_applications: 234, approval_rate: 78.5 },
-  { id: "d2", name: "Hyundai Motor Plaza", oem: "Hyundai", city: "Delhi", state: "Delhi", tier: "A", contact_name: "Anjali Mehta", contact_phone: "+91 9876543211", active: true, total_applications: 189, approval_rate: 72.3 },
-  { id: "d3", name: "Tata Motors Bangalore", oem: "Tata Motors", city: "Bangalore", state: "Karnataka", tier: "B", contact_name: "Kiran Rao", active: true, total_applications: 156, approval_rate: 65.4 },
-  { id: "d4", name: "Mahindra First Choice", oem: "Mahindra", city: "Pune", state: "Maharashtra", tier: "B", contact_name: "Suresh Jadhav", active: true, total_applications: 98, approval_rate: 68.0 },
-  { id: "d5", name: "Kia Motors Chennai", oem: "Kia", city: "Chennai", state: "Tamil Nadu", tier: "A", contact_name: "Priya Venkatesh", contact_email: "contact@kia-chennai.in", active: true, total_applications: 67, approval_rate: 81.2 },
-  { id: "d6", name: "Maruti Nexa Delhi", oem: "Maruti Suzuki", city: "Delhi", state: "Delhi", tier: "B", contact_phone: "+91 9876543215", active: true, total_applications: 112, approval_rate: 70.1 },
-  { id: "d7", name: "Hyundai Elite Hyderabad", oem: "Hyundai", city: "Hyderabad", state: "Telangana", tier: "B", active: false, total_applications: 45, approval_rate: 59.0 },
-  { id: "d8", name: "Tata Motors Pune", oem: "Tata Motors", city: "Pune", state: "Maharashtra", tier: "C", contact_name: "Vikram Joshi", active: true, total_applications: 34, approval_rate: 62.5 },
-  { id: "d9", name: "Mahindra Commercial Chennai", oem: "Mahindra", city: "Chennai", state: "Tamil Nadu", tier: "A", contact_email: "info@mahindra-chennai.in", active: true, total_applications: 78, approval_rate: 74.8 },
-  { id: "d10", name: "Maruti Arena Bangalore", oem: "Maruti Suzuki", city: "Bangalore", state: "Karnataka", tier: "A", contact_phone: "+91 9876543222", active: true, total_applications: 201, approval_rate: 77.3 },
+  { id: "d1", name: "Maruti Arena Mumbai West", oem: "Maruti Suzuki", city: "Mumbai", state: "Maharashtra", tier: "A", contact_name: "Rajesh Patel", contact_phone: "+91 9876543210", active: true, total_applications: 234, approval_rate: 78.5, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d2", name: "Hyundai Motor Plaza", oem: "Hyundai", city: "Delhi", state: "Delhi", tier: "A", contact_name: "Anjali Mehta", contact_phone: "+91 9876543211", active: true, total_applications: 189, approval_rate: 72.3, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d3", name: "Tata Motors Bangalore", oem: "Tata Motors", city: "Bangalore", state: "Karnataka", tier: "B", contact_name: "Kiran Rao", active: true, total_applications: 156, approval_rate: 65.4, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d4", name: "Mahindra First Choice", oem: "Mahindra", city: "Pune", state: "Maharashtra", tier: "B", contact_name: "Suresh Jadhav", active: true, total_applications: 98, approval_rate: 68.0, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d5", name: "Kia Motors Chennai", oem: "Kia", city: "Chennai", state: "Tamil Nadu", tier: "A", contact_name: "Priya Venkatesh", contact_email: "contact@kia-chennai.in", active: true, total_applications: 67, approval_rate: 81.2, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d6", name: "Maruti Nexa Delhi", oem: "Maruti Suzuki", city: "Delhi", state: "Delhi", tier: "B", contact_phone: "+91 9876543215", active: true, total_applications: 112, approval_rate: 70.1, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d7", name: "Hyundai Elite Hyderabad", oem: "Hyundai", city: "Hyderabad", state: "Telangana", tier: "B", active: false, total_applications: 45, approval_rate: 59.0, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d8", name: "Tata Motors Pune", oem: "Tata Motors", city: "Pune", state: "Maharashtra", tier: "C", contact_name: "Vikram Joshi", active: true, total_applications: 34, approval_rate: 62.5, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d9", name: "Mahindra Commercial Chennai", oem: "Mahindra", city: "Chennai", state: "Tamil Nadu", tier: "A", contact_email: "info@mahindra-chennai.in", active: true, total_applications: 78, approval_rate: 74.8, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  { id: "d10", name: "Maruti Arena Bangalore", oem: "Maruti Suzuki", city: "Bangalore", state: "Karnataka", tier: "A", contact_phone: "+91 9876543222", active: true, total_applications: 201, approval_rate: 77.3, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
 ];
 
 export async function fetchDealers(filters?: { tier?: string; city?: string; state?: string; active?: boolean; limit?: number; offset?: number }): Promise<DealerRow[]> {

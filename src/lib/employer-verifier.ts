@@ -60,7 +60,7 @@ export function classifyEmployer(name: string): EmployerVerification {
 export function verifyEmployerPAN(pan: string): { valid: boolean; entityType?: string } {
   const clean = pan.trim().toUpperCase();
   if (!/^[A-Z]{5}\d{4}[A-Z]{1}$/.test(clean)) return { valid: false };
-  const fourthChar = clean[3];
+  const fourthChar = clean[3] ?? "";
   const types: Record<string, string> = {
     P: "Individual",
     C: "Company",

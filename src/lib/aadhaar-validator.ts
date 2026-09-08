@@ -66,9 +66,9 @@ function verifyVerhoeff(digits: string): boolean {
   // Process from right to left (least significant digit first)
   // The last digit is the check digit
   for (let i = 0; i < digits.length; i++) {
-    const digit = parseInt(digits[digits.length - 1 - i], 10);
-    const permuted = verhoeffP[i % 8][digit];
-    checksum = verhoeffD[checksum][permuted];
+    const digit = parseInt(digits[digits.length - 1 - i]!, 10);
+    const permuted = verhoeffP[i % 8]![digit]!;
+    checksum = verhoeffD[checksum]![permuted]!;
   }
 
   return checksum === 0;
@@ -134,14 +134,14 @@ export function generateValidAadhaar(): string {
   // Calculate check digit (12th digit) using Verhoeff algorithm
   let checksum = 0;
   for (let i = 0; i < 11; i++) {
-    const digit = digits[10 - i];
-    const permuted = verhoeffP[i % 8][digit];
-    checksum = verhoeffD[checksum][permuted];
+    const digit = digits[10 - i]!;
+    const permuted = verhoeffP[i % 8]![digit]!;
+    checksum = verhoeffD[checksum]![permuted]!;
   }
 
   // The check digit is chosen so that d[checksum][p[0][checkDigit]] = 0
   // Since p[0] is identity, checkDigit = verhoeffInv[checksum]
-  const checkDigit = verhoeffInv[checksum];
+  const checkDigit = verhoeffInv[checksum]!;
   digits.push(checkDigit);
 
   return digits.join('');

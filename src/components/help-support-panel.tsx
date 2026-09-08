@@ -23,7 +23,7 @@ const CATEGORIES = ["Application query", "Document issue", "Payment query", "Tec
 export function HelpSupportPanel({ onContactSubmit, defaultAppId = "", className }: HelpSupportPanelProps) {
   const [tab, setTab] = useState<"faq" | "contact">("faq");
   const [expanded, setExpanded] = useState<Record<number, boolean>>({ 0: true });
-  const [form, setForm] = useState({ category: CATEGORIES[0], subject: "", message: "", appId: defaultAppId });
+  const [form, setForm] = useState({ category: CATEGORIES[0]!, subject: "", message: "", appId: defaultAppId });
 
   const toggle = (i: number) => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }));
 

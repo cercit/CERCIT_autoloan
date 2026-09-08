@@ -52,18 +52,20 @@ export async function fetchBureauReport(request: BureauRequest): Promise<BureauM
   const score = hashPanToScore(request.pan);
   const lenders = getLenders();
   const accountCount = 2 + Math.floor(Math.random() * 4);
+  const accountTypes = ["Home Loan", "Personal Loan", "Credit Card", "Auto Loan", "Education Loan"];
+  const statuses = ["Active", "Closed", "Active", "Active"];
   const accounts: BureauAccount[] = Array.from({ length: accountCount }, (_, i) => ({
-    accountType: ["Home Loan", "Personal Loan", "Credit Card", "Auto Loan", "Education Loan"][i % 5],
-    lender: lenders[i % lenders.length],
+    accountType: accountTypes[i % 5]!,
+    lender: lenders[i % lenders.length]!,
     amount: 120000 + Math.floor(Math.random() * 800000),
     openedDate: `202${1 + Math.floor(Math.random() * 4)}-${String(1 + Math.floor(Math.random() * 12)).padStart(2, "0")}-01`,
-    status: ["Active", "Closed", "Active", "Active"][i % 4],
+    status: statuses[i % 4]!,
   }));
 
   const enquiryCount = 1 + Math.floor(Math.random() * 3);
   const enquiries = Array.from({ length: enquiryCount }, () => ({
     date: new Date(Date.now() - Math.floor(Math.random() * 90) * 86400000).toISOString().slice(0, 10),
-    lender: lenders[Math.floor(Math.random() * lenders.length)],
+    lender: lenders[Math.floor(Math.random() * lenders.length)]!,
   }));
 
   return {

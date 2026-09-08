@@ -46,7 +46,7 @@ export function panEntityType(pan: string): string {
     return 'Unknown';
   }
   const normalized = pan.trim().toUpperCase();
-  const fourthChar = normalized[3]; // 0-indexed, so 4th char is at index 3
+  const fourthChar = normalized[3] ?? ""; // 0-indexed, so 4th char is at index 3
   return ENTITY_TYPES[fourthChar] || 'Unknown';
 }
 
@@ -87,7 +87,7 @@ export function panMatchesName(pan: string, name: string): boolean {
     return false;
   }
   
-  const lastName = nameParts[nameParts.length - 1];
+  const lastName = nameParts[nameParts.length - 1]!;
   const lastNameInitial = lastName[0];
   
   return fifthChar === lastNameInitial;

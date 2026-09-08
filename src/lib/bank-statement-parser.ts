@@ -27,14 +27,18 @@ export function parseIndianDate(dateStr: string): string | null {
   // DD/MM/YYYY or DD-MM-YYYY
   let match = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (match) {
-    const [, day, month, year] = match as RegExpMatchArray;
+    const day = match[1]!;
+    const month = match[2]!;
+    const year = match[3]!;
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   }
 
   // DD-Mon-YYYY (e.g., 15-Jan-2024)
   match = trimmed.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
   if (match) {
-    const [, day, monthStr, year] = match as RegExpMatchArray;
+    const day = match[1]!;
+    const monthStr = match[2]!;
+    const year = match[3]!;
     const month = monthStrToNumber(monthStr);
     if (month) {
       return `${year}-${month.toString().padStart(2, '0')}-${day.padStart(2, '0')}`;
@@ -44,7 +48,9 @@ export function parseIndianDate(dateStr: string): string | null {
   // DD-Mon-YY (e.g., 15-Jan-24)
   match = trimmed.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
   if (match) {
-    const [, day, monthStr, year] = match as RegExpMatchArray;
+    const day = match[1]!;
+    const monthStr = match[2]!;
+    const year = match[3]!;
     const month = monthStrToNumber(monthStr);
     if (month) {
       const fullYear = parseInt(year) < 50 ? `20${year}` : `19${year}`;
@@ -176,7 +182,7 @@ export function extractHolderName(text: string): string {
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
-    if (match) {
+    if (match?.[1]) {
       return match[1].trim().replace(/\s+/g, ' ');
     }
   }
@@ -249,7 +255,7 @@ export function extractBalances(text: string): { opening: number; closing: numbe
 
   for (const pattern of openingPatterns) {
     const match = text.match(pattern);
-    if (match) {
+    if (match?.[1]) {
       const { value, isCredit } = parseIndianAmount(match[1]);
       opening = isCredit ? value : -value;
       break;
@@ -258,7 +264,7 @@ export function extractBalances(text: string): { opening: number; closing: numbe
 
   for (const pattern of closingPatterns) {
     const match = text.match(pattern);
-    if (match) {
+    if (match?.[1]) {
       const { value, isCredit } = parseIndianAmount(match[1]);
       closing = isCredit ? value : -value;
       break;
@@ -283,7 +289,7 @@ function parseTransactionLine(line: string): Transaction | null {
   const dateMatch = trimmed.match(/^(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}-[A-Za-z]{3}-\d{2,4})/);
   if (!dateMatch) return null;
 
-  const dateStr = dateMatch[1];
+  const dateStr = dateMatch[1]!;
   const isoDate = parseIndianDate(dateStr);
   if (!isoDate) return null;
 
@@ -338,31 +344,35 @@ function parseTransactionLine(line: string): Transaction | null {
   // Assign amounts based on count and Dr/Cr
   if (amounts.length === 1) {
     // Only one amount - could be debit or credit, balance unknown
-    if (amounts[0].isCredit) {
-      credit = amounts[0].value;
+    if (amounts[0]!.isCredit) {
+      credit = amounts[0]!.value;
     } else {
-      debit = amounts[0].value;
+      debit = amounts[0]!.value;
     }
   } else if (amounts.length === 2) {
     // Two amounts - typically debit/credit and balance
     // Or debit and credit
-    if (amounts[0].isCredit && !amounts[1].isCredit) {
-      credit = amounts[0].value;
-      debit = amounts[1].value;
-    } else if (!amounts[0].isCredit && amounts[1].isCredit) {
-      debit = amounts[0].value;
-      credit = amounts[1].value;
+    const a0 = amounts[0]!;
+    const a1 = amounts[1]!;
+    if (a0.isCredit && !a1.isCredit) {
+      credit = a0.value;
+      debit = a1.value;
+    } else if (!a0.isCredit && a1.isCredit) {
+      debit = a0.value;
+      credit = a1.value;
     } else {
       // Both same type or unclear - assume first is transaction, second is balance
-      if (amounts[0].isCredit) credit = amounts[0].value;
-      else debit = amounts[0].value;
-      balance = amounts[1].value;
+      if (a0.isCredit) credit = a0.value;
+      else debit = a0.value;
+      balance = a1.value;
     }
   } else if (amounts.length >= 3) {
     // Three or more - typically debit, credit, balance
-    debit = amounts[0].isCredit ? 0 : amounts[0].value;
-    credit = amounts[0].isCredit ? amounts[0].value : (amounts[1].isCredit ? amounts[1].value : 0);
-    balance = amounts[amounts.length - 1].value;
+    const a0 = amounts[0]!;
+    const a1 = amounts[1]!;
+    debit = a0.isCredit ? 0 : a0.value;
+    credit = a0.isCredit ? a0.value : (a1.isCredit ? a1.value : 0);
+    balance = amounts[amounts.length - 1]!.value;
   }
 
   return {
@@ -402,14 +412,14 @@ export function parseBankStatement(text: string): BankStatementData {
   // If opening balance not found, try to infer from first transaction
   let openingBalance = opening;
   if (openingBalance === 0 && transactions.length > 0) {
-    const firstTxn = transactions[0];
+    const firstTxn = transactions[0]!;
     openingBalance = firstTxn.balance - firstTxn.credit + firstTxn.debit;
   }
 
   // If closing balance not found, use last transaction balance
   let closingBalance = closing;
   if (closingBalance === 0 && transactions.length > 0) {
-    closingBalance = transactions[transactions.length - 1].balance;
+    closingBalance = transactions[transactions.length - 1]!.balance;
   }
 
   return {

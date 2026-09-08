@@ -5,11 +5,11 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { CopilotReview } from "@/components/copilot-review";
 import { DocumentList } from "@/components/document-list";
-import { BankStatementSummary } from "@/components/bank-statement-summary";
-import { BankStatementTransactions } from "@/components/bank-statement-transactions";
-import { DocumentUpload } from "@/components/document-upload";
+import { CashflowSummaryCard } from "@/components/cashflow-summary-card";
+import { TransactionTable } from "@/components/transaction-table";
+import { DocumentUploadZone } from "@/components/document-upload-zone";
 import { OfficerNotes } from "@/components/officer-notes";
-import { ExtractionResult } from "@/components/extraction-result";
+import { DocumentExtractionReview } from "@/components/document-extraction-review";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,8 +18,9 @@ import type { Application } from "@/lib/mock-data";
 import { SlaTimer } from "@/components/sla-timer";
 import { OverridePanel } from "@/components/override-panel";
 import { EscalationDialog } from "@/components/escalation-dialog";
-import { ApplicationTimeline } from "@/components/application-timeline";
-import { CamReport } from "@/components/cam-report";
+import { AuditTrailTimeline } from "@/components/audit-trail-timeline";
+import { CAMPreview } from "@/components/cam-preview";
+import { runAssessment } from "@/lib/engine";
 import { getAvailableTransitions } from "@/lib/workflow";
 import type { ApplicationStatus } from "@/lib/workflow";
 import { transitionStatus, checkDuplicates, getApplicationTimeline, assignApplication } from "@/lib/api";
@@ -174,12 +175,22 @@ function ApplicationDetail() {
 
         <TabsContent value="documents" className="space-y-4">
           <DocumentList applicationId={app.id} />
-          <DocumentUpload applicationId={app.id} />
+          <DocumentUploadZone documentType="Application Document" onFileSelect={() => {}} />
           <OfficerNotes applicationId={app.id} />
         </TabsContent>
 
         <TabsContent value="extracted">
-          <ExtractionResult />
+          <DocumentExtractionReview
+            documentName={`${app.name} — Application`}
+            documentType="KYC + Income"
+            fields={[
+              { label: "Full Name", value: app.name, confidence: "high" },
+              { label: "PAN", value: app.pan, confidence: "high" },
+              { label: "Employer", value: app.employer, confidence: "high" },
+              { label: "Net Income", value: String(app.netIncome), confidence: "medium" },
+              { label: "City", value: app.city, confidence: "high" },
+            ]}
+          />
         </TabsContent>
 
         <TabsContent value="banking" className="space-y-4">
@@ -187,8 +198,18 @@ function ApplicationDetail() {
             <Skeleton className="h-48 w-full" />
           ) : bankingSummary ? (
             <>
-              <BankStatementSummary data={bankingSummary} />
-              <BankStatementTransactions transactions={bankingTxns} />
+              <CashflowSummaryCard
+                totalCredits={bankingSummary.avgSalaryAmount * bankingSummary.months}
+                totalDebits={bankingSummary.emiDebitTotal + bankingSummary.cashDeposits}
+                avgMonthlyBalance={bankingSummary.avgMonthlyBalance}
+                avgSalary={bankingSummary.avgSalaryAmount}
+                salaryRegularity={Math.round((bankingSummary.salaryCreditCount / bankingSummary.months) * 100)}
+                bounceCount={bankingSummary.chequeBounceOutward}
+                totalEmiBurden={bankingSummary.emiDebitTotal}
+                cashWithdrawalRatio={bankingSummary.avgMonthlyBalance > 0 ? Math.round((bankingSummary.cashDeposits / bankingSummary.avgMonthlyBalance) * 100) : 0}
+                monthCount={bankingSummary.months}
+              />
+              <TransactionTable transactions={bankingTxns} />
             </>
           ) : (
             <p className="text-sm text-muted-foreground">No banking data available.</p>
@@ -196,11 +217,47 @@ function ApplicationDetail() {
         </TabsContent>
 
         <TabsContent value="timeline">
-          <ApplicationTimeline events={timeline} />
+          <AuditTrailTimeline
+            entries={timeline.map((e, i) => ({
+              id: String(i),
+              application_id: app.id,
+              actor: e.actor,
+              action: e.stage,
+              detail: e.detail ? { note: e.detail } : {},
+              timestamp: e.timestamp,
+            }))}
+          />
         </TabsContent>
 
         <TabsContent value="cam">
-          <CamReport app={app} />
+          {(() => {
+            const result = runAssessment(app);
+            return (
+              <CAMPreview data={{
+                applicationId: app.id,
+                applicantName: app.name,
+                applicantAge: app.age,
+                pan: app.pan,
+                vehicleMake: app.vehicle.split(" ")[0] ?? "",
+                vehicleModel: app.vehicle,
+                vehicleSegment: app.category,
+                exShowroom: app.exShowroom,
+                onRoad: app.onRoad,
+                loanAmount: app.loanAmount,
+                tenureMonths: app.tenure || 60,
+                ratePercent: result.decision.suggestedRate,
+                emi: result.income.proposedEmi,
+                bureauScore: result.bureau.score,
+                bureauName: "CIBIL",
+                foirPercent: result.income.foir,
+                ltvPercent: result.ltv.ltvExShowroom,
+                policyDecision: result.decision.decision === "APPROVE" ? "approve" : result.decision.decision === "REJECT" ? "decline" : "review",
+                policyFailedRules: result.policy.violations.map(v => v.rule),
+                recommendation: result.decision.reasons.join("; "),
+                generatedAt: result.timestamp,
+              }} />
+            );
+          })()}
         </TabsContent>
       </Tabs>
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>

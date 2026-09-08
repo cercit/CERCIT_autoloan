@@ -13,7 +13,7 @@ const CATEGORIES = ["Credit exception", "Policy relaxation", "Additional collate
 
 export function DecisionOverrideForm({ currentDecision, policyScore, failedRules, onSubmit, className }: DecisionOverrideFormProps) {
   const [newDecision, setNewDecision] = useState<"approve" | "review" | "decline">(currentDecision);
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(CATEGORIES[0]!);
   const [reason, setReason] = useState("");
   const [conditions, setConditions] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);

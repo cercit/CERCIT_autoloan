@@ -12,7 +12,7 @@ export interface NACHMandateFormProps {
 const BANKS = ["State Bank of India (SBI)", "HDFC Bank", "ICICI Bank", "Axis Bank", "Kotak Mahindra Bank", "Punjab National Bank", "Bank of Baroda", "Canara Bank", "Union Bank of India", "Indian Bank", "Bank of India", "IDFC First Bank", "IndusInd Bank", "Yes Bank", "Federal Bank"];
 
 export function NACHMandateForm({ emi, applicantName, onSubmit, className }: NACHMandateFormProps) {
-  const [bank, setBank] = useState(BANKS[0]);
+  const [bank, setBank] = useState(BANKS[0]!);
   const [accountNumber, setAccountNumber] = useState("");
   const [confirmAccountNumber, setConfirmAccountNumber] = useState("");
   const [ifsc, setIfsc] = useState("");
@@ -22,10 +22,10 @@ export function NACHMandateForm({ emi, applicantName, onSubmit, className }: NAC
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!bank) errs.bankName = "Select a bank";
-    if (!/^\d{9,18}$/.test(accountNumber)) errs.accountNumber = "Account number must be 9-18 digits";
-    if (confirmAccountNumber !== accountNumber) errs.confirmAccountNumber = "Account numbers do not match";
-    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase())) errs.ifsc = "Invalid IFSC format";
+    if (!bank) errs['bankName'] = "Select a bank";
+    if (!/^\d{9,18}$/.test(accountNumber)) errs['accountNumber'] = "Account number must be 9-18 digits";
+    if (confirmAccountNumber !== accountNumber) errs['confirmAccountNumber'] = "Account numbers do not match";
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase())) errs['ifsc'] = "Invalid IFSC format";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -59,19 +59,19 @@ export function NACHMandateForm({ emi, applicantName, onSubmit, className }: NAC
         <div>
           <label htmlFor="accNo" className="text-xs font-medium text-muted-foreground block mb-1">Account number</label>
           <input id="accNo" type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ""))} placeholder="10 to 18 digits" className="w-full rounded-md border px-3 py-2 text-sm bg-background" />
-          {errors.accountNumber && <p className="text-xs text-red-600 mt-0.5">{errors.accountNumber}</p>}
+          {errors['accountNumber'] && <p className="text-xs text-red-600 mt-0.5">{errors['accountNumber']}</p>}
         </div>
 
         <div>
           <label htmlFor="confirmAcc" className="text-xs font-medium text-muted-foreground block mb-1">Confirm account number</label>
           <input id="confirmAcc" type="text" value={confirmAccountNumber} onChange={(e) => setConfirmAccountNumber(e.target.value.replace(/\D/g, ""))} placeholder="Re-enter account number" className="w-full rounded-md border px-3 py-2 text-sm bg-background" />
-          {errors.confirmAccountNumber && <p className="text-xs text-red-600 mt-0.5">{errors.confirmAccountNumber}</p>}
+          {errors['confirmAccountNumber'] && <p className="text-xs text-red-600 mt-0.5">{errors['confirmAccountNumber']}</p>}
         </div>
 
         <div>
           <label htmlFor="ifscCode" className="text-xs font-medium text-muted-foreground block mb-1">IFSC code</label>
           <input id="ifscCode" type="text" value={ifsc} onChange={(e) => setIfsc(e.target.value.toUpperCase().slice(0, 11))} placeholder="ABCD0123456" className="w-full rounded-md border px-3 py-2 text-sm bg-background" />
-          {errors.ifsc && <p className="text-xs text-red-600 mt-0.5">{errors.ifsc}</p>}
+          {errors['ifsc'] && <p className="text-xs text-red-600 mt-0.5">{errors['ifsc']}</p>}
         </div>
 
         <div>
@@ -88,7 +88,7 @@ export function NACHMandateForm({ emi, applicantName, onSubmit, className }: NAC
       </div>
 
       <div className="flex justify-end gap-2 pt-3 border-t">
-        <button type="button" onClick={() => { setBank(BANKS[0]); setAccountNumber(""); setConfirmAccountNumber(""); setIfsc(""); setErrors({}); }} className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
+        <button type="button" onClick={() => { setBank(BANKS[0]!); setAccountNumber(""); setConfirmAccountNumber(""); setIfsc(""); setErrors({}); }} className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
           Set up later
         </button>
         <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">

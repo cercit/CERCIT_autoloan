@@ -65,8 +65,9 @@ export function classifyDocument(text: string, fileName?: string): Classificatio
   const sorted = Object.entries(scores) as [DocumentType, number][];
   sorted.sort((a, b) => b[1] - a[1]);
 
-  const bestType = sorted[0][0];
-  const bestCount = sorted[0][1];
+  const best = sorted[0]!;
+  const bestType = best[0];
+  const bestCount = best[1];
 
   const confidence = bestCount >= 3 ? "high" : bestCount >= 2 ? "medium" : bestCount >= 1 ? "low" : "low";
 
@@ -74,6 +75,6 @@ export function classifyDocument(text: string, fileName?: string): Classificatio
     type: bestType === "unknown" && bestCount === 0 ? "unknown" : bestType,
     confidence,
     matchCount: Math.round(bestCount),
-    matches: sorted[0][0] === "unknown" ? [] : KEYWORD_MAP[bestType].filter((k) => lowerText.includes(k.toLowerCase())),
+    matches: bestType === "unknown" ? [] : KEYWORD_MAP[bestType].filter((k) => lowerText.includes(k.toLowerCase())),
   };
 }

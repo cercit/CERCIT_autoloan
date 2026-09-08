@@ -50,7 +50,7 @@ export function parseAddressProof(text: string): ParsedAddress {
   }
 
   const pincodeMatch = text.match(/\b([1-9][0-9]\d{4})\b/);
-  const pincode = pincodeMatch ? pincodeMatch[1] : "";
+  const pincode = pincodeMatch?.[1] ?? "";
 
   let state = "";
   for (const s of INDIAN_STATES) {
@@ -78,7 +78,7 @@ export function parseAddressProof(text: string): ParsedAddress {
   }
 
   const dateMatch = text.match(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{2}-[a-z]{3}-\d{4})\b/i);
-  const issueDate = dateMatch ? dateMatch[1] : "";
+  const issueDate = dateMatch?.[1] ?? "";
 
   const confidence: "high" | "medium" | "low" = name && pincode ? (state ? "high" : "medium") : (name || pincode ? "low" : "low");
 

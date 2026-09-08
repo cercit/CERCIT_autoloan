@@ -55,7 +55,7 @@ export function ActivityFeed({
                 <div
                   className={cn(
                     "w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm",
-                    typeColorMap[type] ?? typeColorMap.info
+                    typeColorMap[type] ?? typeColorMap['info']
                   )}
                 />
                 {!isLast && (

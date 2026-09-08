@@ -2,14 +2,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 export interface FilterState {
-  search?: string;
-  status?: string;
-  decision?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  bureauMin?: number;
-  bureauMax?: number;
-  assignedTo?: string;
+  search?: string | undefined;
+  status?: string | undefined;
+  decision?: string | undefined;
+  dateFrom?: string | undefined;
+  dateTo?: string | undefined;
+  bureauMin?: number | undefined;
+  bureauMax?: number | undefined;
+  assignedTo?: string | undefined;
 }
 
 export interface ApplicationFilterBarProps {

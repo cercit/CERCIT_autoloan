@@ -96,8 +96,6 @@ function getMockDecisionLog(applicationId?: string): DecisionLogRow {
     reviewer_id: "rev-001",
     reviewer_name: "Credit Officer",
     override_applied: false,
-    override_reason: undefined,
-    override_by: undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
