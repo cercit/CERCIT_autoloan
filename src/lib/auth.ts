@@ -26,6 +26,11 @@ export function hasPermission(role: string, action: string): boolean {
   return (ROLE_PERMISSIONS[role] || []).includes(action);
 }
 
+let demoMode = (() => { try { return sessionStorage.getItem("cercit_demo") === "1"; } catch { return false; } })();
+
+export function enableDemoMode() { demoMode = true; try { sessionStorage.setItem("cercit_demo", "1"); } catch {} }
+export function isDemoMode() { return demoMode; }
+
 const DEMO_USER: AppUser = {
   id: "00000000-0000-0000-0000-000000000001",
   email: "demo@cercit.in",
@@ -44,13 +49,13 @@ export async function getSession() {
 }
 
 export async function requireAuth(): Promise<boolean> {
-  if (!isSupabaseConfigured) return true;
+  if (!isSupabaseConfigured || demoMode) return true;
   const session = await getSession();
   return !!session;
 }
 
 export async function getCurrentUser(): Promise<AppUser | null> {
-  if (!isSupabaseConfigured) return DEMO_USER;
+  if (!isSupabaseConfigured || demoMode) return DEMO_USER;
 
   const session = await getSession();
   if (!session) return null;

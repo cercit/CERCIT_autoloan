@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn, getSession, isSupabaseConfigured } from "@/lib/auth";
+import { signIn, getSession, isSupabaseConfigured, enableDemoMode } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,8 +47,8 @@ function Login() {
     setLoading(true);
 
     try {
-      if (!isSupabaseConfigured) {
-        // Demo mode: navigate straight to dashboard
+      if (!isSupabaseConfigured || email === "demo@cercit.in") {
+        enableDemoMode();
         navigate({ to: "/dashboard" });
       } else {
         const result = await signIn(email, password);

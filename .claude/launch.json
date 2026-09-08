@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "cercit-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "3007"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "dev", "--port", "3007"],
       "port": 3007
     }
   ]

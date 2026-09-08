@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { isDemoMode } from "./auth";
 import {
   applications as mockApplications,
   policyRules as mockPolicyRules,
@@ -134,7 +135,7 @@ function formatDate(iso: string): string {
 
 
 export async function getBureauReport(applicationId: string): Promise<BureauReport> {
-  if (!isSupabaseConfigured) return mockBureauReport;
+  if (!isSupabaseConfigured || isDemoMode()) return mockBureauReport;
 
   const { data, error } = await supabase
     .from("bureau_reports")
@@ -168,7 +169,7 @@ export async function getBureauReport(applicationId: string): Promise<BureauRepo
 }
 
 export async function getApplications(): Promise<Application[]> {
-  if (!isSupabaseConfigured) return mockApplications;
+  if (!isSupabaseConfigured || isDemoMode()) return mockApplications;
 
   const { data, error } = await supabase.rpc("fn_list_applications");
   if (error || !data) {
@@ -182,7 +183,7 @@ export async function getApplications(): Promise<Application[]> {
 export async function getApplication(
   id: string
 ): Promise<Application | undefined> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return mockApplications.find((a) => a.id === id);
   }
 
@@ -264,7 +265,7 @@ export async function createApplication(
   email: string,
   mobile: string
 ): Promise<{ applicationId: string; applicationUuid: string } | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || isDemoMode()) return null;
 
   const { data, error } = await supabase.rpc("fn_create_application", {
     p_full_name: fullName,
@@ -287,7 +288,7 @@ export async function assessApplication(
   applicationUuid: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || isDemoMode()) return null;
 
   const { data, error } = await supabase.rpc("fn_assess_application", {
     p_application_id: applicationUuid,
@@ -332,7 +333,7 @@ export async function getMappedPolicyRules(): Promise<{
   rules: Record<string, PolicyRule[]>;
   tabs: string[];
 }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return { rules: mockPolicyRules, tabs: mockPolicyTabs };
   }
 
@@ -370,7 +371,7 @@ export async function getMappedPolicyRules(): Promise<{
 }
 
 export async function togglePolicyRule(ruleId: string, isActive: boolean): Promise<boolean> {
-  if (!isSupabaseConfigured) return true;
+  if (!isSupabaseConfigured || isDemoMode()) return true;
   const { error } = await supabase
     .from("policy_rules")
     .update({ is_active: isActive })
@@ -379,7 +380,7 @@ export async function togglePolicyRule(ruleId: string, isActive: boolean): Promi
 }
 
 export async function getRateGrid() {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || isDemoMode()) return [];
 
   const { data, error } = await supabase
     .from("rate_grid")
@@ -419,7 +420,7 @@ export async function getMappedAuditLog(): Promise<{
   actions: string[];
   users: typeof mockUsers;
 }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return {
       log: mockAuditLog,
       actions: mockAuditActions,
@@ -518,7 +519,7 @@ export type SubmitResult = {
 export async function submitFullApplication(
   form: ApplicationFormData
 ): Promise<SubmitResult | null> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     await new Promise((r) => setTimeout(r, 800));
     const score = form.cibilScore || 750;
     const foirEst = form.existingEmis / (form.netSalary || 1) * 100;
@@ -596,7 +597,7 @@ export type OfficerDecisionResult = {
 export async function submitOfficerDecision(
   input: OfficerDecisionInput
 ): Promise<OfficerDecisionResult | null> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     await new Promise((r) => setTimeout(r, 600));
     const emi = input.sanctionedAmount && input.sanctionedRate && input.sanctionedTenure
       ? Math.round(input.sanctionedAmount * (input.sanctionedRate / 1200) * Math.pow(1 + input.sanctionedRate / 1200, input.sanctionedTenure) / (Math.pow(1 + input.sanctionedRate / 1200, input.sanctionedTenure) - 1))
@@ -656,7 +657,7 @@ export type DashboardStats = {
 };
 
 export async function getDashboardStats(from?: string): Promise<DashboardStats> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return { total: 1248, pending: 150, approved: 1028, rejected: 70, stpRate: 82.4, fpdRisk: 1.8, totalTrend: 12 };
   }
 
@@ -679,7 +680,7 @@ export async function getDashboardStats(from?: string): Promise<DashboardStats> 
 }
 
 export async function getDashboardTat(from?: string) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     const { tatData } = await import("./mock-data");
     return tatData;
   }
@@ -725,7 +726,7 @@ export async function getDashboardTat(from?: string) {
 
 
 export async function getEmployers() {
-  if (!isSupabaseConfigured) return mockEmployers;
+  if (!isSupabaseConfigured || isDemoMode()) return mockEmployers;
 
   const { data, error } = await supabase
     .from("dealers")
@@ -746,7 +747,7 @@ export async function getEmployers() {
 }
 
 export async function getDealersByOem() {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return Object.fromEntries(
       Object.entries(mockMakes || {}).map(([oem, dealers]) => [oem, dealers.map((name) => ({ dealer_name: name, dealer_code: "—", city: "—", state_code: "—", is_active: true }))])
     );
@@ -774,7 +775,7 @@ export async function getDealersByOem() {
 }
 
 export async function getMakes(): Promise<Record<string, string[]>> {
-  if (!isSupabaseConfigured) return mockMakes;
+  if (!isSupabaseConfigured || isDemoMode()) return mockMakes;
 
   const { data, error } = await supabase
     .from("dealers")
@@ -786,7 +787,7 @@ export async function getMakes(): Promise<Record<string, string[]>> {
 }
 
 export async function getUsers() {
-  if (!isSupabaseConfigured) return mockUsers;
+  if (!isSupabaseConfigured || isDemoMode()) return mockUsers;
 
   const { data, error } = await supabase
     .from("users")
@@ -831,7 +832,7 @@ function mapDocStatus(raw: string | null | undefined): Document["status"] {
 }
 
 export async function getDocuments(applicationId: string): Promise<Document[]> {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || isDemoMode()) return [];
   const { data, error } = await supabase
     .from("documents")
     .select("id, doc_type, file_name, file_path, uploaded_at, created_at, upload_status")
@@ -856,7 +857,7 @@ export async function uploadDocument(
   file: File,
   docType: string
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return new Promise((r) => setTimeout(() => r({ error: null }), 500));
   }
   const path = `${applicationId}/${docType}/${file.name}`;
@@ -882,7 +883,7 @@ export type ApplicationNote = {
 };
 
 export async function getApplicationNotes(applicationId: string): Promise<ApplicationNote[]> {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || isDemoMode()) return [];
   const { data, error } = await supabase
     .from("audit_events")
     .select("event_id, event_detail, actor_type, created_at")
@@ -900,7 +901,7 @@ export async function getApplicationNotes(applicationId: string): Promise<Applic
 }
 
 export async function addApplicationNote(applicationId: string, note: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  if (!isSupabaseConfigured || isDemoMode()) return false;
   const { error } = await supabase.from("audit_events").insert({
     entity_type: "APPLICATION",
     entity_id: applicationId,
@@ -912,7 +913,7 @@ export async function addApplicationNote(applicationId: string, note: string): P
 }
 
 export async function getDocumentUrl(path: string): Promise<string> {
-  if (!isSupabaseConfigured || !path) {
+  if (!isSupabaseConfigured || isDemoMode() || !path) {
     return "https://placehold.co/600x800?text=Document+Preview";
   }
   const { data } = await supabase.storage
@@ -935,7 +936,7 @@ export async function saveAssessment(
   applicationId: string,
   result: Record<string, unknown>,
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return new Promise((r) => setTimeout(() => r({ error: null }), 400));
   }
   const { error } = await supabase.from("assessments").insert({
@@ -948,7 +949,7 @@ export async function saveAssessment(
 export async function getAssessmentHistory(
   applicationId: string,
 ): Promise<SavedAssessment[]> {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || isDemoMode()) return [];
   const { data, error } = await supabase
     .from("assessments")
     .select("id, result_json, created_at")
@@ -981,7 +982,7 @@ export async function transitionStatus(
   applicationId: string,
   newStatus: string,
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return new Promise((r) => setTimeout(() => r({ error: null }), 400));
   }
   const dbStatus = reverseStatusMap[newStatus] ?? newStatus;
@@ -998,7 +999,7 @@ export async function assignApplication(
   applicationId: string,
   userId: string,
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return new Promise((r) => setTimeout(() => r({ error: null }), 400));
   }
   const { error } = await supabase
@@ -1011,7 +1012,7 @@ export async function assignApplication(
 export async function getOfficerQueue(
   officerName: string,
 ): Promise<Application[]> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return mockApplications.filter((a) => a.assignedTo === officerName).slice(0, 10);
   }
   const { data, error } = await supabase.rpc("fn_list_applications");
@@ -1036,7 +1037,7 @@ export async function checkDuplicates(
   mobile: string,
   currentApplicationId: string,
 ): Promise<DuplicateMatch[]> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return [];
   }
   const { data, error } = await supabase
@@ -1067,7 +1068,7 @@ export type OverridePayload = {
 export async function submitOverride(
   payload: OverridePayload,
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return new Promise((r) => setTimeout(() => r({ error: null }), 500));
   }
   const { error } = await supabase.from("decision_overrides").insert({
@@ -1102,7 +1103,7 @@ export type EscalationPayload = {
 export async function escalateApplication(
   payload: EscalationPayload,
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return new Promise((r) => setTimeout(() => r({ error: null }), 500));
   }
   const { error } = await supabase.from("escalations").insert({
@@ -1124,7 +1125,7 @@ export async function getEscalationHistory(
 ): Promise<
   { reason: string; notes: string; escalatedBy: string; createdAt: string }[]
 > {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || isDemoMode()) return [];
   const { data, error } = await supabase
     .from("escalations")
     .select("reason, notes, escalated_by, created_at")
@@ -1151,7 +1152,7 @@ export type EmployerVerification = {
 export async function verifyEmployer(
   employerName: string,
 ): Promise<EmployerVerification> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     const knownEmployers: Record<string, "CAT_A" | "CAT_B" | "CAT_C"> = {
       Infosys: "CAT_A",
       TCS: "CAT_A",
@@ -1225,7 +1226,7 @@ export async function verifyVehicle(
   variant: string,
   declaredExShowroom: number,
 ): Promise<VehicleVerification> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return {
       make,
       model,
@@ -1266,7 +1267,7 @@ export type TimelineEvent = {
 export async function getApplicationTimeline(
   applicationId: string,
 ): Promise<TimelineEvent[]> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return [
       {
         stage: "Created",
@@ -1330,7 +1331,7 @@ export type DecisionTrendPoint = {
 };
 
 export async function getDecisionTrend(): Promise<DecisionTrendPoint[]> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     const points: DecisionTrendPoint[] = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date();
@@ -1382,7 +1383,7 @@ export type PortfolioMetrics = {
 };
 
 export async function getPortfolioMetrics(): Promise<PortfolioMetrics> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return {
       avgCibilScore: 712,
       avgFoir: 42.3,
@@ -1443,7 +1444,7 @@ export type LocationNode = {
 };
 
 export async function getLocationHierarchy(): Promise<LocationNode[]> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return [
       {
         state: "Tamil Nadu",
@@ -1526,7 +1527,7 @@ export type EmployerSuggestion = {
 export async function searchEmployers(
   query: string,
 ): Promise<EmployerSuggestion[]> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     const all: EmployerSuggestion[] = [
       { name: "Infosys", category: "CAT_A" },
       { name: "TCS", category: "CAT_A" },
@@ -1559,7 +1560,7 @@ export async function getBankingAnalysis(applicationId: string, from?: string): 
   summary: BankStatementSummary;
   transactions: BankTransaction[];
 }> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isDemoMode()) {
     return { summary: mockBankStatementSummary, transactions: mockTransactions };
   }
   const [summaryRes, txnRes] = await Promise.all([
