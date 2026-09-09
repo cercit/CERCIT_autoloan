@@ -28,10 +28,10 @@ function formatRelativeTime(timestamp: string): string {
 }
 
 const typeColorMap: Record<string, string> = {
-  info: "bg-gray-400",
-  success: "bg-green-500",
-  warning: "bg-amber-500",
-  error: "bg-red-500",
+  info: "bg-muted-foreground",
+  success: "bg-success",
+  warning: "bg-warning",
+  error: "bg-destructive",
 };
 
 export function ActivityFeed({
@@ -54,24 +54,24 @@ export function ActivityFeed({
               <div className="relative w-6 flex-shrink-0 flex flex-col items-center">
                 <div
                   className={cn(
-                    "w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm",
+                    "w-2.5 h-2.5 rounded-full border-2 border-background shadow-sm",
                     typeColorMap[type] ?? typeColorMap['info']
                   )}
                 />
                 {!isLast && (
-                  <div className="w-[2px] flex-1 bg-gray-300" />
+                  <div className="w-[2px] flex-1 bg-border" />
                 )}
               </div>
               <div className="flex-1 pb-6">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-semibold text-sm text-gray-900">
+                  <span className="font-semibold text-sm text-foreground">
                     {item.actor}
                   </span>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
                     {formatRelativeTime(item.timestamp)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mt-0.5">{item.action}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{item.action}</p>
               </div>
             </div>
           );
@@ -81,7 +81,7 @@ export function ActivityFeed({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="mt-2 text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+          className="mt-2 text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
         >
           Show {remaining} more
         </button>

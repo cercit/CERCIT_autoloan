@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { SlaTimer } from "@/components/sla-timer";
 import { DecisionTrendChart } from "@/components/decision-trend-chart";
 import { PortfolioQuality } from "@/components/portfolio-quality";
+import { ActivityFeed } from "@/components/activity-feed";
+import type { FeedItem } from "@/components/activity-feed";
 import { getDecisionTrend, getPortfolioMetrics } from "@/lib/api";
 import type { DecisionTrendPoint, PortfolioMetrics } from "@/lib/api";
 import { currentUser } from "@/lib/mock-data";
@@ -49,6 +51,16 @@ const decisionSlices = [
   { name: "Manual Review", key: "pending", color: "var(--color-warning)" },
   { name: "Rejected", key: "rejected", color: "var(--color-destructive)" },
 ] as const;
+
+const recentActivity: FeedItem[] = [
+  { id: "f1", actor: "Policy Engine", action: "Auto-approved APP-2026-00847 — Band A, CIBIL 782", timestamp: new Date(Date.now() - 8 * 60000).toISOString(), type: "success" },
+  { id: "f2", actor: "Rajeev Menon", action: "Opened APP-2026-00845 for manual review", timestamp: new Date(Date.now() - 22 * 60000).toISOString(), type: "info" },
+  { id: "f3", actor: "Bureau API", action: "CIBIL fetch failed for APP-2026-00843 — retrying", timestamp: new Date(Date.now() - 35 * 60000).toISOString(), type: "error" },
+  { id: "f4", actor: "System", action: "Rate grid v2.3 activated — Band A now 8.75%", timestamp: new Date(Date.now() - 2 * 3600000).toISOString(), type: "warning" },
+  { id: "f5", actor: "Priya Sharma", action: "Escalated APP-2026-00842 to State Credit Head", timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), type: "info" },
+  { id: "f6", actor: "Policy Engine", action: "Rejected APP-2026-00843 — CIBIL 624 below threshold", timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), type: "error" },
+  { id: "f7", actor: "Document AI", action: "Extracted salary slip for APP-2026-00846 — 94% confidence", timestamp: new Date(Date.now() - 5 * 3600000).toISOString(), type: "success" },
+];
 
 const flagReasons: Record<string, string> = {
   "APP-2026-00847": "DTI Volatility",
@@ -428,6 +440,11 @@ function Dashboard() {
           )}
         </SectionCard>
       </div>
+
+      {/* Recent activity */}
+      <SectionCard title="Recent Activity" description="Live feed" className="mt-4">
+        <ActivityFeed items={recentActivity} maxItems={7} />
+      </SectionCard>
     </AppShell>
   );
 }
