@@ -26,6 +26,22 @@ export function hasPermission(role: string, action: string): boolean {
   return (ROLE_PERMISSIONS[role] || []).includes(action);
 }
 
+const EMPLOYEE_DOMAINS = ["cercit.in", "cercit.com"];
+
+export function isEmployeeEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return false;
+  return EMPLOYEE_DOMAINS.includes(domain);
+}
+
+export function setCustomerEmail(email: string) {
+  try { sessionStorage.setItem("cercit_customer_email", email); } catch {}
+}
+
+export function getCustomerEmail(): string | null {
+  try { return sessionStorage.getItem("cercit_customer_email"); } catch { return null; }
+}
+
 let demoMode = false;
 
 export function enableDemoMode() { demoMode = true; try { sessionStorage.setItem("cercit_demo", "1"); } catch {} }

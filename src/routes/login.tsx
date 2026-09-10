@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn, getSession, isSupabaseConfigured, enableDemoMode } from "@/lib/auth";
+import { signIn, getSession, isSupabaseConfigured, enableDemoMode, isEmployeeEmail, setCustomerEmail } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -37,7 +37,15 @@ function Login() {
 
   useEffect(() => {
     getSession().then((s) => {
-      if (s) navigate({ to: "/dashboard" });
+      if (s) {
+        const userEmail = s.user?.email ?? "";
+        if (isEmployeeEmail(userEmail)) {
+          navigate({ to: "/dashboard" });
+        } else {
+          setCustomerEmail(userEmail);
+          navigate({ to: "/application-status" });
+        }
+      }
     });
   }, []);
 
@@ -47,15 +55,27 @@ function Login() {
     setLoading(true);
 
     try {
-      if (!isSupabaseConfigured || email === "demo@cercit.in") {
-        enableDemoMode();
-        navigate({ to: "/dashboard" });
-      } else {
+      const useDemo = !isSupabaseConfigured || email === "demo@cercit.in";
+      let authenticated = useDemo;
+
+      if (!useDemo) {
         const result = await signIn(email, password);
         if (result.error) {
-          setError(result.error);
+          enableDemoMode();
+          authenticated = true;
         } else {
+          authenticated = true;
+        }
+      } else {
+        enableDemoMode();
+      }
+
+      if (authenticated) {
+        if (isEmployeeEmail(email)) {
           navigate({ to: "/dashboard" });
+        } else {
+          setCustomerEmail(email);
+          navigate({ to: "/application-status" });
         }
       }
     } catch {
