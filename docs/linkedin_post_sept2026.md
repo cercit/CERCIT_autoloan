@@ -10,6 +10,8 @@ Demo mode was the instructive part. Sounds like a one-line feature — check a f
 
 The PM lesson from this sprint: generated code shifts the bottleneck from writing to reading. The typing is fast. The triage — what to keep, what to skip, what to fix — that's where the hours go. And the hardest decisions weren't technical; they were scope calls. Eight components sat there ready to wire in, and the right move was to leave them out because they didn't serve a real user flow.
 
-15 routes, 111 components, live on GitHub Pages with a working demo login. Not a production system, but a complete enough prototype to walk through the full officer workflow end to end.
+Then the scope expanded. The original build was employee-facing only -- a dashboard for credit officers. But a real lending product needs a customer entry point. So the second half of the sprint added a public landing page with an EMI calculator, a 4-step loan application form, and a dedicated login page. The landing page was ported from a separate design reference, which meant adapting asset pipelines, route structures, and data models instead of building from zero. Different muscle than feature development -- more like a codebase merge with design constraints.
+
+17 routes now, live on GitHub Pages with a working demo login. Customer-facing pages are public; the officer dashboard sits behind auth. Not a production system, but complete enough to walk through both sides of the product: apply for a loan, then switch roles and review it.
 
 #ProductManagement #CreditUnderwriting #VehicleFinance #BuildInPublic

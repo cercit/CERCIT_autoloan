@@ -10,10 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApplyRouteImport } from './routes/apply'
 import { Route as AuditLogRouteImport } from './routes/audit-log'
 import { Route as CheckEligibilityRouteImport } from './routes/check-eligibility'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EmployersRouteImport } from './routes/employers'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
 import { Route as RateGridRouteImport } from './routes/rate-grid'
 import { Route as UsersRouteImport } from './routes/users'
@@ -27,6 +29,11 @@ import { Route as ApplicationsIdSanctionRouteImport } from './routes/application
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplyRoute = ApplyRouteImport.update({
+  id: '/apply',
+  path: '/apply',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuditLogRoute = AuditLogRouteImport.update({
@@ -47,6 +54,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const EmployersRoute = EmployersRouteImport.update({
   id: '/employers',
   path: '/employers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PolicyRulesRoute = PolicyRulesRouteImport.update({
@@ -98,10 +110,12 @@ const ApplicationsIdSanctionRoute = ApplicationsIdSanctionRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/apply': typeof ApplyRoute
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
   '/employers': typeof EmployersRoute
+  '/login': typeof LoginRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
   '/users': typeof UsersRoute
@@ -114,10 +128,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/apply': typeof ApplyRoute
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
   '/employers': typeof EmployersRoute
+  '/login': typeof LoginRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
   '/users': typeof UsersRoute
@@ -131,10 +147,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/apply': typeof ApplyRoute
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
   '/employers': typeof EmployersRoute
+  '/login': typeof LoginRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
   '/users': typeof UsersRoute
@@ -149,10 +167,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/apply'
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
     | '/employers'
+    | '/login'
     | '/policy-rules'
     | '/rate-grid'
     | '/users'
@@ -165,10 +185,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/apply'
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
     | '/employers'
+    | '/login'
     | '/policy-rules'
     | '/rate-grid'
     | '/users'
@@ -181,10 +203,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/apply'
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
     | '/employers'
+    | '/login'
     | '/policy-rules'
     | '/rate-grid'
     | '/users'
@@ -198,10 +222,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApplyRoute: typeof ApplyRoute
   AuditLogRoute: typeof AuditLogRoute
   CheckEligibilityRoute: typeof CheckEligibilityRoute
   DashboardRoute: typeof DashboardRoute
   EmployersRoute: typeof EmployersRoute
+  LoginRoute: typeof LoginRoute
   PolicyRulesRoute: typeof PolicyRulesRoute
   RateGridRoute: typeof RateGridRoute
   UsersRoute: typeof UsersRoute
@@ -220,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/apply': {
+      id: '/apply'
+      path: '/apply'
+      fullPath: '/apply'
+      preLoaderRoute: typeof ApplyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audit-log': {
@@ -248,6 +281,13 @@ declare module '@tanstack/react-router' {
       path: '/employers'
       fullPath: '/employers'
       preLoaderRoute: typeof EmployersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/policy-rules': {
@@ -318,10 +358,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApplyRoute: ApplyRoute,
   AuditLogRoute: AuditLogRoute,
   CheckEligibilityRoute: CheckEligibilityRoute,
   DashboardRoute: DashboardRoute,
   EmployersRoute: EmployersRoute,
+  LoginRoute: LoginRoute,
   PolicyRulesRoute: PolicyRulesRoute,
   RateGridRoute: RateGridRoute,
   UsersRoute: UsersRoute,

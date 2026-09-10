@@ -10,16 +10,24 @@ Built as an end-to-end product — PRD, database design, backend logic, frontend
 
 ## What it does
 
-1. **Customer applies** — 5-step form: personal details, employment, vehicle & deal, obligations, documents
-2. **Engine assesses** — CIBIL score check, FOIR/LTV/DBR calculation, 16 policy rules evaluated, EMI computed
-3. **Decision generated** — APPROVE (8.99%) / MAYBE (9.9%, manual review) / REJECT with full explanation
-4. **Officer reviews** — dashboard queue, detailed review screen with income assessment, bureau summary, policy pass/fail, risk/positive factors
+**For customers:**
+- Landing page with EMI calculator, car brand showcase, and eligibility guidance
+- 4-step online loan application: personal details, employment & income, car & loan selection, document upload
+- Application tracking (planned)
+
+**For loan officers:**
+- Dashboard queue with live stats from Supabase
+- 5-step internal application form submitting to the assessment pipeline
+- 16 policy rules evaluated automatically (CIBIL, FOIR, LTV, DBR, employer, age, DPD)
+- Structured recommendation: APPROVE (8.99%) / MAYBE (9.9%, manual review) / REJECT with explanation
+- Detailed review screen with income assessment, bureau summary, policy pass/fail grid
+- RBI-compliant approval and sanction letters with KFS disclosures and APR
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, TanStack Router, shadcn/ui, Tailwind CSS, Vite |
+| Frontend | React, TanStack Router, shadcn/ui, Tailwind CSS v4, Vite, Recharts |
 | Backend | Supabase (PostgreSQL), 9 RPC functions, SECURITY DEFINER |
 | Database | 22 tables, 293 columns, 132 dealers, 16 policy rules |
 | Hosting | [GitHub Pages](https://cercit.github.io/CERCIT_autoloan/) (SPA, live) / Cloudflare Workers (SSR, planned) |
@@ -94,12 +102,16 @@ Six-layer assessment, each independent:
 - [x] PRD and scope (all 20 open items closed)
 - [x] Database schema (22 tables on Supabase)
 - [x] Backend functions (8 RPCs, policy engine)
-- [x] Frontend prototype (10 screens)
+- [x] Frontend prototype (17 routes)
 - [x] E2E flow (submit -> assess -> review)
 - [x] Approve/reject actions wired to DB
 - [x] Dashboard live stats from Supabase
 - [x] Demo scenarios (APPROVE/REJECT/MAYBE)
 - [x] Deploy to GitHub Pages (SPA build + GitHub Actions)
+- [x] Customer landing page with EMI calculator
+- [x] Customer loan application form (4-step)
+- [ ] Smart login routing (customer vs employee)
+- [ ] Customer application status portal
 - [ ] Supabase Auth + RLS
 - [ ] Sanction letter PDF
 - [ ] Deploy to Cloudflare Workers (SSR build ready, needs account setup)

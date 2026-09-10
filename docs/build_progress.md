@@ -1,6 +1,6 @@
 # cercit build progress
 
-Last updated: 02 Sep 2026
+Last updated: 10 Sep 2026
 
 ## Status summary
 
@@ -10,7 +10,7 @@ Last updated: 02 Sep 2026
 | Database | Live | 22 tables on Supabase, Mumbai region |
 | Backend functions | Live | 9 RPCs, policy engine, assessment pipeline, officer decision |
 | Seed data | Live | 132 dealers, 12 OEMs, rate grid, 16 rules, 3 demo scenarios |
-| Frontend | Live | React + TanStack Router + shadcn/ui, 12 screens |
+| Frontend | Live | React + TanStack Router + shadcn/ui, 17 routes (12 employee + 5 public) |
 | Supabase wiring | Live | Real data flowing, mock fallback retained |
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
 | Git | Pushed | cercit/CERCIT_autoloan (public), main branch |
@@ -79,9 +79,19 @@ React + Vite + TanStack Router + shadcn/ui + Tailwind CSS.
 
 ### Screens built
 
+**Customer-facing (public, no auth required):**
+
 | Screen | Route | Data source |
 |---|---|---|
-| Login | `/` | Fake auth (pre-filled credentials) |
+| Landing page | `/` | Static (EMI calculator, car brands, FAQ, SpeedoCluster gauge) |
+| Login | `/login` | Demo bypass or Supabase Auth |
+| Customer loan application (4-step) | `/apply` | Client-side (personal, employment, car & loan, documents) |
+| Eligibility check | `/check-eligibility` | Client-side quick check |
+
+**Employee-facing (auth required):**
+
+| Screen | Route | Data source |
+|---|---|---|
 | Dashboard | `/dashboard` | Supabase (stat cards still mock) |
 | Application queue | `/applications` | Supabase via `fn_list_applications` |
 | New application (5-step) | `/applications/new` | Supabase via `fn_submit_full_application` |
@@ -92,6 +102,8 @@ React + Vite + TanStack Router + shadcn/ui + Tailwind CSS.
 | Policy rules | `/policy-rules` | Supabase (policy_rules table) |
 | Audit log | `/audit-log` | Supabase (audit_events table) |
 | Rate grid | `/rate-grid` | Mock data (schema mismatch) |
+| Employers | `/employers` | Mock data |
+| Users | `/users` | Mock data |
 
 ### Integration layer
 
@@ -105,6 +117,21 @@ Files in `src/lib/`:
 - Application review: customer profile, income assessment, bureau summary with CIBIL gauge, obligations & FOIR bar, vehicle & LTV, policy rule pass/fail grid
 - Policy rules: reads from `policy_rules` table
 - Audit log: reads from `audit_events` table
+
+### New in Sep 2026: customer-facing layer
+
+Ported from Stitch Showcase design reference into cercit:
+
+| File | What it adds |
+|---|---|
+| `src/routes/index.tsx` | Full landing page: hero with SpeedoCluster gauge, trust stats, how-it-works, EMI calculator, 13 car brands, "why cercit" grid, 5-question FAQ accordion, CTA, footer |
+| `src/routes/login.tsx` | Dedicated login page (was previously at `/`). Preserves demo mode bypass. |
+| `src/routes/apply.tsx` | 4-step customer loan application: personal details with OTP verify, employment & income, car & loan with live EMI calc, document upload + review + consent |
+| `src/components/pointer-fx.tsx` | Interactive visual effects: HeadlightSurface (cursor-tracking gradient), TiltCard (perspective hover), SpeedoCluster (SVG gauge with cursor-driven needle) |
+| `src/components/brand.tsx` | Text-based BrandLogo component (no external asset files) |
+| `src/lib/customer-data.ts` | Car brands (13), FAQ content (5 Q&A), car make-to-model mapping (12 OEMs) |
+
+Public route whitelist in `__root.tsx` updated: `/`, `/login`, `/apply`, `/check-eligibility` all skip auth guard.
 
 ### Still on mock data
 - Rate grid page (schema mismatch between DB and UI)
@@ -173,9 +200,14 @@ cercit/CERCIT_autoloan (public, main branch)
 - [x] Shared letter-layout component with A4 print CSS and letterhead
 - [x] Zod schema migration (replaced 28-field manual mapping in api.ts)
 - [x] Jira setup: 6 epics, 16 stories (SCRUM-6 through SCRUM-27)
+- [x] Customer-facing landing page (hero, EMI calc, car brands, FAQ, CTA)
+- [x] Dedicated login page at `/login` (moved from `/`)
+- [x] Customer loan application form at `/apply` (4-step: personal, employment, car & loan, documents)
+- [x] Interactive visual effects (SpeedoCluster gauge, HeadlightSurface, TiltCard)
 
 ### Phase 3 — build out
-- [ ] Fix fn_generate_recommendation rate_row bug
+- [ ] Smart login routing (auto-detect customer vs employee email)
+- [ ] Customer application status portal (post-login tracking)
 - [ ] Letter PDF generation (approval + sanction)
 - [ ] Supabase Auth with officer/manager roles
 - [ ] RLS policies per role

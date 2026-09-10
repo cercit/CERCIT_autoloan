@@ -2,9 +2,9 @@
 
 ## What got built
 
-Started with a Lovable-generated prototype and a 22-table Supabase schema. Ended with a working credit appraisal system: 15 routes, 111 components, demo mode with mock data, GitHub Pages deployment.
+Started with a Lovable-generated prototype and a 22-table Supabase schema. Ended with a working credit appraisal system: 17 routes, demo mode with mock data, GitHub Pages deployment. The second half of the sprint added a customer-facing layer on top of the employee dashboard.
 
-Key deliverables across 18 commits:
+Key deliverables:
 
 - **Decision engine pipeline** — policy rules, EMI calc, assessment functions running in Supabase
 - **Application detail page** — 6 tabs (Overview, Documents, Extracted Data, Banking, Timeline, CAM Report), key metrics strip, approve/reject/escalate actions
@@ -13,6 +13,10 @@ Key deliverables across 18 commits:
 - **Rate grid** — CIBIL band x employer category pricing table
 - **Component library** — notification dropdown, SLA timer, activity feed, keyboard shortcuts, session timeout, theme toggle
 - **Demo mode** — `demo@cercit.in` bypass with sessionStorage persistence, works across page reloads and SSR
+- **Customer-facing landing page** — hero section with SpeedoCluster gauge, EMI calculator with sliders, 13 car brands grid, 5-question FAQ accordion, trust stats, CTA blocks. Ported from Stitch Showcase design reference and adapted for cercit's routes and data.
+- **Dedicated login page** — moved login from `/` to `/login`, preserved demo mode flow, added cercit branding header with navigation back to landing page
+- **Customer loan application** — 4-step form at `/apply`: personal details with mobile OTP verification, employment & income, car make/model selection with live EMI calculation, document upload zones with review summary and consent checkboxes
+- **Interactive visual components** — HeadlightSurface (cursor-tracking radial gradient), TiltCard (perspective tilt on hover), SpeedoCluster (SVG half-wheel gauge with cursor-driven needle). All ported from Stitch, adapted to work without Stitch's asset pipeline.
 
 ## Where effort actually went
 
@@ -34,6 +38,19 @@ Each bug only showed up after the previous one was fixed. Classic layered-auth d
 
 - **Browser automation friction.** Mobile viewport testing lost 15-20 minutes to the browser pane going hidden, form_input not triggering React controlled state, and demo sessions dying on navigation. The real testing was faster done via `get_page_text` and `read_page` than screenshots.
 - **Over-generating components.** Hermes produced 156 components. We used about 20. The generation was fast but the triage was slow — reading each one, checking if the route already had that feature, deciding to skip.
+
+## Landing page port (second half of sprint)
+
+The customer-facing layer was a different kind of work. Instead of building from scratch, we ported a design reference (Stitch Showcase) into the existing cercit codebase. The port required:
+
+- Replacing Stitch's asset pipeline (`.asset.json` files, external SVG loader) with a self-contained text-based BrandLogo component
+- Replacing Stitch-specific routes (`/portal/track`) with cercit's existing routes (`/check-eligibility`, `/apply`)
+- Moving login from `/` to `/login` without breaking the demo mode flow -- this meant updating the route guard whitelist in `__root.tsx` to treat `/login` and `/apply` as public paths
+- Building a customer data module (`customer-data.ts`) with car brands, FAQ content, and make-to-model mappings since Stitch used a different data structure
+
+The 4-step customer application form is client-side only for now -- it doesn't submit to Supabase. The confirmation screen shows a static application ID. Wiring it to the backend is a separate task.
+
+The interesting constraint was the `form_input` / React controlled state mismatch during browser testing. Native DOM value setters don't trigger React's synthetic event system. The workaround: call `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set` to bypass React's wrapper, then dispatch an `input` event. Niche, but it'll come up again in any automated form testing against React apps.
 
 ## Defect class
 
