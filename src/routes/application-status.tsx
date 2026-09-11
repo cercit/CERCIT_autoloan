@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   CheckCircle2,
   Clock,
@@ -9,7 +9,7 @@ import {
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { getCustomerEmail, isDemoMode } from "@/lib/auth";
+import { getCustomerEmail, isDemoMode, signOut } from "@/lib/auth";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -111,9 +111,19 @@ function StageTimeline({ stages }: { stages: ApplicationStage[] }) {
 }
 
 function ApplicationStatus() {
+  const navigate = useNavigate();
   const customerEmail = getCustomerEmail();
   const demo = isDemoMode();
   const app = DEMO_APPLICATION;
+
+  const handleSignOut = async () => {
+    await signOut();
+    try {
+      sessionStorage.removeItem("cercit_demo");
+      sessionStorage.removeItem("cercit_customer_email");
+    } catch {}
+    navigate({ to: "/login" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -127,10 +137,8 @@ function ApplicationStatus() {
           </Link>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/login">
-                <LogOut className="size-4" /> Sign out
-              </Link>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="size-4" /> Sign out
             </Button>
           </div>
         </div>

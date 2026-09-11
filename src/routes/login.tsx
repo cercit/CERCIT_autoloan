@@ -114,6 +114,7 @@ function Login() {
                 type="email"
                 autoComplete="username"
                 placeholder="name@company.com"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -125,6 +126,7 @@ function Login() {
                 type="password"
                 autoComplete="current-password"
                 placeholder="Enter any password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

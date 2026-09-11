@@ -1,0 +1,19 @@
+{
+  "baselineArtifactName": "cercit-snapdrift-baseline",
+  "workingDirectory": ".",
+  "baseUrl": "https://cercit.github.io/CERCIT_autoloan",
+  "resultsFile": "qa-artifacts/snapdrift/baseline/current/results.json",
+  "manifestFile": "qa-artifacts/snapdrift/baseline/current/manifest.json",
+  "screenshotsRoot": "qa-artifacts/snapdrift/baseline/current",
+  "routes": [
+    { "id": "landing-desktop", "path": "/", "viewport": "desktop" },
+    { "id": "landing-mobile", "path": "/", "viewport": "mobile" },
+    { "id": "login-desktop", "path": "/login", "viewport": "desktop" },
+    { "id": "login-mobile", "path": "/login", "viewport": "mobile" },
+    { "id": "apply-desktop", "path": "/apply", "viewport": "desktop" },
+    { "id": "eligibility-desktop", "path": "/check-eligibility", "viewport": "desktop" },
+    { "id": "status-desktop", "path": "/application-status", "viewport": "desktop" },
+    { "id": "status-mobile", "path": "/application-status", "viewport": "mobile" }
+  ],
+  "diff": { "threshold": 0.01, "mode": "report-only" }
+}

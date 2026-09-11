@@ -65,16 +65,18 @@ function Field({
   id,
   children,
   hint,
+  required,
 }: {
   label: string;
   id: string;
   children?: React.ReactNode;
   hint?: string;
+  required?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children ?? <Input id={id} />}
+      <Label htmlFor={id}>{label}{required && <span className="ml-0.5 text-destructive">*</span>}</Label>
+      {children ?? <Input id={id} required={required} />}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
@@ -215,8 +217,8 @@ function Apply() {
         <div className="panel mt-6 space-y-5 p-5 sm:p-6">
           {step === 1 && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Full name" id="name" />
-              <Field label="Date of birth" id="dob">
+              <Field label="Full name" id="name" required />
+              <Field label="Date of birth" id="dob" required>
                 <Input id="dob" type="date" />
               </Field>
               <Field label="Gender" id="gender">
@@ -231,8 +233,8 @@ function Apply() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="PAN" id="pan" hint="10-character permanent account number" />
-              <Field label="Aadhaar" id="aadhaar" hint="12-digit number" />
+              <Field label="PAN" id="pan" hint="10-character permanent account number" required />
+              <Field label="Aadhaar" id="aadhaar" hint="12-digit number" required />
               <div className="space-y-1.5">
                 <Label htmlFor="mobile">Mobile</Label>
                 <div className="flex gap-2">
@@ -252,8 +254,8 @@ function Apply() {
                   </p>
                 )}
               </div>
-              <Field label="Email" id="email">
-                <Input id="email" type="email" />
+              <Field label="Email" id="email" required>
+                <Input id="email" type="email" required />
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Current address" id="address" />
@@ -278,10 +280,10 @@ function Apply() {
 
           {step === 2 && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Company name" id="company" />
-              <Field label="Designation" id="designation" />
-              <Field label="Monthly take-home salary" id="salary">
-                <Input id="salary" type="number" placeholder="85000" />
+              <Field label="Company name" id="company" required />
+              <Field label="Designation" id="designation" required />
+              <Field label="Monthly take-home salary" id="salary" required>
+                <Input id="salary" type="number" placeholder="85000" required />
               </Field>
               <Field label="Years in current company" id="years-current" />
               <Field label="Total work experience (years)" id="total-exp" />

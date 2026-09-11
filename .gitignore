@@ -21,6 +21,11 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Test artifacts
+test-results/
+qa-artifacts/
+.snapdrift/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

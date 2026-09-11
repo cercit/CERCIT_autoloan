@@ -54,24 +54,33 @@ function CheckEligibility() {
 
         <div className="panel space-y-4 p-6">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">CIBIL score</Label>
+            <Label htmlFor="cibil" className="text-xs text-muted-foreground">CIBIL score</Label>
             <Input
+              id="cibil"
+              type="number"
+              required
               value={cibil}
               onChange={(e) => setCibil(e.target.value)}
               placeholder="e.g. 750"
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Monthly net income (Rs)</Label>
+            <Label htmlFor="income" className="text-xs text-muted-foreground">Monthly net income (Rs)</Label>
             <Input
+              id="income"
+              type="number"
+              required
               value={income}
               onChange={(e) => setIncome(e.target.value)}
               placeholder="e.g. 85000"
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Loan amount (Rs)</Label>
+            <Label htmlFor="loan" className="text-xs text-muted-foreground">Loan amount (Rs)</Label>
             <Input
+              id="loan"
+              type="number"
+              required
               value={loan}
               onChange={(e) => setLoan(e.target.value)}
               placeholder="e.g. 800000"
@@ -79,7 +88,7 @@ function CheckEligibility() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Tenure (months)</Label>
+              <Label htmlFor="tenure" className="text-xs text-muted-foreground">Tenure (months)</Label>
               <Select value={tenure} onValueChange={setTenure}>
                 <SelectTrigger>
                   <SelectValue />
@@ -94,8 +103,10 @@ function CheckEligibility() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Existing EMIs (Rs)</Label>
+              <Label htmlFor="existing-emi" className="text-xs text-muted-foreground">Existing EMIs (Rs)</Label>
               <Input
+                id="existing-emi"
+                type="number"
                 value={existingEmi}
                 onChange={(e) => setExistingEmi(e.target.value)}
                 placeholder="0"
