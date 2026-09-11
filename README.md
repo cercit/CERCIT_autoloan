@@ -13,7 +13,7 @@ Built as an end-to-end product — PRD, database design, backend logic, frontend
 **For customers:**
 - Landing page with EMI calculator, car brand showcase, and eligibility guidance
 - 4-step online loan application: personal details, employment & income, car & loan selection, document upload
-- Application tracking (planned)
+- Application tracking portal with stage timeline, loan metrics, and progress updates
 
 **For loan officers:**
 - Dashboard queue with live stats from Supabase
@@ -31,7 +31,7 @@ Built as an end-to-end product — PRD, database design, backend logic, frontend
 | Backend | Supabase (PostgreSQL), 9 RPC functions, SECURITY DEFINER |
 | Database | 22 tables, 293 columns, 132 dealers, 16 policy rules |
 | Hosting | [GitHub Pages](https://cercit.github.io/CERCIT_autoloan/) (SPA, live) / Cloudflare Workers (SSR, planned) |
-| Auth | Not yet implemented (Phase 3) |
+| Auth | Smart login routing (demo mode, domain-based detection). Full Supabase Auth planned. |
 
 ## Quick start
 
@@ -102,7 +102,7 @@ Six-layer assessment, each independent:
 - [x] PRD and scope (all 20 open items closed)
 - [x] Database schema (22 tables on Supabase)
 - [x] Backend functions (8 RPCs, policy engine)
-- [x] Frontend prototype (17 routes)
+- [x] Frontend prototype (18 routes)
 - [x] E2E flow (submit -> assess -> review)
 - [x] Approve/reject actions wired to DB
 - [x] Dashboard live stats from Supabase
@@ -110,8 +110,8 @@ Six-layer assessment, each independent:
 - [x] Deploy to GitHub Pages (SPA build + GitHub Actions)
 - [x] Customer landing page with EMI calculator
 - [x] Customer loan application form (4-step)
-- [ ] Smart login routing (customer vs employee)
-- [ ] Customer application status portal
+- [x] Smart login routing (customer vs employee)
+- [x] Customer application status portal
 - [ ] Supabase Auth + RLS
 - [ ] Sanction letter PDF
 - [ ] Deploy to Cloudflare Workers (SSR build ready, needs account setup)

@@ -2,7 +2,7 @@
 
 ## What got built
 
-Started with a Lovable-generated prototype and a 22-table Supabase schema. Ended with a working credit appraisal system: 17 routes, demo mode with mock data, GitHub Pages deployment. The second half of the sprint added a customer-facing layer on top of the employee dashboard.
+Started with a Lovable-generated prototype and a 22-table Supabase schema. Ended with a working credit appraisal system: 18 routes (6 public, 12 employee), demo mode with mock data, GitHub Pages deployment. The second half of the sprint added a customer-facing layer on top of the employee dashboard, including smart login routing and an application tracking portal.
 
 Key deliverables:
 
@@ -17,6 +17,8 @@ Key deliverables:
 - **Dedicated login page** — moved login from `/` to `/login`, preserved demo mode flow, added cercit branding header with navigation back to landing page
 - **Customer loan application** — 4-step form at `/apply`: personal details with mobile OTP verification, employment & income, car make/model selection with live EMI calculation, document upload zones with review summary and consent checkboxes
 - **Interactive visual components** — HeadlightSurface (cursor-tracking radial gradient), TiltCard (perspective tilt on hover), SpeedoCluster (SVG half-wheel gauge with cursor-driven needle). All ported from Stitch, adapted to work without Stitch's asset pipeline.
+- **Smart login routing** — `isEmployeeEmail()` checks the email domain against `cercit.in` / `cercit.com`. Employee emails route to the dashboard, customer emails route to the application status page. Falls back to demo mode when Supabase auth returns an error (no real users registered yet).
+- **Customer application status portal** — new `/application-status` route showing a demo loan application: stage timeline (5 stages with done/active/pending states), loan metrics (vehicle, amount, tenure, EMI), progress tracker, and a "what happens next" explainer. In production this page would pull real application data from Supabase.
 
 ## Where effort actually went
 
@@ -29,6 +31,7 @@ Roughly 60% on consolidation and integration work, 40% on new features. The brea
 2. Route guard required a real Supabase session. Fix: add `|| demoMode` to `requireAuth()`.
 3. HMR cleared the in-memory flag. Fix: persist to `sessionStorage`.
 4. Full page reload still lost demo state. Fix: `isDemoMode()` reads sessionStorage on every call instead of caching at module init. Plus skip auth guard server-side.
+5. Customer email login against configured Supabase returned "Invalid login credentials" (no real users). Fix: fall back to demo mode when `signIn()` returns an error, so any email works for testing.
 
 Each bug only showed up after the previous one was fixed. Classic layered-auth debugging.
 

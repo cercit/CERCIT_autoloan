@@ -1,6 +1,6 @@
 # cercit build progress
 
-Last updated: 10 Sep 2026
+Last updated: 11 Sep 2026
 
 ## Status summary
 
@@ -10,10 +10,11 @@ Last updated: 10 Sep 2026
 | Database | Live | 22 tables on Supabase, Mumbai region |
 | Backend functions | Live | 9 RPCs, policy engine, assessment pipeline, officer decision |
 | Seed data | Live | 132 dealers, 12 OEMs, rate grid, 16 rules, 3 demo scenarios |
-| Frontend | Live | React + TanStack Router + shadcn/ui, 17 routes (12 employee + 5 public) |
+| Frontend | Live | React + TanStack Router + shadcn/ui, 18 routes (12 employee + 6 public) |
 | Supabase wiring | Live | Real data flowing, mock fallback retained |
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
 | Git | Pushed | cercit/CERCIT_autoloan (public), main branch |
+| Smart login | Live | Email domain detection routes employee vs customer logins |
 | Auth & roles | Not started | Supabase Auth, RLS, officer/manager roles |
 | Deploy | **Live** | GitHub Pages at cercit.github.io/CERCIT_autoloan/ |
 | Jira | Live | 6 epics, 16 stories at samsm.atlassian.net (SCRUM project) |
@@ -84,9 +85,10 @@ React + Vite + TanStack Router + shadcn/ui + Tailwind CSS.
 | Screen | Route | Data source |
 |---|---|---|
 | Landing page | `/` | Static (EMI calculator, car brands, FAQ, SpeedoCluster gauge) |
-| Login | `/login` | Demo bypass or Supabase Auth |
+| Login | `/login` | Smart routing: employee emails (@cercit.in/com) → dashboard, customer emails → application status. Demo fallback when Supabase auth fails. |
 | Customer loan application (4-step) | `/apply` | Client-side (personal, employment, car & loan, documents) |
 | Eligibility check | `/check-eligibility` | Client-side quick check |
+| Application status | `/application-status` | Demo data (stage timeline, loan metrics, progress tracker) |
 
 **Employee-facing (auth required):**
 
@@ -131,7 +133,24 @@ Ported from Stitch Showcase design reference into cercit:
 | `src/components/brand.tsx` | Text-based BrandLogo component (no external asset files) |
 | `src/lib/customer-data.ts` | Car brands (13), FAQ content (5 Q&A), car make-to-model mapping (12 OEMs) |
 
-Public route whitelist in `__root.tsx` updated: `/`, `/login`, `/apply`, `/check-eligibility` all skip auth guard.
+Public route whitelist in `__root.tsx` updated: `/`, `/login`, `/apply`, `/check-eligibility`, `/application-status` all skip auth guard.
+
+### Smart login routing (SCRUM-28)
+
+Email domain detection in `src/lib/auth.ts`:
+- `isEmployeeEmail()` checks against `EMPLOYEE_DOMAINS = ["cercit.in", "cercit.com"]`
+- Employee emails route to `/dashboard`, customer emails route to `/application-status`
+- `setCustomerEmail()` / `getCustomerEmail()` pass email via sessionStorage
+- Login falls back to demo mode when Supabase auth fails (no real users registered)
+
+### Customer application status portal (SCRUM-29)
+
+New route at `/application-status` with:
+- Demo application data: CER-2026-04821, Hyundai Creta SX(O), 12L loan, 60 months, 8.99%, EMI 24,904
+- Stage timeline: 5 stages (received, docs verified, credit assessment, decision, sanction letter) with done/active/pending states
+- 4 metric cards (vehicle, loan amount, tenure, estimated EMI)
+- "What happens next" explainer section
+- Demo mode banner when running without Supabase
 
 ### Still on mock data
 - Rate grid page (schema mismatch between DB and UI)
@@ -206,8 +225,8 @@ cercit/CERCIT_autoloan (public, main branch)
 - [x] Interactive visual effects (SpeedoCluster gauge, HeadlightSurface, TiltCard)
 
 ### Phase 3 — build out
-- [ ] Smart login routing (auto-detect customer vs employee email)
-- [ ] Customer application status portal (post-login tracking)
+- [x] Smart login routing (auto-detect customer vs employee email)
+- [x] Customer application status portal (post-login tracking)
 - [ ] Letter PDF generation (approval + sanction)
 - [ ] Supabase Auth with officer/manager roles
 - [ ] RLS policies per role
