@@ -1,0 +1,37 @@
+{
+  "id": "TC-07",
+  "title": "LTV 100% on-road, verified salary, FOIR 42",
+  "notes": "LTV_100_SALARIED passes with verified income + FOIR <= 50; FOIR_OPTIMAL soft flag -> review.",
+  "features": {
+    "bureauScore": 760,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 100,
+    "foirPercent": 42,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 0,
+    "employmentYears": 6,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 58
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "review",
+    "modelBadProbability": 0.0035,
+    "modelScore": 996,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

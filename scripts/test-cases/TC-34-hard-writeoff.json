@@ -1,0 +1,37 @@
+{
+  "id": "TC-34",
+  "title": "Write-off on bureau",
+  "notes": "NO_SEVERE_DPD hard fail via write-off.",
+  "features": {
+    "bureauScore": 680,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 1,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 90,
+    "foirPercent": 38,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 0,
+    "employmentYears": 6,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 62
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "decline",
+    "modelBadProbability": 0.003,
+    "modelScore": 997,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

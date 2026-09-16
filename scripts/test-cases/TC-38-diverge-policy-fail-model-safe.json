@@ -1,0 +1,37 @@
+{
+  "id": "TC-38",
+  "title": "Fails one soft rule, model very safe",
+  "notes": "Govt, 810 bureau, 12 yr service, but bureau 'recent DPD' from a closed card 5 months ago.",
+  "features": {
+    "bureauScore": 810,
+    "dpd30": 1,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 5,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 90,
+    "foirPercent": 28,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 1,
+    "employmentYears": 12,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 72
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "review",
+    "modelBadProbability": 0.0005,
+    "modelScore": 1000,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

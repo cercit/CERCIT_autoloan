@@ -20,6 +20,9 @@ dist-ssr
 # AWS SAM build artifacts
 aws/.aws-sam/
 
+# Synthetic training data (regenerate with scripts/generate-training-data.ts)
+scripts/data/*.csv
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

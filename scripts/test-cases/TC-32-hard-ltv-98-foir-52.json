@@ -1,0 +1,37 @@
+{
+  "id": "TC-32",
+  "title": "LTV 98% with FOIR 52",
+  "notes": "LTV_100_SALARIED needs FOIR <= 50 above 90% LTV; FOIR_LIMIT also fails.",
+  "features": {
+    "bureauScore": 760,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 98,
+    "foirPercent": 52,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 0,
+    "employmentYears": 6,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 48
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "decline",
+    "modelBadProbability": 0.0012,
+    "modelScore": 999,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

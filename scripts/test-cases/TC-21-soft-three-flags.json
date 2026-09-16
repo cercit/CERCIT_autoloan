@@ -1,0 +1,37 @@
+{
+  "id": "TC-21",
+  "title": "Bureau 680 + bounce + FOIR 47",
+  "notes": "Three+ soft fails -> deeper review.",
+  "features": {
+    "bureauScore": 680,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 1,
+    "salaryRegularity": 6,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 90,
+    "foirPercent": 47,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 0,
+    "employmentYears": 6,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 53
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "review",
+    "modelBadProbability": 0.0092,
+    "modelScore": 991,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

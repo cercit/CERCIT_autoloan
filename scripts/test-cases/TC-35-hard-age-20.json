@@ -1,0 +1,37 @@
+{
+  "id": "TC-35",
+  "title": "Age 20",
+  "notes": "AGE_MIN hard fail.",
+  "features": {
+    "bureauScore": 760,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 90,
+    "foirPercent": 38,
+    "tenureMonths": 60,
+    "age": 20,
+    "govtEmployee": 0,
+    "employmentYears": 0.5,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 62
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "decline",
+    "modelBadProbability": 0.0017,
+    "modelScore": 998,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

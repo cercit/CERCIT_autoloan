@@ -1,0 +1,77 @@
+{
+  "baseValue": -3.1887831687927246,
+  "importance": [
+    {
+      "feature": "freeIncomeRatio",
+      "meanAbsShap": 0.7229
+    },
+    {
+      "feature": "bureauScore",
+      "meanAbsShap": 0.5699
+    },
+    {
+      "feature": "foirPercent",
+      "meanAbsShap": 0.4809
+    },
+    {
+      "feature": "ltvPercent",
+      "meanAbsShap": 0.2965
+    },
+    {
+      "feature": "employmentYears",
+      "meanAbsShap": 0.2634
+    },
+    {
+      "feature": "cashWithdrawalRatio",
+      "meanAbsShap": 0.2445
+    },
+    {
+      "feature": "salaryRegularity",
+      "meanAbsShap": 0.2128
+    },
+    {
+      "feature": "enquiryVelocity",
+      "meanAbsShap": 0.1878
+    },
+    {
+      "feature": "age",
+      "meanAbsShap": 0.1821
+    },
+    {
+      "feature": "bounceCount",
+      "meanAbsShap": 0.1525
+    },
+    {
+      "feature": "dpd30",
+      "meanAbsShap": 0.1278
+    },
+    {
+      "feature": "govtEmployee",
+      "meanAbsShap": 0.1139
+    },
+    {
+      "feature": "dpd60",
+      "meanAbsShap": 0.1037
+    },
+    {
+      "feature": "ccServicingPattern",
+      "meanAbsShap": 0.0921
+    },
+    {
+      "feature": "dpd90",
+      "meanAbsShap": 0.0758
+    },
+    {
+      "feature": "tenureMonths",
+      "meanAbsShap": 0.0707
+    },
+    {
+      "feature": "employerTier",
+      "meanAbsShap": 0.0688
+    },
+    {
+      "feature": "dpdWriteOff",
+      "meanAbsShap": 0.0102
+    }
+  ]
+}

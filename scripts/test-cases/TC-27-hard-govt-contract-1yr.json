@@ -1,0 +1,37 @@
+{
+  "id": "TC-27",
+  "title": "Govt (contract-like), 1 yr service",
+  "notes": "GOVT_EMPLOYEE_CHECK hard fail (< 3 yrs).",
+  "features": {
+    "bureauScore": 760,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 5,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 90,
+    "foirPercent": 38,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 1,
+    "employmentYears": 1,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 62
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "decline",
+    "modelBadProbability": 0.0007,
+    "modelScore": 999,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

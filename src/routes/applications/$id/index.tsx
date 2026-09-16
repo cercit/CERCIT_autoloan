@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getApplication, getBankingAnalysis, getBureauReport } from "@/lib/api";
 import { BureauReportCard } from "@/components/bureau-report-card";
 import { BureauUploadForm } from "@/components/bureau-upload-form";
+import { MlRiskCard } from "@/components/ml-risk-card";
 import { interpretScore, generateFlags } from "@/lib/bureau-score-interpreter";
 import type { Application } from "@/lib/mock-data";
 import { SlaTimer } from "@/components/sla-timer";
@@ -373,6 +374,9 @@ function ApplicationDetail() {
                 }}
               />
             </div>
+          )}
+          {!bureauLoading && (
+            <MlRiskCard app={app} bureau={bureauReport} banking={bankingSummary} />
           )}
         </TabsContent>
 

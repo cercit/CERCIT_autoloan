@@ -1,0 +1,37 @@
+{
+  "id": "TC-36",
+  "title": "Bureau 630, 2x DPD30, 2 bounces, min-due card, FOIR 58",
+  "notes": "Everything wrong at once; model grade should be E.",
+  "features": {
+    "bureauScore": 630,
+    "dpd30": 2,
+    "dpd60": 1,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 7,
+    "bounceCount": 2,
+    "salaryRegularity": 3,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 40,
+    "ltvPercent": 90,
+    "foirPercent": 58,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 0,
+    "employmentYears": 6,
+    "ccServicingPattern": 3,
+    "freeIncomeRatio": 42
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "decline",
+    "modelBadProbability": 0.2798,
+    "modelScore": 720,
+    "modelGrade": "E"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

@@ -1,0 +1,37 @@
+{
+  "id": "TC-39",
+  "title": "Thin file: 1 enquiry, no cards, 700 score",
+  "notes": "No history to judge; model relies on income side.",
+  "features": {
+    "bureauScore": 700,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 90,
+    "foirPercent": 38,
+    "tenureMonths": 60,
+    "age": 27,
+    "govtEmployee": 0,
+    "employmentYears": 1.2,
+    "ccServicingPattern": 0,
+    "freeIncomeRatio": 62
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "approve",
+    "modelBadProbability": 0.0023,
+    "modelScore": 998,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

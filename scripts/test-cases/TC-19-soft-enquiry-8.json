@@ -1,0 +1,37 @@
+{
+  "id": "TC-19",
+  "title": "8 enquiries in 90 days",
+  "notes": "No policy rule on enquiries; model should lift risk. FOIR 45 to force review.",
+  "features": {
+    "bureauScore": 760,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 8,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 4,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 90,
+    "foirPercent": 45,
+    "tenureMonths": 60,
+    "age": 36,
+    "govtEmployee": 0,
+    "employmentYears": 6,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 55
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "review",
+    "modelBadProbability": 0.0031,
+    "modelScore": 997,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

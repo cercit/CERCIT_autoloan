@@ -1,0 +1,157 @@
+{
+  "model": "cercit-risk-v1",
+  "label": "bad30",
+  "trainedAt": "2026-09-16T14:24:23.710028+00:00",
+  "features": [
+    "bureauScore",
+    "dpd30",
+    "dpd60",
+    "dpd90",
+    "dpdWriteOff",
+    "enquiryVelocity",
+    "bounceCount",
+    "salaryRegularity",
+    "employerTier",
+    "cashWithdrawalRatio",
+    "ltvPercent",
+    "foirPercent",
+    "tenureMonths",
+    "age",
+    "govtEmployee",
+    "employmentYears",
+    "ccServicingPattern",
+    "freeIncomeRatio"
+  ],
+  "inputName": "features",
+  "outputNames": [
+    "label",
+    "probabilities"
+  ],
+  "metrics": {
+    "auc": 0.9085,
+    "pr_auc": 0.6132,
+    "brier": 0.023,
+    "test_rows": 2500,
+    "test_positive_rate": 0.04
+  },
+  "bandBadRates": {
+    "A": {
+      "count": 1686,
+      "badRate": 0.0053
+    },
+    "B": {
+      "count": 392,
+      "badRate": 0.0204
+    },
+    "C": {
+      "count": 176,
+      "badRate": 0.0398
+    },
+    "D": {
+      "count": 110,
+      "badRate": 0.1
+    },
+    "E": {
+      "count": 136,
+      "badRate": 0.4779
+    }
+  },
+  "shap": {
+    "baseValue": -3.1887831687927246,
+    "importance": [
+      {
+        "feature": "freeIncomeRatio",
+        "meanAbsShap": 0.7229
+      },
+      {
+        "feature": "bureauScore",
+        "meanAbsShap": 0.5699
+      },
+      {
+        "feature": "foirPercent",
+        "meanAbsShap": 0.4809
+      },
+      {
+        "feature": "ltvPercent",
+        "meanAbsShap": 0.2965
+      },
+      {
+        "feature": "employmentYears",
+        "meanAbsShap": 0.2634
+      },
+      {
+        "feature": "cashWithdrawalRatio",
+        "meanAbsShap": 0.2445
+      },
+      {
+        "feature": "salaryRegularity",
+        "meanAbsShap": 0.2128
+      },
+      {
+        "feature": "enquiryVelocity",
+        "meanAbsShap": 0.1878
+      },
+      {
+        "feature": "age",
+        "meanAbsShap": 0.1821
+      },
+      {
+        "feature": "bounceCount",
+        "meanAbsShap": 0.1525
+      },
+      {
+        "feature": "dpd30",
+        "meanAbsShap": 0.1278
+      },
+      {
+        "feature": "govtEmployee",
+        "meanAbsShap": 0.1139
+      },
+      {
+        "feature": "dpd60",
+        "meanAbsShap": 0.1037
+      },
+      {
+        "feature": "ccServicingPattern",
+        "meanAbsShap": 0.0921
+      },
+      {
+        "feature": "dpd90",
+        "meanAbsShap": 0.0758
+      },
+      {
+        "feature": "tenureMonths",
+        "meanAbsShap": 0.0707
+      },
+      {
+        "feature": "employerTier",
+        "meanAbsShap": 0.0688
+      },
+      {
+        "feature": "dpdWriteOff",
+        "meanAbsShap": 0.0102
+      }
+    ]
+  },
+  "featureMeans": {
+    "bureauScore": 740.638,
+    "dpd30": 0.26,
+    "dpd60": 0.057,
+    "dpd90": 0.022,
+    "dpdWriteOff": 0.015,
+    "enquiryVelocity": 1.73,
+    "bounceCount": 0.397,
+    "salaryRegularity": 5.711,
+    "employerTier": 3.554,
+    "cashWithdrawalRatio": 17.209,
+    "ltvPercent": 90.073,
+    "foirPercent": 42.853,
+    "tenureMonths": 68.966,
+    "age": 35.994,
+    "govtEmployee": 0.179,
+    "employmentYears": 4.751,
+    "ccServicingPattern": 0.902,
+    "freeIncomeRatio": 57.147
+  },
+  "source": "synthetic training data only -- no real portfolio"
+}

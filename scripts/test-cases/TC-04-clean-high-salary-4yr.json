@@ -1,0 +1,37 @@
+{
+  "id": "TC-04",
+  "title": "High salary, short tenure, 20% down",
+  "notes": "Company-car style profile.",
+  "features": {
+    "bureauScore": 805,
+    "dpd30": 0,
+    "dpd60": 0,
+    "dpd90": 0,
+    "dpdWriteOff": 0,
+    "enquiryVelocity": 1,
+    "bounceCount": 0,
+    "salaryRegularity": 6,
+    "employerTier": 5,
+    "cashWithdrawalRatio": 12,
+    "ltvPercent": 80,
+    "foirPercent": 25,
+    "tenureMonths": 48,
+    "age": 36,
+    "govtEmployee": 0,
+    "employmentYears": 6,
+    "ccServicingPattern": 1,
+    "freeIncomeRatio": 75
+  },
+  "context": {
+    "onRoadPrice": 900000,
+    "employerVerified": true,
+    "incomeVerified": true
+  },
+  "expected": {
+    "policyDecision": "approve",
+    "modelBadProbability": 0.0005,
+    "modelScore": 999,
+    "modelGrade": "A"
+  },
+  "modelVersion": "cercit-risk-v1"
+}

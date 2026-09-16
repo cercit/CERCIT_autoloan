@@ -1,0 +1,322 @@
+[
+  {
+    "id": "TC-01",
+    "slug": "clean-private-tier4",
+    "title": "Clean private salaried, tier-4 employer",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0009
+  },
+  {
+    "id": "TC-02",
+    "slug": "clean-govt-3yr",
+    "title": "Govt employee, 3.5 yrs service",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0006
+  },
+  {
+    "id": "TC-03",
+    "slug": "clean-govt-hatchback-10yr",
+    "title": "Govt employee, 10yr tenure on hatchback",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.001
+  },
+  {
+    "id": "TC-04",
+    "slug": "clean-high-salary-4yr",
+    "title": "High salary, short tenure, 20% down",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0005
+  },
+  {
+    "id": "TC-05",
+    "slug": "clean-750-exact",
+    "title": "Bureau exactly 750",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0019
+  },
+  {
+    "id": "TC-06",
+    "slug": "clean-700-exact",
+    "title": "Bureau exactly 700",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0011
+  },
+  {
+    "id": "TC-07",
+    "slug": "clean-ltv-100",
+    "title": "LTV 100% on-road, verified salary, FOIR 42",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0035
+  },
+  {
+    "id": "TC-08",
+    "slug": "clean-free-income-15",
+    "title": "Free income exactly 15%",
+    "policy": "review",
+    "grade": "B",
+    "pBad": 0.01
+  },
+  {
+    "id": "TC-09",
+    "slug": "clean-age-25",
+    "title": "Age 25, 2 yrs employment",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0015
+  },
+  {
+    "id": "TC-10",
+    "slug": "clean-age-55-tenure-5",
+    "title": "Age 55, 60-month tenure",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0006
+  },
+  {
+    "id": "TC-11",
+    "slug": "clean-home-loan-in-foir",
+    "title": "Home loan EMI inside FOIR",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.003
+  },
+  {
+    "id": "TC-12",
+    "slug": "clean-cc-partial",
+    "title": "Card paid partially each month",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0008
+  },
+  {
+    "id": "TC-13",
+    "slug": "soft-bureau-690",
+    "title": "Bureau 690, otherwise clean",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0009
+  },
+  {
+    "id": "TC-14",
+    "slug": "soft-cc-min-due",
+    "title": "Card serviced at minimum due only",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0007
+  },
+  {
+    "id": "TC-15",
+    "slug": "soft-one-bounce",
+    "title": "One bounced EMI in statement",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0009
+  },
+  {
+    "id": "TC-16",
+    "slug": "soft-salary-4of6",
+    "title": "Salary credited 4 of 6 months",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0014
+  },
+  {
+    "id": "TC-17",
+    "slug": "soft-foir-45",
+    "title": "FOIR 45 (over optimal 40)",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.003
+  },
+  {
+    "id": "TC-18",
+    "slug": "soft-recent-dpd30",
+    "title": "One 30 DPD in last 6 months",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0009
+  },
+  {
+    "id": "TC-19",
+    "slug": "soft-enquiry-8",
+    "title": "8 enquiries in 90 days",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0031
+  },
+  {
+    "id": "TC-20",
+    "slug": "soft-two-flags",
+    "title": "Bureau 705 + card min due",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0039
+  },
+  {
+    "id": "TC-21",
+    "slug": "soft-three-flags",
+    "title": "Bureau 680 + bounce + FOIR 47",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0092
+  },
+  {
+    "id": "TC-22",
+    "slug": "soft-age-maturity-66",
+    "title": "Age 59, 84-month tenure",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0007
+  },
+  {
+    "id": "TC-23",
+    "slug": "hard-bureau-640",
+    "title": "Bureau 640",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0039
+  },
+  {
+    "id": "TC-24",
+    "slug": "hard-bureau-600",
+    "title": "Bureau 600",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0042
+  },
+  {
+    "id": "TC-25",
+    "slug": "hard-foir-55",
+    "title": "FOIR 55",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0025
+  },
+  {
+    "id": "TC-26",
+    "slug": "hard-free-income-10",
+    "title": "FOIR 48 but free income 10%",
+    "policy": "decline",
+    "grade": "B",
+    "pBad": 0.013
+  },
+  {
+    "id": "TC-27",
+    "slug": "hard-govt-contract-1yr",
+    "title": "Govt (contract-like), 1 yr service",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0007
+  },
+  {
+    "id": "TC-28",
+    "slug": "hard-govt-2.9yr",
+    "title": "Govt, 2.9 yrs service",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0006
+  },
+  {
+    "id": "TC-29",
+    "slug": "hard-tenure-96-private",
+    "title": "Private salaried, 96-month tenure",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.001
+  },
+  {
+    "id": "TC-30",
+    "slug": "hard-tenure-120-govt-suv",
+    "title": "Govt, 120 months on 17L SUV",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0018
+  },
+  {
+    "id": "TC-31",
+    "slug": "hard-ltv-105",
+    "title": "LTV 105% on-road (accessories top-load)",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0009
+  },
+  {
+    "id": "TC-32",
+    "slug": "hard-ltv-98-foir-52",
+    "title": "LTV 98% with FOIR 52",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0012
+  },
+  {
+    "id": "TC-33",
+    "slug": "hard-dpd90",
+    "title": "One 90+ DPD account",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0028
+  },
+  {
+    "id": "TC-34",
+    "slug": "hard-writeoff",
+    "title": "Write-off on bureau",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.003
+  },
+  {
+    "id": "TC-35",
+    "slug": "hard-age-20",
+    "title": "Age 20",
+    "policy": "decline",
+    "grade": "A",
+    "pBad": 0.0017
+  },
+  {
+    "id": "TC-36",
+    "slug": "hard-stressed-stack",
+    "title": "Bureau 630, 2x DPD30, 2 bounces, min-due card, FOIR 58",
+    "policy": "decline",
+    "grade": "E",
+    "pBad": 0.2798
+  },
+  {
+    "id": "TC-37",
+    "slug": "diverge-policy-pass-model-risky",
+    "title": "No hard fails, model uneasy",
+    "policy": "review",
+    "grade": "B",
+    "pBad": 0.0111
+  },
+  {
+    "id": "TC-38",
+    "slug": "diverge-policy-fail-model-safe",
+    "title": "Fails one soft rule, model very safe",
+    "policy": "review",
+    "grade": "A",
+    "pBad": 0.0005
+  },
+  {
+    "id": "TC-39",
+    "slug": "diverge-thin-file",
+    "title": "Thin file: 1 enquiry, no cards, 700 score",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0023
+  },
+  {
+    "id": "TC-40",
+    "slug": "diverge-high-cash",
+    "title": "Cash withdrawal ratio 55%",
+    "policy": "approve",
+    "grade": "A",
+    "pBad": 0.0021
+  }
+]

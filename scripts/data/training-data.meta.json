@@ -1,0 +1,53 @@
+{
+  "generatedAt": "2026-09-16T14:24:17.778Z",
+  "rows": 10000,
+  "seed": 20260916,
+  "source": "synthetic -- industry benchmark distributions, no real portfolio data",
+  "modelFeatures": [
+    "bureauScore",
+    "dpd30",
+    "dpd60",
+    "dpd90",
+    "dpdWriteOff",
+    "enquiryVelocity",
+    "bounceCount",
+    "salaryRegularity",
+    "employerTier",
+    "cashWithdrawalRatio",
+    "ltvPercent",
+    "foirPercent",
+    "tenureMonths",
+    "age",
+    "govtEmployee",
+    "employmentYears",
+    "ccServicingPattern",
+    "freeIncomeRatio"
+  ],
+  "labels": [
+    "bad30",
+    "default90"
+  ],
+  "summary": {
+    "bad30RatePct": 4.02,
+    "default90RatePct": 1.08,
+    "bad30GovtPct": 1.86,
+    "bad30PrivatePct": 4.49,
+    "bad30Bureau750PlusPct": 2.08,
+    "bad30Bureau700to749Pct": 2.94,
+    "bad30BureauBelow700Pct": 10.21,
+    "govtSharePct": 17.76,
+    "meanBureauScore": 740.7,
+    "meanLoanAmount": 941580.8,
+    "meanFoirPct": 42.77,
+    "meanLtvPct": 90.045,
+    "tenureMix": {
+      "36": 549,
+      "48": 1301,
+      "60": 2724,
+      "72": 1377,
+      "84": 3842,
+      "96": 104,
+      "120": 103
+    }
+  }
+}
