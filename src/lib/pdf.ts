@@ -4,15 +4,27 @@ export async function downloadLetterPdf(elementId: string, filename: string) {
     console.error("PDF download: element not found:", elementId);
     return;
   }
-  const html2canvas = (await import("html2canvas")).default;
+
+  const { toPng } = await import("html-to-image");
   const jsPDF = (await import("jspdf")).default;
-  const canvas = await html2canvas(element, { scale: 2 });
-  const imgData = canvas.toDataURL("image/png");
+
+  const imgData = await toPng(element, {
+    pixelRatio: 2,
+    cacheBust: true,
+  });
+
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
+
+  const img = new Image();
+  img.src = imgData;
+  await new Promise<void>((resolve) => {
+    img.onload = () => resolve();
+  });
+
   const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const imgHeight = (img.height * imgWidth) / img.width;
 
   let position = 0;
   pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);

@@ -1,0 +1,13 @@
+name = "cercit-autoloan"
+main = ".output/server/index.mjs"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".output/public"
+
+# Deploy steps:
+# 1. npm run build                  (SSR build -> .output/)
+# 2. npx wrangler secret put VITE_SUPABASE_URL
+# 3. npx wrangler secret put VITE_SUPABASE_ANON_KEY
+# 4. npx wrangler deploy

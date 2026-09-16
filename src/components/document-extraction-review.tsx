@@ -32,6 +32,7 @@ export function DocumentExtractionReview({
   const [localValues, setLocalValues] = useState<string[]>(
     fields.map((f) => f.value)
   );
+  const [confirmed, setConfirmed] = useState(false);
 
   const highConfidenceCount = fields.filter(
     (f) => f.confidence === "high"
@@ -101,26 +102,33 @@ export function DocumentExtractionReview({
         <p className="text-sm text-muted-foreground">
           {highConfidenceCount} of {fields.length} fields extracted with high confidence
         </p>
-        <div className="flex gap-2">
-          <button
-            onClick={onReject}
-            className={cn(
-              "rounded-md border px-4 py-2 text-sm font-medium transition-colors",
-              "border-destructive text-destructive hover:bg-destructive/10"
-            )}
-          >
-            Reject / re-upload
-          </button>
-          <button
-            onClick={onConfirm}
-            className={cn(
-              "rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground",
-              "hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            )}
-          >
-            Confirm extraction
-          </button>
-        </div>
+        {confirmed ? (
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-green-500/15 px-3 py-1.5 text-sm font-medium text-green-600">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Confirmed
+          </span>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={onReject}
+              className={cn(
+                "rounded-md border px-4 py-2 text-sm font-medium transition-colors",
+                "border-destructive text-destructive hover:bg-destructive/10"
+              )}
+            >
+              Reject / re-upload
+            </button>
+            <button
+              onClick={() => { setConfirmed(true); onConfirm?.(); }}
+              className={cn(
+                "rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground",
+                "hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              )}
+            >
+              Confirm extraction
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

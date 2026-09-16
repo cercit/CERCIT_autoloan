@@ -192,12 +192,12 @@ export async function getApplication(
     .select(
       `
       *,
-      customers!inner(full_name, email, mobile, pan_number, age_at_application, employer_name, city, state_code, address_line1, address_line2, pincode, residence_type, designation, years_in_current_job, total_work_experience_years, salary_bank_name),
+      customers!inner(full_name, email, mobile, pan_number, age_at_application, employer_name, city, state_code, address_line1, address_line2, pincode, years_in_current_job, total_work_experience_years, salary_bank_name),
       vehicles!fk_vehicles_app(make, model, variant, ex_showroom_price, on_road_price),
       bureau_reports(score),
       recommendations(recommendation, recommended_rate, foir_calculated, ltv_calculated, risk_factors, summary_text),
       credit_decisions(decision),
-      obligations(lender_name, loan_type, emi_amount, outstanding_balance, dpd_current, source)
+      obligation_details(lender_name, loan_type, emi_amount, outstanding_balance, dpd_current, source)
     `
     )
     .eq("application_id", id)
@@ -226,8 +226,8 @@ export async function getApplication(
     address_line1: cust?.address_line1,
     address_line2: cust?.address_line2,
     pincode: cust?.pincode,
-    residence_type: cust?.residence_type,
-    designation: cust?.designation,
+    residence_type: "",
+    designation: "",
     years_in_current_job: cust?.years_in_current_job,
     total_work_experience_years: cust?.total_work_experience_years,
     salary_bank_name: cust?.salary_bank_name,
@@ -245,7 +245,7 @@ export async function getApplication(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const obligations = ((data as any).obligations ?? []).map((o: any) => ({
+  const obligations = ((data as any).obligation_details ?? []).map((o: any) => ({
     lender: o.lender_name ?? "",
     type: o.loan_type ?? "",
     emi: Number(o.emi_amount) || 0,

@@ -167,30 +167,38 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {manager && <Pill tone="primary">Delegation authority: up to Rs 25,00,000</Pill>}
-          <Button
-            className="bg-success text-success-foreground hover:bg-success/90"
-            disabled={submitting}
-            onClick={() => handleDecisionSubmit("APPROVE")}
-          >
-            {submitting ? <Loader2 className="size-4 animate-spin" /> : "Approve"}
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={submitting}
-            onClick={() => handleDecisionSubmit("REJECT")}
-          >
-            {submitting ? <Loader2 className="size-4 animate-spin" /> : "Reject"}
-          </Button>
-          <Button
-            variant="outline"
-            className="border-warning text-warning-foreground dark:text-warning"
-            disabled={submitting}
-            onClick={() => {
-              toast.success(manager ? "Returned to credit officer" : "Sent to manager for review");
-            }}
-          >
-            {manager ? "Return to officer" : "Send for review"}
-          </Button>
+          {result ? (
+            <Pill tone={result.decision === "APPROVE" ? "success" : result.decision === "REJECT" ? "destructive" : "warning"}>
+              Decision recorded: {result.decision}
+            </Pill>
+          ) : (
+            <>
+              <Button
+                className="bg-success text-success-foreground hover:bg-success/90"
+                disabled={submitting}
+                onClick={() => handleDecisionSubmit("APPROVE")}
+              >
+                {submitting ? <Loader2 className="size-4 animate-spin" /> : "Approve"}
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={submitting}
+                onClick={() => handleDecisionSubmit("REJECT")}
+              >
+                {submitting ? <Loader2 className="size-4 animate-spin" /> : "Reject"}
+              </Button>
+              <Button
+                variant="outline"
+                className="border-warning text-warning-foreground dark:text-warning"
+                disabled={submitting}
+                onClick={() => {
+                  toast.success(manager ? "Returned to credit officer" : "Sent to manager for review");
+                }}
+              >
+                {manager ? "Return to officer" : "Send for review"}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -932,8 +940,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                 </div>
               )}
 
-              <Button className="w-full" disabled={submitting} onClick={() => handleDecisionSubmit()}>
-                {submitting ? <><Loader2 className="size-4 animate-spin" /> Submitting...</> : "Submit decision"}
+              <Button className="w-full" disabled={submitting || !!result} onClick={() => handleDecisionSubmit()}>
+                {submitting ? <><Loader2 className="size-4 animate-spin" /> Submitting...</> : result ? "Decision recorded" : "Submit decision"}
               </Button>
             </div>
           </SectionCard>

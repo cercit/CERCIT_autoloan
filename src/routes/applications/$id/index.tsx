@@ -13,7 +13,10 @@ import { DocumentExtractionReview } from "@/components/document-extraction-revie
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getApplication, getBankingAnalysis } from "@/lib/api";
+import { getApplication, getBankingAnalysis, getBureauReport } from "@/lib/api";
+import { BureauReportCard } from "@/components/bureau-report-card";
+import { BureauUploadForm } from "@/components/bureau-upload-form";
+import { interpretScore, generateFlags } from "@/lib/bureau-score-interpreter";
 import type { Application } from "@/lib/mock-data";
 import { SlaTimer } from "@/components/sla-timer";
 import { OverridePanel } from "@/components/override-panel";
@@ -35,6 +38,24 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import {
+  isAwsConfigured,
+  uploadDocument as awsUploadDocument,
+  pollForExtraction,
+  getExtractions,
+  mapExtractionToFields,
+  type DocType,
+  type ExtractionResult,
+} from "@/lib/aws-doc-api";
+
+const AWS_DOC_TYPES: { value: DocType; label: string }[] = [
+  { value: "salary_slip", label: "Salary Slip" },
+  { value: "form16", label: "Form 16" },
+  { value: "bank_statement", label: "Bank Statement" },
+  { value: "pan_card", label: "PAN Card" },
+  { value: "aadhaar_card", label: "Aadhaar Card" },
+  { value: "bureau_report", label: "Bureau Report" },
+];
 
 export const Route = createFileRoute("/applications/$id/")({
   head: ({ params }) => ({
@@ -66,6 +87,42 @@ function ApplicationDetail() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignee, setAssignee] = useState("");
 
+  const [bureauReport, setBureauReport] = useState<any>(null);
+  const [bureauLoading, setBureauLoading] = useState(false);
+
+  const [uploadingDoc, setUploadingDoc] = useState<DocType | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<Record<DocType, File>>({} as any);
+  const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
+  const [docRefreshKey, setDocRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!app?.id || !isAwsConfigured()) return;
+    getExtractions(app.id).then(setExtractionResult).catch(() => {});
+  }, [app?.id]);
+
+  async function handleAwsUpload(docType: DocType, file: File) {
+    if (!app) return;
+    setUploadingDoc(docType);
+    try {
+      await awsUploadDocument(app.id, docType, file);
+      setUploadedFiles((prev) => ({ ...prev, [docType]: file }));
+      toast.success(`${file.name} uploaded — extracting fields...`);
+      setDocRefreshKey((k) => k + 1);
+      const extracted = await pollForExtraction(app.id, docType);
+      if (extracted) {
+        const updated = await getExtractions(app.id);
+        setExtractionResult(updated);
+        toast.success(`Extraction complete for ${docType.replace("_", " ")}`);
+      } else {
+        toast.info("Extraction is still processing. Check the Extracted Data tab shortly.");
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? "Upload failed");
+    } finally {
+      setUploadingDoc(null);
+    }
+  }
+
   useEffect(() => {
     getApplication(id).then((result) => setApp(result ?? null));
   }, [id]);
@@ -77,6 +134,15 @@ function ApplicationDetail() {
       setBankingSummary(res.summary);
       setBankingTxns(res.transactions);
       setBankingLoading(false);
+    });
+  }, [app?.id]);
+
+  useEffect(() => {
+    if (!app?.id) return;
+    setBureauLoading(true);
+    getBureauReport(app.id).then((report) => {
+      setBureauReport(report);
+      setBureauLoading(false);
     });
   }, [app?.id]);
 
@@ -165,6 +231,7 @@ function ApplicationDetail() {
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="extracted">Extracted Data</TabsTrigger>
           <TabsTrigger value="banking">Banking</TabsTrigger>
+          <TabsTrigger value="bureau">Bureau</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="cam">CAM Report</TabsTrigger>
         </TabsList>
@@ -174,23 +241,59 @@ function ApplicationDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">
-          <DocumentList applicationId={app.id} />
-          <DocumentUploadZone documentType="Application Document" onFileSelect={() => {}} />
+          <DocumentList applicationId={app.id} refreshKey={docRefreshKey} />
+          {isAwsConfigured() && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {AWS_DOC_TYPES.map((dt) => (
+                <DocumentUploadZone
+                  key={dt.value}
+                  documentType={dt.label}
+                  required={dt.value === "salary_slip"}
+                  existingFile={uploadedFiles[dt.value]}
+                  onFileSelect={(file) => handleAwsUpload(dt.value, file)}
+                  onRemove={() => setUploadedFiles((prev) => {
+                    const next = { ...prev };
+                    delete next[dt.value];
+                    return next;
+                  })}
+                />
+              ))}
+            </div>
+          )}
+          {uploadingDoc && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Uploading and extracting {uploadingDoc.replace(/_/g, " ")}...
+            </div>
+          )}
           <OfficerNotes applicationId={app.id} />
         </TabsContent>
 
-        <TabsContent value="extracted">
-          <DocumentExtractionReview
-            documentName={`${app.name} — Application`}
-            documentType="KYC + Income"
-            fields={[
-              { label: "Full Name", value: app.name, confidence: "high" },
-              { label: "PAN", value: app.pan, confidence: "high" },
-              { label: "Employer", value: app.employer, confidence: "high" },
-              { label: "Net Income", value: String(app.netIncome), confidence: "medium" },
-              { label: "City", value: app.city, confidence: "high" },
-            ]}
-          />
+        <TabsContent value="extracted" className="space-y-4">
+          {extractionResult && Object.keys(extractionResult.extractions).length > 0 ? (
+            Object.entries(extractionResult.extractions).map(([docType, fields]) => (
+              <DocumentExtractionReview
+                key={docType}
+                documentName={`${app.name} — ${docType.replace(/_/g, " ")}`}
+                documentType={docType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                fields={mapExtractionToFields(fields)}
+                onConfirm={() => toast.success(`${docType.replace(/_/g, " ")} extraction confirmed`)}
+              />
+            ))
+          ) : (
+            <DocumentExtractionReview
+              documentName={`${app.name} — Application`}
+              documentType="KYC + Income"
+              fields={[
+                { label: "Full Name", value: app.name, confidence: "high" },
+                { label: "PAN", value: app.pan, confidence: "high" },
+                { label: "Employer", value: app.employer, confidence: "high" },
+                { label: "Net Income", value: String(app.netIncome), confidence: "medium" },
+                { label: "City", value: app.city, confidence: "high" },
+              ]}
+              onConfirm={() => toast.success("Extraction confirmed")}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="banking" className="space-y-4">
@@ -213,6 +316,63 @@ function ApplicationDetail() {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">No banking data available.</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="bureau" className="space-y-4">
+          {bureauLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : bureauReport ? (() => {
+            const interp = interpretScore(bureauReport.score, "CIBIL");
+            const flagData = generateFlags({
+              score: bureauReport.score,
+              enquiries90d: bureauReport.enquiries90Days,
+              dpd30: bureauReport.dpdHistory?.filter((d: any) => d.months?.some((m: string) => m === "30+")).length ?? 0,
+              dpd60: bureauReport.dpdHistory?.filter((d: any) => d.months?.some((m: string) => m === "60+")).length ?? 0,
+              dpd90: bureauReport.dpdHistory?.filter((d: any) => d.months?.some((m: string) => m === "90+")).length ?? 0,
+              activeAccounts: bureauReport.activeAccounts,
+              totalCreditLimit: bureauReport.totalExposure,
+              totalOutstanding: bureauReport.totalOutstanding,
+            });
+            const flagLabels: string[] = [];
+            if (flagData.highEnquiryVelocity) flagLabels.push("High enquiry velocity");
+            if (flagData.recentDPD) flagLabels.push("Recent DPD history");
+            if (flagData.severeDelinquency) flagLabels.push("Severe delinquency (90+ DPD)");
+            if (flagData.thinFile) flagLabels.push("Thin credit file");
+            if (flagData.overLeveraged) flagLabels.push("Over-leveraged (>80% utilization)");
+            const util = bureauReport.totalExposure > 0
+              ? Math.round((bureauReport.totalOutstanding / bureauReport.totalExposure) * 100)
+              : 0;
+            return (
+              <BureauReportCard
+                bureauName="CIBIL"
+                score={bureauReport.score}
+                band={interp.band}
+                dpd30={interp.dpd30}
+                dpd60={interp.dpd60}
+                dpd90={interp.dpd90}
+                activeAccounts={bureauReport.activeAccounts}
+                enquiries={bureauReport.enquiries90Days}
+                utilizationPercent={util}
+                flags={flagLabels}
+                fetchedAt={new Date().toISOString()}
+              />
+            );
+          })() : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">No bureau data available. Upload a CIBIL or Experian report below.</p>
+              <BureauUploadForm
+                applicationId={app.id}
+                applicationPan={app.pan}
+                onUploadComplete={() => {
+                  setBureauLoading(true);
+                  getBureauReport(app.id).then((report) => {
+                    setBureauReport(report);
+                    setBureauLoading(false);
+                  });
+                }}
+              />
+            </div>
           )}
         </TabsContent>
 

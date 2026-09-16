@@ -1,0 +1,244 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: cercit document extraction pipeline
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.12
+    MemorySize: 256
+    Environment:
+      Variables:
+        DOCS_BUCKET: !Sub "cercit-docs-${AWS::AccountId}"
+        SUPABASE_URL: !Ref SupabaseUrl
+        SUPABASE_SERVICE_KEY: !Ref SupabaseServiceKey
+    Layers:
+      - !Ref SharedLayer
+
+Parameters:
+  SupabaseUrl:
+    Type: String
+    Description: Supabase project URL
+  SupabaseServiceKey:
+    Type: String
+    Description: Supabase service role key (not anon key)
+    NoEcho: true
+
+Resources:
+
+  DocsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - https://cercit.github.io
+              - http://localhost:5173
+              - http://localhost:3007
+              - http://localhost:3008
+            AllowedMethods: [GET, PUT, POST]
+            AllowedHeaders: ['*']
+            MaxAge: 3000
+
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: cercit-shared
+      ContentUri: lambdas/shared/
+      CompatibleRuntimes:
+        - python3.12
+    Metadata:
+      BuildMethod: python3.12
+
+  PresignedUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-presigned-url
+      CodeUri: lambdas/presigned_url/
+      Handler: handler.handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+      Events:
+        Upload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /upload
+            Method: post
+
+  GetExtractionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-get-extractions
+      CodeUri: lambdas/presigned_url/
+      Handler: handler.get_extractions_handler
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+      Events:
+        GetExtraction:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /extraction/{applicationId}
+            Method: get
+
+  SalarySlipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-salary-slip-extractor
+      CodeUri: lambdas/salary_slip_extractor/
+      Handler: handler.handler
+      Timeout: 60
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+        - TextractPolicy: {}
+      Events:
+        SalarySlipUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocsBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/salary-slips/
+
+  Form16Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-form16-extractor
+      CodeUri: lambdas/form16_extractor/
+      Handler: handler.handler
+      Timeout: 60
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+        - TextractPolicy: {}
+      Events:
+        Form16Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocsBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/form16/
+
+  KycFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-kyc-extractor
+      CodeUri: lambdas/kyc_extractor/
+      Handler: handler.handler
+      Timeout: 60
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+        - TextractPolicy: {}
+      Events:
+        KycUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocsBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/kyc/
+
+  BankStatementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-bank-statement-extractor
+      CodeUri: lambdas/bank_statement_extractor/
+      Handler: handler.handler
+      Timeout: 120
+      MemorySize: 512
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+        - TextractPolicy: {}
+      Events:
+        BankStatementUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocsBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/bank-statements/
+
+  BureauExtractorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-bureau-extractor
+      CodeUri: lambdas/bureau_extractor/
+      Handler: handler.handler
+      Timeout: 60
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+        - TextractPolicy: {}
+      Events:
+        BureauUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocsBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/bureau/
+
+  CrossValidatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-cross-validator
+      CodeUri: lambdas/cross_validator/
+      Handler: handler.handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+      Events:
+        Validate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /validate/{applicationId}
+            Method: post
+
+  CercitApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: cercit-api
+      StageName: prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type'"
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint
+    Value: !Sub "https://${CercitApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  BucketName:
+    Description: S3 bucket for documents
+    Value: !Ref DocsBucket
