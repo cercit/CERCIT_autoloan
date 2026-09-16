@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cercit — Technical &amp; Security Review Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0D1117;
+    --surface:#13161F;
+    --surface-alt:#181C28;
+    --surface-raised:#1D2230;
+    --border:#23283A;
+    --text:#EAEFF6;
+    --text-muted:#8B96A8;
+    --accent:#2EA4A0;
+    --accent-deep:#1B6F6C;
+    --accent-dim:#2EA4A018;
+    --done:#3FBF6D;
+    --pending:#E0A822;
+    --critical:#E85555;
+    --critical-dim:#E8555518;
+    --amber:#F0C46A;
+    --blue:#5BA4F0;
+    --violet:#A07AE0;
+    --mono:#B0BAC8;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#F6F8FA; --surface:#FFFFFF; --surface-alt:#F0F3F6;
+      --surface-raised:#F9FAFB; --border:#E2E6EB; --text:#161B26;
+      --text-muted:#5F6B7A; --accent:#0D7C66; --accent-deep:#095A4C;
+      --accent-dim:#0D7C6610; --done:#16A34A; --pending:#B3870B;
+      --critical:#C42B2B; --critical-dim:#C42B2B10; --amber:#B07A1B;
+      --blue:#2A6CC2; --violet:#7A4BA0; --mono:#667085;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F6F8FA; --surface:#FFFFFF; --surface-alt:#F0F3F6;
+    --surface-raised:#F9FAFB; --border:#E2E6EB; --text:#161B26;
+    --text-muted:#5F6B7A; --accent:#0D7C66; --accent-deep:#095A4C;
+    --accent-dim:#0D7C6610; --done:#16A34A; --pending:#B3870B;
+    --critical:#C42B2B; --critical-dim:#C42B2B10; --amber:#B07A1B;
+    --blue:#2A6CC2; --violet:#7A4BA0; --mono:#667085;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'DM Sans',system-ui,-apple-system,sans-serif;
+    font-size:15.5px; line-height:1.6;
+    max-width:980px; margin:0 auto; padding:36px 22px 80px;
+  }
+  ::selection{background:var(--accent-dim);color:var(--text)}
+
+  header{margin-bottom:6px}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:0.7rem;
+    text-transform:uppercase; letter-spacing:0.14em; color:var(--accent);
+    margin-bottom:8px; font-weight:500;
+  }
+  h1{font-size:2.15rem; font-weight:700; letter-spacing:-0.035em; line-height:1.15; margin-bottom:6px}
+  .sub{color:var(--text-muted); font-size:0.92rem; margin-bottom:28px}
+  .subtitle{font-family:'Instrument Serif',Georgia,serif; font-style:italic; color:var(--text-muted); font-size:1.05rem; margin-bottom:28px}
+
+  /* Summary cards */
+  .summary{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px; margin-bottom:36px;
+  }
+  .stat{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:18px 18px 14px; transition:transform .12s ease, box-shadow .2s ease;
+  }
+  .stat:hover{transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .stat-value{font-size:2rem; font-weight:700; font-family:'IBM Plex Mono',monospace; letter-spacing:-0.04em; line-height:1.1}
+  .stat-label{font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-top:4px; font-weight:500}
+  .green{color:var(--done)} .amber{color:var(--pending)} .red{color:var(--critical)} .blue{color:var(--blue)} .violet{color:var(--violet)}
+
+  /* Sections */
+  .section{margin-bottom:42px}
+  .section-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding-bottom:10px; border-bottom:1px solid var(--border);
+    margin-bottom:18px; flex-wrap:wrap; gap:8px;
+  }
+  .section-header h2{font-size:1.05rem; font-weight:700; letter-spacing:-0.015em; margin:0}
+  .section-header .meta{font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--text-muted); white-space:nowrap}
+  .badge{
+    font-family:'IBM Plex Mono',monospace; font-size:0.65rem;
+    font-weight:600; padding:2px 7px; border-radius:3px; letter-spacing:0.06em;
+    text-transform:uppercase; border:1px solid transparent;
+  }
+  .badge-done{background:rgba(63,191,109,.15); color:var(--done); border-color:rgba(63,191,109,.35)}
+  .badge-pending{background:rgba(224,168,34,.15); color:var(--pending); border-color:rgba(224,168,34,.35)}
+  .badge-critical{background:rgba(232,85,85,.15); color:var(--critical); border-color:rgba(232,85,85,.35)}
+  .badge-warn{background:rgba(240,196,106,.15); color:var(--amber); border-color:rgba(240,196,106,.35)}
+
+  /* Cards */
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:22px 22px 18px; margin-bottom:16px; transition:box-shadow .15s ease;
+  }
+  .card:hover{box-shadow:0 4px 22px rgba(0,0,0,.18)}
+  .card h3{font-size:0.92rem; font-weight:700; margin-bottom:10px; letter-spacing:-0.01em}
+  .card p{font-size:0.88rem; color:var(--text-muted); line-height:1.55; margin-bottom:8px}
+  .card .tag-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+  .tag{
+    font-family:'IBM Plex Mono',monospace; font-size:0.65rem;
+    padding:2px 6px; border-radius:4px; border:1px solid var(--border);
+    color:var(--text-muted); background:var(--surface-alt);
+  }
+  .tag-green{color:var(--done); border-color:rgba(63,191,109,.35); background:rgba(63,191,109,.08)}
+  .tag-red{color:var(--critical); border-color:rgba(232,85,85,.35); background:rgba(232,85,85,.08)}
+  .tag-amber{color:var(--amber); border-color:rgba(240,196,106,.35); background:rgba(240,196,106,.08)}
+  .tag-blue{color:var(--blue); border-color:rgba(91,164,240,.35); background:rgba(91,164,240,.08)}
+
+  /* Tables */
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:10px}
+  table{width:100%; border-collapse:collapse; font-size:0.82rem}
+  thead th{background:var(--surface-alt); text-align:left; padding:10px 12px; font-weight:600; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid var(--border)}
+  tbody td{padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:rgba(255,255,255,.025)}
+  .mono{font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--mono)}
+  .status-dot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle}
+  .dot-green{background:var(--done)} .dot-amber{background:var(--pending)} .dot-red{background:var(--critical)} .dot-blue{background:var(--blue)} .dot-gray{background:var(--text-muted)}
+
+  /* Requirement rows */
+  .req-row{display:grid; grid-template-columns:36px 1fr auto; gap:14px; align-items:start; padding:10px 0; border-bottom:1px solid var(--border); font-size:0.88rem}
+  .req-row:last-child{border-bottom:none}
+  .req-icon{width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--surface-alt); border:1px solid var(--border)}
+  .req-icon svg{width:16px; height:16px}
+  .req-icon.ok{background:rgba(63,191,109,.1); color:var(--done); border-color:rgba(63,191,109,.3)}
+  .req-icon.warn{background:rgba(240,196,106,.1); color:var(--amber); border-color:rgba(240,196,106,.3)}
+  .req-icon.bad{background:rgba(232,85,85,.1); color:var(--critical); border-color:rgba(232,85,85,.3)}
+  .req-icon.info{background:rgba(91,164,240,.1); color:var(--blue); border-color:rgba(91,164,240,.3)}
+  .req-label{font-weight:600; color:var(--text); margin-bottom:2px}
+  .req-desc{font-size:0.82rem; color:var(--text-muted); line-height:1.45}
+  .req-score{font-family:'IBM Plex Mono',monospace; font-size:0.7rem; padding:2px 7px; border-radius:4px; white-space:nowrap}
+  .score-ok{background:rgba(63,191,109,.1); color:var(--done); border:1px solid rgba(63,191,109,.3)}
+  .score-warn{background:rgba(240,196,106,.1); color:var(--amber); border:1px solid rgba(240,196,106,.3)}
+  .score-bad{background:rgba(232,85,85,.1); color:var(--critical); border:1px solid rgba(232,85,85,.3)}
+
+  /* Lists inside cards */
+  ul.checklist{padding-left:18px; list-style:none; margin-top:4px}
+  ul.checklist li{position:relative; padding-left:20px; margin-bottom:6px; font-size:0.85rem; line-height:1.45}
+  ul.checklist li::before{
+    content:""; position:absolute; left:0; top:5px; width:6px; height:6px; border-radius:2px;
+    background:var(--accent); opacity:.8;
+  }
+  ul.checklist li.missing::before{background:var(--critical); opacity:.9}
+  ul.checklist li.partial::before{background:var(--pending)}
+  .meta-line{font-size:0.78rem; color:var(--text-muted); margin-top:4px; font-family:'IBM Plex Mono',monospace}
+
+  /* Week 3 highlight */
+  .week3-new{
+    border-left:3px solid var(--done); padding-left:14px; margin:12px 0;
+  }
+  .week3-label{
+    font-family:'IBM Plex Mono',monospace; font-size:0.6rem; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.1em; color:var(--done);
+    margin-bottom:4px;
+  }
+
+  /* Divider */
+  hr{border:none; border-top:1px solid var(--border); margin:36px 0}
+
+  /* Footer */
+  .footer-note{text-align:center; font-size:0.75rem; color:var(--text-muted); margin-top:48px; font-family:'IBM Plex Mono',monospace}
+  .footer-note a{color:var(--accent); text-decoration:none}
+
+  /* Responsive */
+  @media (max-width:720px){
+    body{padding:20px 14px 50px}
+    h1{font-size:1.6rem}
+    .summary{grid-template-columns:repeat(2,1fr)}
+    .req-row{grid-template-columns:1fr; gap:4px}
+    .req-score{margin-top:4px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">cercit · Technical &amp; Security Assessment</div>
+  <h1>cercit — Review Report</h1>
+  <p class="subtitle">Credit Evaluation and Risk Compliance Intelligence Tool — what it does, where it falls short, and how to harden it.</p>
+  <p class="sub">Updated: 16 Sep 2026 · Scope: source review of <code>Lov_cercit/src/lib/*</code>, SQL schema, PRD v3.0, Week 2 AWS pipeline, Week 3 ML model + policy rules. No files deleted.</p>
+</header>
+
+<!-- SUMMARY -->
+<div class="summary">
+  <div class="stat">
+    <div class="stat-value green">33</div>
+    <div class="stat-label">Tasks Done</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value amber">18</div>
+    <div class="stat-label">Remaining</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">65%</div>
+    <div class="stat-label">Complete</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value red">4</div>
+    <div class="stat-label">Critical Gaps</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value blue">0.91</div>
+    <div class="stat-label">Model AUC</div>
+  </div>
+</div>
+
+<!-- WHAT IT IS -->
+<div class="section">
+  <div class="section-header">
+    <h2>What cercit is built for</h2>
+    <span class="badge badge-done">Understood</span>
+  </div>
+  <div class="card">
+    <h3>Purpose</h3>
+    <p>cercit = <strong>Credit Evaluation and Risk Compliance Intelligence Tool</strong> for new-vehicle auto loans (cars, CV, 3W) in India. It automates the Credit Appraisal Memo (CAM): document ingestion (salary slips, bank statements, PAN/Aadhaar), bureau data pull, policy-rule evaluation (18 rules in 6 categories), ML risk scoring (XGBoost via browser ONNX inference), EMI / FOIR / LTV calculation, and a recommend/generate approve/reject/refer decision — with human override tracked in an audit trail.</p>
+    <p>Phase 1 (current): <strong>Generate the CAM with pre-filled AI-recommended data; a human officer approves/rejects/refers.</strong> Fully automated decisioning (Phase 2) is future scope. Regulatory context: RBI Digital Lending Guidelines (2022) + NBFC Scale-Based Regulation + DPDP Act 2023.</p>
+    <div class="tag-row">
+      <span class="tag tag-green">New-vehicle only</span>
+      <span class="tag tag-blue">Salaried + direct leads</span>
+      <span class="tag">Auto-generate CAM</span>
+      <span class="tag">Human-in-the-loop</span>
+      <span class="tag tag-green">ML model live</span>
+    </div>
+
+    <h3>Four distinct components (never conflate)</h3>
+    <ul class="checklist">
+      <li><strong>Document AI</strong> — OCR/extraction from salary slips, bank statements, PAN, Aadhaar (keyword-based classifier; AWS Textract pipeline written but not deployed).</li>
+      <li><strong>Data / Feature Engine</strong> — 18 features: bureau scores, income ratios, cash-flow signals, govt employment, card servicing patterns, free income ratio.</li>
+      <li><strong>ML Risk Model</strong> — XGBoost (AUC 0.91, PR-AUC 0.61, Brier 0.023) trained on 10K synthetic rows; exported to ONNX (214 KB); runs in-browser via onnxruntime-web. Counterfactual feature contributions displayed as waterfall chart.</li>
+      <li><strong>Policy + Decision Engine</strong> — deterministic 18-rule grid (12 original + 6 Week 3); produces APPROVE / REVIEW / DECLINE; versioned, auditable. 40 test cases pass.</li>
+    </ul>
+
+    <h3>Where the build stands</h3>
+    <table>
+      <thead><tr><th>Layer</th><th>State</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>PRD v3.0 (20 open items)</td><td><span class="mono">Done</span></td><td>All scope, scheme, bureau thresholds, FOIR/DBR, rate grid, income rules, LTV finalized</td></tr>
+        <tr><td>DB schema (22 tables, 293 cols)</td><td><span class="mono">Live</span></td><td>Supabase Mumbai; RLS disabled; triggers for updated_at; indexes on FK + common queries</td></tr>
+        <tr><td>PostgreSQL functions (9 RPCs)</td><td><span class="mono">Live</span></td><td>Policy engine, EMI calc, assessment pipeline, officer decision, full submission</td></tr>
+        <tr><td>Seed data</td><td><span class="mono">Live</span></td><td>132 dealers / 12 OEMs; 3 rate-band entries; 18 policy rules; 3 demo scenarios</td></tr>
+        <tr><td>Frontend (18 routes)</td><td><span class="mono">Live</span></td><td>React + Vite + TanStack Router + shadcn/ui + Tailwind; landing + login + 4-step apply + review + letters</td></tr>
+        <tr><td>Supabase wiring</td><td><span class="mono">Live</span></td><td>Real data flowing; mock fallback retained; Zod schema replaced manual 28-field mapping</td></tr>
+        <tr><td>AWS Lambda pipeline (document AI)</td><td><span class="mono">Code written</span></td><td>7 Lambda handlers + SAM template in <code>aws/</code>; not deployed (needs SAM CLI)</td></tr>
+        <tr>
+          <td>ML risk model (XGBoost / ONNX)</td>
+          <td><span class="mono" style="color:var(--done)">Done — Week 3</span></td>
+          <td>10K synthetic training rows; XGBoost AUC 0.91; ONNX 214 KB; browser inference via onnxruntime-web (wasm); counterfactual waterfall in Bureau tab</td>
+        </tr>
+        <tr>
+          <td>Policy rule engine (18 rules)</td>
+          <td><span class="mono" style="color:var(--done)">Done — Week 3</span></td>
+          <td>6 new rules: GOVT_EMPLOYEE_CHECK, FREE_INCOME_FLOOR, CC_SERVICING, BUREAU_RECALIBRATED, TENURE_CAP, LTV_100_SALARIED; 40/40 test cases pass</td>
+        </tr>
+        <tr>
+          <td>ML feature pipeline</td>
+          <td><span class="mono" style="color:var(--done)">Done — Week 3</span></td>
+          <td><code>ml-features.ts</code>: buildRiskFeatures() maps Application/Bureau/Banking to 18-feature vector; buildPolicyInput() maps to PolicyInput</td>
+        </tr>
+        <tr><td>Smart login routing</td><td><span class="mono">Live</span></td><td>Email domain detection routes employee (@cercit.in/com) to dashboard; customer to status portal</td></tr>
+        <tr><td>Customer-facing layer</td><td><span class="mono">Live</span></td><td>Landing hero (SpeedoCluster gauge), 4-step apply, login at /login, interactive effects</td></tr>
+        <tr><td>Auth / roles / RLS</td><td><span class="mono red">Not started</span></td><td>Login is fake; RLS off; no Supabase Auth; no role-level access control</td></tr>
+        <tr><td>Document upload (Storage)</td><td><span class="mono red">Not started</span></td><td>Upload zone component exists; Supabase Storage not configured</td></tr>
+        <tr><td>Rate grid page</td><td><span class="mono amber">Mock data</span></td><td>Schema mismatch between DB table and UI shape</td></tr>
+        <tr><td>Dashboard stat cards</td><td><span class="mono amber">Mock data</span></td><td>Hardcoded numbers</td></tr>
+        <tr><td>Letter PDF generation</td><td><span class="mono red">Not started</span></td><td>HTML components exist; PDF export missing</td></tr>
+        <tr><td>Security audit</td><td><span class="mono amber">Planned</span></td><td>SCRUM-26; previously failed with rate limit</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- WEEK 3 ML DETAILS -->
+<div class="section" id="ml-model">
+  <div class="section-header">
+    <h2>Week 3: ML model and expanded policy rules</h2>
+    <span class="badge badge-done">Complete — 16 Sep 2026</span>
+  </div>
+
+  <div class="card">
+    <div class="week3-new">
+      <div class="week3-label">New in Week 3</div>
+    </div>
+
+    <h3>Model pipeline</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>File</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Synthetic data generator</td><td><code>scripts/generate-training-data.ts</code></td><td>10,000 loan applications with industry-calibrated distributions across 18 features; seeded RNG for reproducibility; CSV is gitignored (regenerate with <code>node scripts/generate-training-data.ts</code>)</td></tr>
+          <tr><td>Model training</td><td><code>scripts/train-model.py</code></td><td>XGBoost classifier; no scale_pos_weight (keeps probabilities calibrated); SHAP importance; ONNX export via onnxmltools; verified ONNX matches XGBoost within 1e-3</td></tr>
+          <tr><td>ONNX artifact</td><td><code>public/models/cercit-risk-v1.onnx</code></td><td>214 KB; 18-feature input; outputs class probabilities. Meta json includes feature order, metrics, SHAP importance, feature means</td></tr>
+          <tr><td>Browser inference</td><td><code>src/lib/onnx-inference.ts</code></td><td>onnxruntime-web (wasm backend, jsdelivr CDN); session caching; promise queue serialization (ort-web rejects concurrent run() calls)</td></tr>
+          <tr><td>Risk scoring</td><td><code>src/lib/risk-score-model.ts</code></td><td>Async <code>computeRiskScore()</code>; 18 features; counterfactual contributions (swap one feature to training mean, measure delta); legacy formula kept as fallback</td></tr>
+          <tr><td>Feature builder</td><td><code>src/lib/ml-features.ts</code></td><td>Maps Application/BureauReport/BankStatementSummary to 18-feature RiskFeatures; builds PolicyInput with all new fields</td></tr>
+          <tr><td>UI component</td><td><code>src/components/ml-risk-card.tsx</code> + <code>risk-score-explainer.tsx</code></td><td>Waterfall chart (portfolio avg to per-feature deltas to final P(bad)); grade bands display; Week 3 policy panel with pass/fail dots</td></tr>
+          <tr><td>Test cases</td><td><code>scripts/test-cases/</code> (40 JSONs)</td><td>12 clean/approve, 10 soft-flag/review, 14 hard-fail/decline, 4 model-vs-policy divergence; <code>scripts/run-test-cases.ts</code> validates 40/40</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Model metrics</h3>
+    <div class="summary" style="margin-top:12px">
+      <div class="stat"><div class="stat-value green">0.91</div><div class="stat-label">AUC-ROC</div></div>
+      <div class="stat"><div class="stat-value blue">0.61</div><div class="stat-label">PR-AUC</div></div>
+      <div class="stat"><div class="stat-value">0.023</div><div class="stat-label">Brier Score</div></div>
+      <div class="stat"><div class="stat-value">4.0%</div><div class="stat-label">Bad30 Rate</div></div>
+      <div class="stat"><div class="stat-value">1.1%</div><div class="stat-label">Default90 Rate</div></div>
+    </div>
+
+    <h3>Grade bands (on P(30+ DPD in 12 months))</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Grade</th><th>P(bad) range</th><th>Label</th><th>Typical profile</th></tr></thead>
+        <tbody>
+          <tr><td><strong style="color:var(--done)">A</strong></td><td>&lt; 1%</td><td>Very low risk</td><td>750+ bureau, clean file, stable salary, low FOIR</td></tr>
+          <tr><td><strong style="color:var(--blue)">B</strong></td><td>1% – 2.5%</td><td>Low risk</td><td>700+ bureau, minor soft flags (FOIR 40-45, short tenure)</td></tr>
+          <tr><td><strong style="color:var(--amber)">C</strong></td><td>2.5% – 6%</td><td>Moderate risk</td><td>680-720 bureau, multiple soft flags, card min-due pattern</td></tr>
+          <tr><td><strong style="color:var(--pending)">D</strong></td><td>6% – 15%</td><td>Elevated risk</td><td>650-680 bureau, bounces, high FOIR, enquiry velocity</td></tr>
+          <tr><td><strong style="color:var(--critical)">E</strong></td><td>&gt; 15%</td><td>High risk</td><td>Sub-650 bureau, DPD history, stressed stack</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>6 new policy rules</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Rule</th><th>Severity</th><th>Condition</th></tr></thead>
+        <tbody>
+          <tr><td>GOVT_EMPLOYEE_CHECK</td><td><span class="tag tag-red">Hard</span></td><td>Govt employee with &lt; 3 years service: decline (contract/probation risk)</td></tr>
+          <tr><td>FREE_INCOME_FLOOR</td><td><span class="tag tag-red">Hard</span></td><td>Free income ratio &lt; 15%: decline (insufficient surplus after obligations)</td></tr>
+          <tr><td>TENURE_CAP</td><td><span class="tag tag-red">Hard</span></td><td>&gt; 84 months for private; &gt; 120 months allowed only for govt + hatchback &lt; 12L on-road</td></tr>
+          <tr><td>LTV_100_SALARIED</td><td><span class="tag tag-red">Hard</span></td><td>&gt; 100% on-road LTV, or &gt; 90% without verified income + FOIR &le; 50%</td></tr>
+          <tr><td>CC_SERVICING</td><td><span class="tag tag-amber">Soft</span></td><td>Credit card serviced at minimum-due only (pattern=3): review flag</td></tr>
+          <tr><td>BUREAU_RECALIBRATED</td><td><span class="tag tag-amber">Soft</span></td><td>Bureau score &lt; 700 post-Feb-2026 recalibration: review flag (~50 point industry drop)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Known model limitation</h3>
+    <p>Single blemishes on otherwise clean files still score grade A. A bureau score of 640 with zero other issues produces a low model P(bad) because the synthetic training data treats clean files with one outlier feature as still-performing loans (which they usually are). The policy engine catches these cases — BUREAU_FLOOR hard-fails at &lt; 650 regardless of model grade. This is by design: <strong>AI assists, policy decides.</strong></p>
+  </div>
+</div>
+
+<hr>
+
+<!-- PERFORMANCE -->
+<div class="section" id="performance">
+  <div class="section-header">
+    <h2>Performance</h2>
+    <span class="badge badge-warn">Acceptable for demo; needs work for production</span>
+  </div>
+
+  <div class="card">
+    <h3>Measured / observed</h3>
+    <ul class="checklist">
+      <li><strong>Bundle size: ~1.3 MB</strong> (1.1 MB base + ~200 KB onnxruntime-web JS). Wasm binary (~8 MB) loads lazily from jsdelivr CDN on first inference, then cached by the browser.</li>
+      <li><strong>ONNX model: 214 KB</strong> fetched from <code>/models/cercit-risk-v1.onnx</code>. Loads on demand when Bureau tab opens. Session cached after first load.</li>
+      <li><strong>Inference latency: ~50-100ms</strong> per score (19 inferences: 1 actual + 18 counterfactuals). Promise queue serializes calls so ort-web never sees concurrent run().</li>
+      <li><strong>No code splitting.</strong> Every route loads in one chunk. For a demo this works; production needs lazy routes.</li>
+      <li><strong>Supabase queries not cached.</strong> Re-mounting components re-fetches everything. No TanStack Query or SWR layer.</li>
+      <li><strong>Mock data loads synchronously</strong> (~32 KB). Not a real bottleneck but unnecessary in production.</li>
+    </ul>
+
+    <h3>Recommendations</h3>
+    <ul class="checklist">
+      <li><strong>Lazy routing.</strong> Enable <code>lazy()</code> in TanStack Router to split each route into its own chunk.</li>
+      <li><strong>ONNX warm-up.</strong> <code>warmUpModel()</code> exists but is not called on app start. Call it on login for officers who will use the Bureau tab.</li>
+      <li><strong>Caching layer.</strong> Add TanStack Query with a 5-second stale-time for dashboard stats, 30-second for policy rules.</li>
+      <li><strong>Bundle audit.</strong> Run <code>npx vite-bundle-analyzer</code> to identify the largest imports.</li>
+    </ul>
+  </div>
+</div>
+
+<hr>
+
+<!-- SECURITY -->
+<div class="section" id="security">
+  <div class="section-header">
+    <h2>Security vulnerabilities</h2>
+    <span class="badge badge-critical">Critical — must fix before live</span>
+  </div>
+
+  <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:14px;">Confirmed from reading <code>src/lib/auth.ts</code>, <code>src/lib/supabase.ts</code>, <code>sql/001_schema.sql</code>, <code>build_progress.md</code>, and the PRD.</p>
+
+  <div class="card">
+    <h3><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--critical); margin-right:8px; vertical-align:middle"></span>Critical (fix before any live customer data)</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Vulnerability</th><th>Evidence</th><th>Risk</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>RLS disabled; no role-level access control</strong></td>
+            <td><code>sql/001_schema.sql</code> (RLS disabled); <code>auth.ts</code> (fake login)</td>
+            <td>Any user with Supabase anon key can read/modify any application, bureau report, or audit event.</td>
+            <td>Enable RLS; define policies per role. Implement Supabase Auth instead of fake login.</td>
+          </tr>
+          <tr>
+            <td><strong>Fake login (no authentication)</strong></td>
+            <td><code>auth.ts</code>: <code>isDemoMode()</code> returns true by default; <code>DEMO_USER</code> hardcoded</td>
+            <td>Any visitor can access employee-facing screens (dashboard, review, officer override) without credentials.</td>
+            <td>Integrate Supabase Auth; disable demo mode for production; enforce <code>requireAuth()</code> on protected routes.</td>
+          </tr>
+          <tr>
+            <td><strong>Environment variables not in repo secrets</strong></td>
+            <td><code>build_progress.md</code>: "Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repo secrets" — not done</td>
+            <td>If <code>.env</code> is committed, the Supabase anon key is exposed.</td>
+            <td>Move to GitHub repo secrets; verify <code>.env</code> is in <code>.gitignore</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>Sensitive PII stored without encryption at rest</strong></td>
+            <td>DB schema: PAN, mobile, salary, address in plain text</td>
+            <td>Violates DPDP Act 2023. A DB breach exposes full borrower profiles.</td>
+            <td>Enable column-level encryption (<code>pgcrypto</code> or application-level AES-256-GCM) for PAN, mobile, address.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--critical); opacity:.7; margin-right:8px; vertical-align:middle"></span>High (fix before launch)</h3>
+    <ul class="checklist">
+      <li class="partial"><strong>No CSP header.</strong> Without Content-Security-Policy, XSS payload injection via document content is easier.</li>
+      <li class="partial"><strong>Input validation incomplete.</strong> <code>mapToApplication()</code> uses <code>z.coerce.number()</code> but does not enforce min/max on some fields.</li>
+      <li class="partial"><strong>No rate-limiting on API Gateway.</strong> Lambda pipeline (when deployed) has no WAF or rate limits.</li>
+      <li class="partial"><strong>Document upload zone does not validate file type / size server-side.</strong></li>
+      <li class="partial"><strong>No audit trail for document upload / extraction.</strong> No file-hash audit of who uploaded, when, and what.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--amber); margin-right:8px; vertical-align:middle"></span>Medium (address before public demo)</h3>
+    <ul class="checklist">
+      <li><strong>XSS through document content.</strong> <code>DocumentExtractionReview</code> shows raw extracted text without sanitization.</li>
+      <li><strong>No CSRF protection.</strong> Application form submits to <code>fn_submit_full_application</code> without a CSRF token.</li>
+      <li><strong>Client-side only validation.</strong> HTML <code>required</code> + basic JS checks; can be bypassed.</li>
+      <li><strong>Audit log does not include user agent / IP.</strong></li>
+    </ul>
+  </div>
+</div>
+
+<hr>
+
+<!-- IMPROVEMENT PLAN -->
+<div class="section" id="improvements">
+  <div class="section-header">
+    <h2>Prioritized improvement plan</h2>
+    <span class="badge badge-done">Updated for post-Week 3 state</span>
+  </div>
+
+  <div class="card">
+    <h3>Phase 1: Immediate (before any customer-facing demo with real data)</h3>
+    <div class="req-row">
+      <div class="req-icon bad"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 4v6M10 14h.01"/></svg></div>
+      <div><div class="req-label">Enable RLS + disable fake login</div><div class="req-desc">Replace <code>isDemoMode()</code> with Supabase Auth. Define policies: officer sees assigned apps; manager sees region; admin sees all.</div></div>
+      <span class="req-score score-bad">Critical</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon bad"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 4v6M10 14h.01"/></svg></div>
+      <div><div class="req-label">Move Supabase env vars to GitHub repo secrets</div><div class="req-desc">Check that <code>.env</code> is in <code>.gitignore</code>. If secrets were committed, rotate the Supabase anon key.</div></div>
+      <span class="req-score score-bad">Critical</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon bad"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 4v6M10 14h.01"/></svg></div>
+      <div><div class="req-label">Encrypt PII at rest (PAN, mobile)</div><div class="req-desc">Use <code>pgcrypto</code> or encrypt before inserting. Aligns with DPDP Act 2023.</div></div>
+      <span class="req-score score-bad">Critical</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon warn"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div><div class="req-label">Sanitize document-extracted text before rendering</div><div class="req-desc">Strip HTML/script tags in <code>DocumentExtractionReview</code>. Add a CSP header.</div></div>
+      <span class="req-score score-warn">High</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Phase 2: Before production launch</h3>
+    <div class="req-row">
+      <div class="req-icon info"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10" cy="10" r="7"/></svg></div>
+      <div><div class="req-label">Deploy AWS Lambda pipeline</div><div class="req-desc">Install SAM CLI, run <code>sam build</code> + <code>sam deploy --guided</code>. Wire upload zone to Lambda upload flow.</div></div>
+      <span class="req-score score-ok">Required for document AI</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon info"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10" cy="10" r="7"/></svg></div>
+      <div><div class="req-label">Enable code splitting + caching</div><div class="req-desc">Lazy routes; split non-critical components; add TanStack Query with stale-time configuration.</div></div>
+      <span class="req-score score-ok">Performance</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon info"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10" cy="10" r="7"/></svg></div>
+      <div><div class="req-label">Wire rate grid + employer screens to DB</div><div class="req-desc">Fix schema mismatch; replace mock data with live queries.</div></div>
+      <span class="req-score score-ok">Data completeness</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon info"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10" cy="10" r="7"/></svg></div>
+      <div><div class="req-label">Run 3-model security audit (SCRUM-26)</div><div class="req-desc">Claude + GPT/DeepSeek with vibe-check rules; fix findings; document in <code>docs/security_audit.md</code>.</div></div>
+      <span class="req-score score-ok">Compliance</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Phase 3: Post-launch</h3>
+    <div class="req-row">
+      <div class="req-icon ok"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div><div class="req-label">Generate PDF letters (approval + sanction)</div><div class="req-desc">Convert HTML letter components to PDF using react-pdf or server-side weasyprint.</div></div>
+      <span class="req-score score-ok">Regulatory output</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon ok"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div><div class="req-label">Deploy to Cloudflare Workers (SSR)</div><div class="req-desc">SSR build already prepared; improves SEO + edge caching.</div></div>
+      <span class="req-score score-ok">Deployment</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon ok"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div><div class="req-label">Model monitoring + drift detection</div><div class="req-desc">Track AUC-ROC, default rate, false-positive rate weekly after real data flows. Retrain when AUC drops below 0.85.</div></div>
+      <span class="req-score score-ok">Model health</span>
+    </div>
+    <div class="req-row">
+      <div class="req-icon ok"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div><div class="req-label">Portfolio case study + LinkedIn post</div><div class="req-desc">Document the build, design decisions, and regulatory alignment for PM portfolio.</div></div>
+      <span class="req-score score-ok">Career / portfolio</span>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ADDITIONAL REQUIREMENTS -->
+<div class="section" id="additional">
+  <div class="section-header">
+    <h2>Additional requirements (general consensus)</h2>
+    <span class="badge badge-warn">Not in cercit build — expected for this domain</span>
+  </div>
+
+  <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:16px;">Standard requirements for AI-assisted credit appraisal under Indian financial regulation. Not listed in the cercit PRD but should be addressed.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Requirement</th><th>Why required</th><th>Suggested addition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Regulatory reporting</strong></td><td>RBI requires NBFCs to submit monthly credit data (CIC reports, default ratios)</td><td>Add export function for monthly default-rate and approval-rate CSVs</td></tr>
+        <tr><td><strong>Data retention &amp; deletion</strong></td><td>DPDP Act 2023: data kept only as long as necessary; borrowers can request deletion</td><td>Add retention policy table; anonymize PII after retention period</td></tr>
+        <tr><td><strong>Disaster recovery / backup</strong></td><td>Financial data must survive DB corruption or region failure</td><td>Enable Supabase automated backups; document RTO (4h) and RPO (24h)</td></tr>
+        <tr><td><strong>Business continuity plan</strong></td><td>If ML model or Lambda fails, manual appraisal must continue</td><td>Document fallback: officers download raw PDFs and review manually; legacy formula still works as fallback</td></tr>
+        <tr><td><strong>User consent &amp; privacy notice</strong></td><td>DPDP Act 2023 requires explicit consent for PII processing</td><td>Add consent checkbox on /apply with link to privacy policy</td></tr>
+        <tr><td><strong>Accessibility (WCAG 2.1 AA)</strong></td><td>Financial services must be accessible</td><td>Add aria-labels to all interactive elements; test with screen reader</td></tr>
+        <tr><td><strong>Incident reporting</strong></td><td>Data breach must be reported within 24h (RBI) / 72h (DPDP authority)</td><td>Document incident response flow: detect, contain, assess, report</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- CONCLUSION -->
+<div class="section" id="conclusion">
+  <div class="section-header">
+    <h2>Summary verdict</h2>
+    <span class="badge badge-pending">Significant progress — security remains the gap</span>
+  </div>
+
+  <div class="card">
+    <h3>What cercit does well</h3>
+    <ul class="checklist">
+      <li>The product architecture holds: 4 distinct layers (document, feature, ML, policy) with clear separation of concerns.</li>
+      <li>The database design (22 tables, 9 RPCs) covers the full credit-appraisal lifecycle.</li>
+      <li>The frontend (18 routes) is functional and polished, with a proper landing page and customer-facing application flow.</li>
+      <li>The ML model (AUC 0.91) runs entirely in the browser with no server dependency, making it portable and fast.</li>
+      <li>The policy engine (18 rules, 40/40 test cases) is deterministic, auditable, and catches edge cases the model misses.</li>
+      <li>The counterfactual waterfall gives officers a clear per-feature explanation without needing server-side SHAP computation.</li>
+      <li>The AWS Lambda pipeline code is written with a SAM template; only deployment is missing.</li>
+    </ul>
+
+    <h3>What is still missing</h3>
+    <ul class="checklist">
+      <li class="missing"><strong>Security: no auth, RLS off, fake login.</strong> The site is publicly accessible with employee-level privileges. This is the single largest gap.</li>
+      <li class="missing"><strong>Document AI pipeline not deployed.</strong> Lambda code is written; SAM CLI installation and deploy are pending.</li>
+      <li class="partial"><strong>Bank statement intelligence uses mock data.</strong> The ML feature pipeline can accept real banking data, but no real statement parser runs yet.</li>
+      <li class="partial"><strong>Performance: ~1.3 MB single bundle; no code splitting; no caching layer.</strong></li>
+      <li class="partial"><strong>Regulatory outputs: no PDF letter generation; no regulatory reporting export; no data retention policy.</strong></li>
+      <li class="partial"><strong>Security audit never completed.</strong> SCRUM-26 still open.</li>
+    </ul>
+
+    <h3>Bottom line</h3>
+    <p>cercit is a well-architected AI credit appraisal system with a working ML model, a solid policy engine, and a complete frontend. The Week 3 additions (XGBoost model, ONNX browser inference, 6 new policy rules, waterfall explainer, 40 test cases) moved it from "prototype with mock scores" to "working risk engine with real predictions." <strong>The remaining gap is security and deployment:</strong> authentication, PII encryption, Lambda deploy, and the security audit. Fix those, and it is demo-ready with real data.</p>
+
+    <div class="tag-row">
+      <span class="tag tag-red">Not production-ready (security)</span>
+      <span class="tag tag-green">ML model live (AUC 0.91)</span>
+      <span class="tag tag-green">Policy engine complete (18 rules)</span>
+      <span class="tag tag-green">DB + frontend solid</span>
+      <span class="tag tag-amber">Lambda deploy pending</span>
+      <span class="tag tag-blue">Regulatory alignment started</span>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<div class="section" id="sources">
+  <div class="section-header">
+    <h2>Sources reviewed</h2>
+    <span class="badge badge-done">Read-only</span>
+  </div>
+  <div class="card" style="font-size:0.78rem; line-height:1.7; color:var(--text-muted);">
+    <p><strong>Project directory:</strong> <code>PM Projects\AI-Credit-Underwriter\Lov_cercit\</code></p>
+    <p><strong>Files reviewed:</strong></p>
+    <ul style="padding-left:16px;">
+      <li><code>docs/build_progress.md</code>, <code>docs/application_flow.md</code>, <code>docs/current_state_workflow.md</code></li>
+      <li><code>PRD.md</code> (v3.0)</li>
+      <li><code>sql/001_schema.sql</code> through <code>sql/008_demo_scenarios.sql</code></li>
+      <li><code>src/lib/supabase.ts</code>, <code>auth.ts</code>, <code>api.ts</code>, <code>mock-data.ts</code>, <code>policy-rule-engine.ts</code>, <code>risk-score-model.ts</code>, <code>onnx-inference.ts</code>, <code>ml-features.ts</code></li>
+      <li><code>src/components/ml-risk-card.tsx</code>, <code>risk-score-explainer.tsx</code></li>
+      <li><code>scripts/train-model.py</code>, <code>generate-training-data.ts</code>, <code>build-test-cases.py</code>, <code>run-test-cases.ts</code></li>
+      <li><code>public/models/cercit-risk-v1.onnx</code> + <code>.meta.json</code></li>
+    </ul>
+  </div>
+</div>
+
+<p class="footer-note">cercit · Credit Evaluation and Risk Compliance Intelligence Tool · Technical &amp; Security Assessment Report · Updated 16 Sep 2026</p>
+
+</body>
+</html>
