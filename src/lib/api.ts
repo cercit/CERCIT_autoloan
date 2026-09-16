@@ -12,8 +12,18 @@ import {
   mockBureauReport,
   mockBankStatementSummary,
   mockTransactions,
+  rateBands as mockRateBands,
+  employerCategoryPricing as mockEmployerCategoryPricing,
 } from "./mock-data";
-import type { Application, PolicyRule, BureauReport, BankStatementSummary, BankTransaction } from "./mock-data";
+import type {
+  Application,
+  PolicyRule,
+  BureauReport,
+  BankStatementSummary,
+  BankTransaction,
+  RateBand,
+  EmployerCategoryPricing,
+} from "./mock-data";
 import { z } from "zod";
 
 
@@ -379,31 +389,114 @@ export async function togglePolicyRule(ruleId: string, isActive: boolean): Promi
   return !error;
 }
 
-export async function getRateGrid() {
-  if (!isSupabaseConfigured || isDemoMode()) return [];
+const rateBandRowSchema = z.object({
+  band_label: z.string().optional().default(""),
+  score_band_min: z.coerce.number().optional().default(0),
+  score_band_max: z.coerce.number().optional().default(0),
+  rate_pct: z.coerce.number().optional().default(0),
+  max_ltv_pct: z.coerce.number().optional().default(0),
+  max_foir_pct: z.coerce.number().optional().default(0),
+  max_tenure_months: z.coerce.number().optional().default(0),
+});
 
-  const { data, error } = await supabase
-    .from("rate_grid")
-    .select("band_label, score_band_min, score_band_max, rate_pct")
-    .order("score_band_min");
+const employerCategoryRowSchema = z.object({
+  category_code: z.string(),
+  category_label: z.string().optional().default(""),
+  description: z.string().optional().default(""),
+  rate_loading_pct: z.coerce.number().optional().default(0),
+  max_ltv_pct: z.coerce.number().optional().default(0),
+  max_tenure_months: z.coerce.number().optional().default(0),
+  processing_fee_inr: z.coerce.number().optional().default(0),
+});
 
-  if (error) {
-    console.error("Failed to fetch rate grid:", error);
-    return [];
+export type RateGridData = {
+  bands: RateBand[];
+  categories: EmployerCategoryPricing[];
+};
+
+const mockRateGridData: RateGridData = {
+  bands: mockRateBands,
+  categories: mockEmployerCategoryPricing,
+};
+
+/**
+ * Rate grid = CIBIL decision band (base rate + caps) x employer category (loading).
+ * The two axes live in separate tables; the effective rate is base + loading.
+ */
+export async function getRateGrid(): Promise<RateGridData> {
+  if (!isSupabaseConfigured || isDemoMode()) return mockRateGridData;
+
+  const [bandResult, categoryResult] = await Promise.all([
+    supabase
+      .from("rate_grid")
+      .select("band_label, score_band_min, score_band_max, rate_pct, max_ltv_pct, max_foir_pct, max_tenure_months")
+      .eq("is_active", true)
+      .order("score_band_min", { ascending: false }),
+    supabase
+      .from("employer_category_pricing")
+      .select("category_code, category_label, description, rate_loading_pct, max_ltv_pct, max_tenure_months, processing_fee_inr")
+      .eq("is_active", true)
+      .order("display_order"),
+  ]);
+
+  if (bandResult.error) {
+    console.error("Failed to fetch rate grid bands:", bandResult.error);
+    return mockRateGridData;
   }
-  if (!data || data.length === 0) return [];
 
-  const transformed = (data as any[])
-    .filter((row) => row.rate_pct && row.rate_pct > 0)
-    .map((row) => ({
-      band: row.band_label ?? `${row.score_band_min}-${row.score_band_max}`,
-      catA: Number(row.rate_pct),
-      catB: Math.round((Number(row.rate_pct) + 0.40) * 100) / 100,
-      catC: Math.round((Number(row.rate_pct) + 1.25) * 100) / 100,
-    }));
+  const bands = (bandResult.data ?? []).flatMap((row) => {
+    const parsed = rateBandRowSchema.safeParse(row);
+    if (!parsed.success) return [];
+    const r = parsed.data;
+    return [
+      {
+        band: `${r.score_band_min} – ${r.score_band_max}`,
+        label: r.band_label,
+        baseRate: r.rate_pct,
+        maxLtvPct: r.max_ltv_pct,
+        maxFoirPct: r.max_foir_pct,
+        maxTenureMonths: r.max_tenure_months,
+      },
+    ];
+  });
 
-  // Fallback to mock if no valid rows
-  return transformed.length > 0 ? transformed : [];
+  if (bands.length === 0) return mockRateGridData;
+
+  // employer_category_pricing ships in migration 011 — fall back if it isn't applied yet
+  if (categoryResult.error || !categoryResult.data || categoryResult.data.length === 0) {
+    if (categoryResult.error) {
+      console.error("Failed to fetch employer category pricing:", categoryResult.error);
+    }
+    return { bands, categories: mockEmployerCategoryPricing };
+  }
+
+  const categories = categoryResult.data.flatMap((row) => {
+    const parsed = employerCategoryRowSchema.safeParse(row);
+    if (!parsed.success) return [];
+    const r = parsed.data;
+    return [
+      {
+        code: r.category_code as EmployerCategoryPricing["code"],
+        label: r.category_label,
+        description: r.description,
+        loadingPct: r.rate_loading_pct,
+        maxLtvPct: r.max_ltv_pct,
+        maxTenureMonths: r.max_tenure_months,
+        processingFeeInr: r.processing_fee_inr,
+      },
+    ];
+  });
+
+  return {
+    bands,
+    categories: categories.length > 0 ? categories : mockEmployerCategoryPricing,
+  };
+}
+
+/** Effective rate for a band under an employer category. 0 base = not offered. */
+export function effectiveRate(band: RateBand, category: EmployerCategoryPricing): number | null {
+  if (band.baseRate <= 0) return null;
+  return Math.round((band.baseRate + category.loadingPct) * 100) / 100;
 }
 
 type AuditEntry = {

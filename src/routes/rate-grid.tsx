@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Download } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
-import { rateGrid } from "@/lib/mock-data";
-import { getRateGrid } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { rateBands, employerCategoryPricing } from "@/lib/mock-data";
+import { getRateGrid, effectiveRate, type RateGridData } from "@/lib/api";
+import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/rate-grid")({
@@ -28,10 +29,20 @@ export const Route = createFileRoute("/rate-grid")({
   component: RateGridPage,
 });
 
-function exportCsv(data: typeof rateGrid) {
-  const header = "CIBIL Band,Category A (%),Category B (%),Category C (%)";
-  const rows = data.map((r) => `${r.band},${r.catA.toFixed(2)},${r.catB.toFixed(2)},${r.catC.toFixed(2)}`);
-  const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv" });
+function exportCsv({ bands, categories }: RateGridData) {
+  const header = ["CIBIL Band", "Decision", ...categories.map((c) => `${c.label} (%)`), "Max FOIR (%)"];
+  const rows = bands.map((band) => [
+    band.band,
+    band.label,
+    ...categories.map((c) => {
+      const rate = effectiveRate(band, c);
+      return rate === null ? "Not offered" : rate.toFixed(2);
+    }),
+    band.maxFoirPct > 0 ? band.maxFoirPct.toFixed(2) : "—",
+  ]);
+
+  const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -41,57 +52,83 @@ function exportCsv(data: typeof rateGrid) {
 }
 
 function RateGridPage() {
-  const [gridData, setGridData] = useState(rateGrid);
+  const [data, setData] = useState<RateGridData>({
+    bands: rateBands,
+    categories: employerCategoryPricing,
+  });
+
   useEffect(() => {
-    getRateGrid().then((rows) => {
-      if (rows && rows.length > 0) {
-        setGridData(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rows.map((r: any) => {
-            const base = Number(r.rate_pct ?? 0);
-            return {
-              band: r.band_label ?? `${r.score_band_min}-${r.score_band_max}`,
-              catA: base,
-              catB: +(base + 0.4).toFixed(2),
-              catC: +(base + 1.25).toFixed(2),
-            };
-          })
-        );
-      }
-    }).catch(() => {});
+    let cancelled = false;
+    getRateGrid()
+      .then((next) => {
+        if (!cancelled && next.bands.length > 0) setData(next);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const { bands, categories } = data;
 
   return (
     <AppShell
       title="Rate Grid"
       subtitle="Effective 01 Aug 2026 — new car loans, salaried segment"
       actions={
-        <Button variant="outline" onClick={() => exportCsv(gridData)}>
+        <Button variant="outline" onClick={() => exportCsv(data)}>
           <Download className="size-4" /> Export CSV
         </Button>
       }
     >
       <SectionCard title="Base interest rate (% p.a.)" className="overflow-hidden">
         <div className="-mx-4 -mb-4 overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-surface-subtle text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">CIBIL band</th>
-                <th className="px-4 py-2 text-right font-medium">Category A</th>
-                <th className="px-4 py-2 text-right font-medium">Category B</th>
-                <th className="px-4 py-2 text-right font-medium">Category C</th>
+                {categories.map((c) => (
+                  <th key={c.code} className="px-4 py-2 text-right font-medium">
+                    {c.label}
+                  </th>
+                ))}
+                <th className="px-4 py-2 text-right font-medium">Max FOIR</th>
               </tr>
             </thead>
             <tbody>
-              {gridData.map((row, i) => (
+              {bands.map((band, i) => (
                 <tr
-                  key={row.band}
+                  key={band.band}
                   className={cn("border-t border-border", i % 2 === 1 && "bg-surface-subtle/60")}
                 >
-                  <td className="px-4 py-2.5 font-medium">{row.band}</td>
-                  <td className="px-4 py-2.5 text-right tabular">{row.catA.toFixed(2)}%</td>
-                  <td className="px-4 py-2.5 text-right tabular">{row.catB.toFixed(2)}%</td>
-                  <td className="px-4 py-2.5 text-right tabular">{row.catC.toFixed(2)}%</td>
+                  <td className="px-4 py-2.5">
+                    <span className="font-medium tabular">{band.band}</span>
+                    {band.label && (
+                      <span className="ml-2 text-xs text-muted-foreground">{band.label}</span>
+                    )}
+                  </td>
+                  {categories.map((c) => {
+                    const rate = effectiveRate(band, c);
+                    return (
+                      <td
+                        key={c.code}
+                        className={cn(
+                          "px-4 py-2.5 text-right tabular",
+                          rate === null && "text-muted-foreground",
+                        )}
+                      >
+                        {rate === null ? "Not offered" : `${rate.toFixed(2)}%`}
+                      </td>
+                    );
+                  })}
+                  <td
+                    className={cn(
+                      "px-4 py-2.5 text-right tabular",
+                      band.maxFoirPct <= 0 && "text-muted-foreground",
+                    )}
+                  >
+                    {band.maxFoirPct > 0 ? `${band.maxFoirPct.toFixed(0)}%` : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -99,21 +136,25 @@ function RateGridPage() {
         </div>
       </SectionCard>
 
+      <p className="mt-3 text-xs text-muted-foreground">
+        Category rate = band base rate + employer category loading. Effective LTV and tenure are the
+        tighter of the band cap and the category cap.
+      </p>
+
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        {(["A", "B", "C"] as const).map((cat) => (
-          <SectionCard key={cat}>
+        {categories.map((cat) => (
+          <SectionCard key={cat.code}>
             <div className="flex items-center gap-2">
-              <CategoryBadge category={cat} />
-              <h3 className="text-sm font-semibold">Category {cat}</h3>
+              <CategoryBadge category={cat.code} />
+              <h3 className="text-sm font-semibold">{cat.label}</h3>
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">{cat.description}</p>
             <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-              <li>Max LTV: {cat === "A" ? "120%" : cat === "B" ? "110%" : "90%"}</li>
-              <li>Max tenure: {cat === "C" ? "60 months" : "84 months"}</li>
+              <li>Max LTV: {cat.maxLtvPct.toFixed(0)}%</li>
+              <li>Max tenure: {cat.maxTenureMonths} months</li>
+              <li>Processing fee: {inr(cat.processingFeeInr)}</li>
               <li>
-                Processing fee: {cat === "A" ? "Rs 5,000" : cat === "B" ? "Rs 6,500" : "Rs 8,000"}
-              </li>
-              <li>
-                Risk loading: {cat === "A" ? "None" : cat === "B" ? "+0.40%" : "+1.25%"}
+                Risk loading: {cat.loadingPct > 0 ? `+${cat.loadingPct.toFixed(2)}%` : "None"}
               </li>
             </ul>
           </SectionCard>

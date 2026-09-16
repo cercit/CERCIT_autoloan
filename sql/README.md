@@ -14,11 +14,12 @@ Run these in order in the Supabase SQL Editor to set up a fresh instance.
 | 008 | `008_demo_scenarios.sql` | 3 test applications: Approve (CIBIL 780), Reject (CIBIL 580), Maybe (CIBIL 680) |
 | 009 | `009_rls_policies.sql` | Row-level security per role |
 | 010 | `010_seed_auth_users.sql` | Demo user accounts (manual step: create in Supabase Auth dashboard first) |
+| 011 | `011_employer_category_pricing.sql` | Employer category pricing (A/B/C loadings, LTV, tenure, fee) for the rate grid page |
 
 ## Quick start
 
 1. Create a Supabase project
-2. Run scripts 001 through 009 in order in the SQL Editor
+2. Run scripts 001 through 009, then 011, in order in the SQL Editor
 3. Create auth users in the dashboard per `010_seed_auth_users.sql` instructions
 4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env`
 5. Login with `officer@cercit.in` / `cercit2026`

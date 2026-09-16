@@ -634,6 +634,63 @@ export const rateGrid = [
   { band: "Below 650", catA: 11.5, catB: 12.25, catC: 13.5 },
 ];
 
+export type RateBand = {
+  band: string;
+  label: string;
+  baseRate: number;
+  maxLtvPct: number;
+  maxFoirPct: number;
+  maxTenureMonths: number;
+};
+
+export type EmployerCategoryPricing = {
+  code: Category;
+  label: string;
+  description: string;
+  loadingPct: number;
+  maxLtvPct: number;
+  maxTenureMonths: number;
+  processingFeeInr: number;
+};
+
+// Mirrors sql/002_seed_lookups.sql (rate_grid) so demo mode and live render alike.
+export const rateBands: RateBand[] = [
+  { band: "750 – 900", label: "APPROVE", baseRate: 8.99, maxLtvPct: 120, maxFoirPct: 50, maxTenureMonths: 96 },
+  { band: "650 – 749", label: "MAYBE", baseRate: 9.9, maxLtvPct: 100, maxFoirPct: 45, maxTenureMonths: 84 },
+  { band: "300 – 649", label: "REJECT", baseRate: 0, maxLtvPct: 0, maxFoirPct: 0, maxTenureMonths: 0 },
+];
+
+// Mirrors sql/011_employer_category_pricing.sql
+export const employerCategoryPricing: EmployerCategoryPricing[] = [
+  {
+    code: "A" as Category,
+    label: "Category A",
+    description: "Listed companies, central/state government, PSUs and large MNCs",
+    loadingPct: 0,
+    maxLtvPct: 120,
+    maxTenureMonths: 84,
+    processingFeeInr: 5000,
+  },
+  {
+    code: "B" as Category,
+    label: "Category B",
+    description: "Established private limited companies with 3+ years of filings",
+    loadingPct: 0.4,
+    maxLtvPct: 110,
+    maxTenureMonths: 84,
+    processingFeeInr: 6500,
+  },
+  {
+    code: "C" as Category,
+    label: "Category C",
+    description: "Small private, unlisted and proprietorship employers",
+    loadingPct: 1.25,
+    maxLtvPct: 90,
+    maxTenureMonths: 60,
+    processingFeeInr: 8000,
+  },
+];
+
 export const users = [
   { name: "Rajeev Menon", email: "rajeev.menon@cercit.in", role: "Credit Officer", limit: "Rs 10,00,000", branch: "Chennai — Anna Nagar", status: "Active" },
   { name: "Divya Ramesh", email: "divya.ramesh@cercit.in", role: "Credit Manager", limit: "Rs 25,00,000", branch: "Chennai — Regional", status: "Active" },
