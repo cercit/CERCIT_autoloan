@@ -188,25 +188,25 @@
   <div class="eyebrow">cercit · Technical &amp; Security Assessment</div>
   <h1>cercit — Review Report</h1>
   <p class="subtitle">Credit Evaluation and Risk Compliance Intelligence Tool — what it does, where it falls short, and how to harden it.</p>
-  <p class="sub">Updated: 16 Sep 2026 · Scope: source review of <code>Lov_cercit/src/lib/*</code>, SQL schema, PRD v3.0, Week 2 AWS pipeline, Week 3 ML model + policy rules. No files deleted.</p>
+  <p class="sub">Updated: 16 Sep 2026 · Scope: source review of <code>Lov_cercit/src/lib/*</code>, SQL schema, PRD v3.0, Week 2 AWS pipeline, Week 3 ML model + policy rules, Week 4 live-wiring and security hardening.</p>
 </header>
 
 <!-- SUMMARY -->
 <div class="summary">
   <div class="stat">
-    <div class="stat-value green">33</div>
+    <div class="stat-value green">37</div>
     <div class="stat-label">Tasks Done</div>
   </div>
   <div class="stat">
-    <div class="stat-value amber">18</div>
+    <div class="stat-value amber">14</div>
     <div class="stat-label">Remaining</div>
   </div>
   <div class="stat">
-    <div class="stat-value">65%</div>
+    <div class="stat-value">73%</div>
     <div class="stat-label">Complete</div>
   </div>
   <div class="stat">
-    <div class="stat-value red">4</div>
+    <div class="stat-value red">3</div>
     <div class="stat-label">Critical Gaps</div>
   </div>
   <div class="stat">
@@ -356,6 +356,116 @@
 
 <hr>
 
+<!-- WEEK 4 -->
+<div class="section" id="week4">
+  <div class="section-header">
+    <h2>Week 4: live wiring and security hardening</h2>
+    <span class="badge badge-warn">Code pushed · migrations on hold</span>
+  </div>
+
+  <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:14px;">Four commits on <code>main</code> (<code>fa2213f</code> → <code>0c174a1</code>). The SQL migrations are written but <strong>have not been run</strong> — they are waiting on a full review pass.</p>
+
+  <div class="card">
+    <h3>What shipped</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Area</th><th>What was actually wrong</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Rate grid</strong><br><span class="tag tag-blue">SCRUM-25</span></td>
+            <td>Not merely unwired — the page re-transformed rows <code>getRateGrid()</code> had already transformed, so every live rate rendered <code>0.00%</code> under a band labelled <code>undefined-undefined</code>. Demo mode masked it. Employer category A/B/C did not exist in the DB at all; the loadings were invented in the component.</td>
+            <td>Single transform in the API layer. Migration <code>011</code> adds <code>employer_category_pricing</code> as a real second pricing axis rather than reshaping <code>rate_grid</code>, which the decision function resolves bands from. Band-level max FOIR was being fetched and discarded; it now has a column.</td>
+          </tr>
+          <tr>
+            <td><strong>Authentication</strong></td>
+            <td>A <em>failed</em> sign-in called <code>enableDemoMode()</code> and routed to <code>/dashboard</code>. Any <code>@cercit.in</code> address plus any string reached the employee shell. A second unused module, <code>supabase-auth.ts</code>, returned a fabricated authenticated <code>credit_officer</code> from every catch block.</td>
+            <td>Failed sign-in now shows the error and stays put (verified against live Supabase). Demo access is explicit only. <code>signOut()</code> clears demo mode and the stored customer email. Dead module deleted.</td>
+          </tr>
+          <tr>
+            <td><strong>PII at rest</strong></td>
+            <td>PAN and mobile stored in plain text — DPDP Act 2023 exposure.</td>
+            <td>Migration <code>012</code>: pgcrypto ciphertext written by a BEFORE trigger, so both existing writer functions keep working unchanged. PAN uniqueness moves to an HMAC-SHA256 blind index, since non-deterministic ciphertext cannot back a UNIQUE constraint. <code>fn_customer_pii</code> reveals full values to active officers only and writes a <code>PII_REVEAL</code> audit event. <code>013</code> adds CHECK constraints instead of dropping the plaintext columns, which would break both writers.</td>
+          </tr>
+          <tr>
+            <td><strong>Letter PDFs</strong></td>
+            <td>Already built. But <code>html-to-image</code> threw <code>SecurityError</code> reading <code>cssRules</code> from the cross-origin Google Fonts sheet, so exported letters used fallback fonts and did not match the screen. The image decode had an <code>onload</code> with no <code>onerror</code>, hanging the download forever on failure, and both callers invoked the promise bare.</td>
+            <td>Font CSS fetched over HTTP and passed via <code>fontEmbedCSS</code>. Failure now surfaces a toast pointing at Print instead of an unhandled rejection.</td>
+          </tr>
+          <tr>
+            <td><strong>Schema gap</strong><br><span class="tag tag-amber">Found while verifying</span></td>
+            <td><code>api.ts</code> selects <code>years_in_current_job</code>, <code>total_work_experience_years</code> and <code>salary_bank_name</code> from <code>customers</code>. None exist. PostgREST rejected the entire application-detail query with a 400, so that page silently served mock data on every live load.</td>
+            <td>Migration <code>014</code> adds those columns plus <code>designation</code> and <code>residence_type</code>, which the CAM renders and which were hardcoded to empty strings.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Migrations written but not run</h3>
+    <p style="color:var(--text-muted); font-size:0.88rem;">Run order matters. <strong>Nothing goes into the Supabase SQL Editor until the review pass is done.</strong></p>
+    <ul class="checklist">
+      <li class="partial"><code>011_employer_category_pricing.sql</code> — employer category pricing table + seed</li>
+      <li class="partial"><code>012_pii_encryption.sql</code> — <strong>set the encryption key first</strong> (<code>openssl rand -base64 48</code>) and store it in a password manager. Lose it and the PAN data is unrecoverable.</li>
+      <li class="partial"><code>013_pii_enforce_no_plaintext.sql</code> — run only after confirming <code>012</code> decrypts correctly</li>
+      <li class="partial"><code>014_customer_employment_fields.sql</code> — customer employment/residence columns</li>
+    </ul>
+  </div>
+</div>
+
+<hr>
+
+<!-- TO DO -->
+<div class="section" id="todo">
+  <div class="section-header">
+    <h2>To-do list</h2>
+    <span class="badge badge-pending">14 open</span>
+  </div>
+
+  <div class="card">
+    <h3>1 · Review pass — in progress, blocks everything else</h3>
+    <ul class="checklist">
+      <li class="missing"><strong>Line-by-line read of the Week 4 changes</strong> before any migration runs.</li>
+      <li class="missing"><strong>User-friendliness pass</strong> across the screens touched this week — rate grid, login, application detail, letters.</li>
+      <li class="missing"><strong>Access control review.</strong> Role permissions are diluted — <code>ROLE_PERMISSIONS</code> grants broad rights and nothing enforces them server-side yet. Decide who can see what, and specifically who can call <code>fn_customer_pii</code> to reveal a full PAN.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>2 · Manual steps on external services</h3>
+    <ul class="checklist">
+      <li class="partial">Run migrations <code>011</code>–<code>014</code> in the Supabase SQL Editor (after the review pass).</li>
+      <li class="partial">Run <code>009_rls_policies.sql</code> — RLS policies are written but not applied, so the anon key still reaches every table.</li>
+      <li class="partial">Run <code>docs/migration_bank_tables.sql</code> and <code>docs/migration_bureau_table.sql</code>.</li>
+      <li class="partial"><strong>SCRUM-22:</strong> add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> as GitHub repo secrets — GitHub Pages runs demo-mode only until then.</li>
+      <li class="partial">Install SAM CLI and deploy from <code>aws/</code> (<code>sam build &amp;&amp; sam deploy --guided</code>).</li>
+      <li class="partial">Enable MFA on the AWS account.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3 · Code work remaining</h3>
+    <ul class="checklist">
+      <li class="partial">Wire employer + user screens to the DB — <strong>no <code>employers</code> table exists yet</strong>, so this needs a schema design first, not just wiring.</li>
+      <li class="partial">Code splitting / lazy routes — the SPA still ships as one ~1.1 MB JS chunk.</li>
+      <li class="partial"><strong>SCRUM-23:</strong> Cloudflare Workers SSR deployment.</li>
+      <li class="partial">Compute <code>fpdRisk</code> and <code>totalTrend</code> from real data — both are still hardcoded (<code>1.8</code> / <code>12</code>) on the live path in <code>getDashboardStats()</code>.</li>
+      <li class="partial">Figma wireframes — MCP connector needs authorising via claude.ai connector settings.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>4 · Open decisions</h3>
+    <ul class="checklist">
+      <li class="missing"><strong>Pricing divergence.</strong> <code>engine.ts</code> prices from a 5-band matrix in <code>mock-data.ts</code>; the DB <code>rate_grid</code> has 3 bands (APPROVE / MAYBE / REJECT). Two sources of truth for the same number — pick one.</li>
+      <li class="missing"><strong>Demo backdoor.</strong> <code>demo@cercit.in</code> still bypasses real auth even when Supabase is configured. Deliberate and labelled, but it is a live backdoor on a deployed build.</li>
+      <li class="partial"><strong>SCRUM-26:</strong> security audit across 3 AI models — worth re-running after the access-control review lands.</li>
+    </ul>
+  </div>
+</div>
+
+<hr>
+
 <!-- PERFORMANCE -->
 <div class="section" id="performance">
   <div class="section-header">
@@ -408,11 +518,11 @@
             <td>Any user with Supabase anon key can read/modify any application, bureau report, or audit event.</td>
             <td>Enable RLS; define policies per role. Implement Supabase Auth instead of fake login.</td>
           </tr>
-          <tr>
-            <td><strong>Fake login (no authentication)</strong></td>
-            <td><code>auth.ts</code>: <code>isDemoMode()</code> returns true by default; <code>DEMO_USER</code> hardcoded</td>
-            <td>Any visitor can access employee-facing screens (dashboard, review, officer override) without credentials.</td>
-            <td>Integrate Supabase Auth; disable demo mode for production; enforce <code>requireAuth()</code> on protected routes.</td>
+          <tr style="opacity:.62">
+            <td><strong>Fake login (no authentication)</strong> <span class="tag tag-green">Fixed — Week 4</span></td>
+            <td><code>login.tsx</code>: a failed <code>signIn()</code> called <code>enableDemoMode()</code> and routed to <code>/dashboard</code></td>
+            <td>Any visitor typing an <code>@cercit.in</code> address and any string reached the employee shell.</td>
+            <td>Done in <code>7b3b2fa</code>. Failed sign-in now errors and stays put; verified against live Supabase. Dead <code>supabase-auth.ts</code> removed.</td>
           </tr>
           <tr>
             <td><strong>Environment variables not in repo secrets</strong></td>
@@ -421,10 +531,16 @@
             <td>Move to GitHub repo secrets; verify <code>.env</code> is in <code>.gitignore</code>.</td>
           </tr>
           <tr>
-            <td><strong>Sensitive PII stored without encryption at rest</strong></td>
+            <td><strong>Sensitive PII stored without encryption at rest</strong> <span class="tag tag-amber">Written, not applied</span></td>
             <td>DB schema: PAN, mobile, salary, address in plain text</td>
             <td>Violates DPDP Act 2023. A DB breach exposes full borrower profiles.</td>
-            <td>Enable column-level encryption (<code>pgcrypto</code> or application-level AES-256-GCM) for PAN, mobile, address.</td>
+            <td>Migrations <code>012</code>/<code>013</code> written in <code>5052b71</code> — pgcrypto + HMAC blind index + audited reveal RPC. <strong>Still open until they are run.</strong> Salary and address remain plain text.</td>
+          </tr>
+          <tr>
+            <td><strong>Role permissions not enforced server-side</strong> <span class="tag tag-red">Open</span></td>
+            <td><code>auth.ts</code>: <code>ROLE_PERMISSIONS</code> / <code>hasPermission()</code> are client-side only</td>
+            <td>Access levels are diluted — a caller who reaches the API directly is not held to the role the UI assumes. Applies to the new <code>fn_customer_pii</code> reveal path too.</td>
+            <td>Enforce per-role checks in RLS policies and SECURITY DEFINER functions, not just in the UI.</td>
           </tr>
         </tbody>
       </table>
