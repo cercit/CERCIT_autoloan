@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn, getSession, isSupabaseConfigured, enableDemoMode, isEmployeeEmail, setCustomerEmail } from "@/lib/auth";
+import { signIn, getSession, isSupabaseConfigured, enableDemoMode, isEmployeeEmail, setCustomerEmail, DEMO_EMAIL } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -54,30 +54,30 @@ function Login() {
     setError(null);
     setLoading(true);
 
-    try {
-      const useDemo = !isSupabaseConfigured || email === "demo@cercit.in";
-      let authenticated = useDemo;
-
-      if (!useDemo) {
-        const result = await signIn(email, password);
-        if (result.error) {
-          enableDemoMode();
-          authenticated = true;
-        } else {
-          authenticated = true;
-        }
+    const routeAfterLogin = (userEmail: string) => {
+      if (isEmployeeEmail(userEmail)) {
+        navigate({ to: "/dashboard" });
       } else {
+        setCustomerEmail(userEmail);
+        navigate({ to: "/application-status" });
+      }
+    };
+
+    try {
+      const normalized = email.trim().toLowerCase();
+      // Demo access is explicit: the demo account, or a deployment with no backend.
+      if (!isSupabaseConfigured || normalized === DEMO_EMAIL) {
         enableDemoMode();
+        routeAfterLogin(normalized);
+        return;
       }
 
-      if (authenticated) {
-        if (isEmployeeEmail(email)) {
-          navigate({ to: "/dashboard" });
-        } else {
-          setCustomerEmail(email);
-          navigate({ to: "/application-status" });
-        }
+      const result = await signIn(email, password);
+      if (result.error) {
+        setError(result.error);
+        return;
       }
+      routeAfterLogin(normalized);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -125,7 +125,7 @@ function Login() {
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                placeholder="Enter any password"
+                placeholder={isSupabaseConfigured ? "Enter your password" : "Enter any password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

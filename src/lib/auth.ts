@@ -42,9 +42,12 @@ export function getCustomerEmail(): string | null {
   try { return sessionStorage.getItem("cercit_customer_email"); } catch { return null; }
 }
 
+export const DEMO_EMAIL = "demo@cercit.in";
+
 let demoMode = false;
 
 export function enableDemoMode() { demoMode = true; try { sessionStorage.setItem("cercit_demo", "1"); } catch {} }
+export function disableDemoMode() { demoMode = false; try { sessionStorage.removeItem("cercit_demo"); } catch {} }
 export function isDemoMode() {
   if (demoMode) return true;
   try { demoMode = sessionStorage.getItem("cercit_demo") === "1"; } catch {}
@@ -53,7 +56,7 @@ export function isDemoMode() {
 
 const DEMO_USER: AppUser = {
   id: "00000000-0000-0000-0000-000000000001",
-  email: "demo@cercit.in",
+  email: DEMO_EMAIL,
   fullName: "Demo Officer",
   role: "credit_officer",
   stateCode: "KA",
@@ -100,18 +103,26 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   };
 }
 
+/**
+ * Real credential check. Never falls back to demo mode — a failed sign-in is a
+ * failed sign-in. Demo access goes through enableDemoMode() explicitly.
+ */
 export async function signIn(email: string, password: string): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured) {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ error: null }), 600);
-    });
+    return { error: "Sign-in is unavailable — this deployment has no Supabase connection." };
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  return { error: error?.message ?? null };
+  if (error) return { error: error.message };
+
+  disableDemoMode();
+  return { error: null };
 }
 
 export async function signOut(): Promise<{ error: string | null }> {
+  disableDemoMode();
+  try { sessionStorage.removeItem("cercit_customer_email"); } catch {}
+
   if (!isSupabaseConfigured) {
     return { error: null };
   }
