@@ -499,6 +499,40 @@ export function effectiveRate(band: RateBand, category: EmployerCategoryPricing)
   return Math.round((band.baseRate + category.loadingPct) * 100) / 100;
 }
 
+export type CustomerPii = { panNumber: string | null; mobile: string | null };
+
+/**
+ * Full PAN and mobile for one customer. Everywhere else in the app these arrive
+ * masked (XXXXXX234F) because they are encrypted at rest — see
+ * sql/012_pii_encryption.sql. The RPC checks the caller is an active officer
+ * and writes a PII_REVEAL audit event, so only call it on a deliberate action.
+ */
+export async function revealCustomerPii(
+  customerId: string,
+  reason?: string,
+): Promise<CustomerPii | null> {
+  if (!isSupabaseConfigured || isDemoMode()) {
+    return { panNumber: "ABCPK1234F", mobile: "9840012345" };
+  }
+
+  const { data, error } = await supabase.rpc("fn_customer_pii", {
+    p_customer_id: customerId,
+    p_reason: reason ?? null,
+  });
+
+  if (error) {
+    console.error("Failed to reveal customer PII:", error.message);
+    return null;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    panNumber: row.pan_number ?? null,
+    mobile: row.mobile ?? null,
+  };
+}
+
 type AuditEntry = {
   time: string;
   user: string;

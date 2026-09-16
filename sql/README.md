@@ -15,6 +15,8 @@ Run these in order in the Supabase SQL Editor to set up a fresh instance.
 | 009 | `009_rls_policies.sql` | Row-level security per role |
 | 010 | `010_seed_auth_users.sql` | Demo user accounts (manual step: create in Supabase Auth dashboard first) |
 | 011 | `011_employer_category_pricing.sql` | Employer category pricing (A/B/C loadings, LTV, tenure, fee) for the rate grid page |
+| 012 | `012_pii_encryption.sql` | Encrypts PAN + mobile at rest (pgcrypto). **Set the key before running** |
+| 013 | `013_pii_enforce_no_plaintext.sql` | Locks the plaintext columns shut. Run after verifying 012 decrypts correctly |
 
 ## Quick start
 
@@ -23,6 +25,23 @@ Run these in order in the Supabase SQL Editor to set up a fresh instance.
 3. Create auth users in the dashboard per `010_seed_auth_users.sql` instructions
 4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env`
 5. Login with `officer@cercit.in` / `cercit2026`
+
+## PII encryption (012 / 013)
+
+PAN and mobile are encrypted at rest with pgcrypto. Before running `012`:
+
+1. Generate a key — `openssl rand -base64 48`
+2. Paste it into the `INSERT INTO app_secrets` line in `012_pii_encryption.sql`
+3. Store the key in your password manager. **Lose it and the data is gone.**
+
+After running `012`, confirm decryption round-trips before running `013`:
+
+```sql
+SELECT pan_last4, fn_pii_decrypt(pan_enc) AS pan FROM customers LIMIT 5;
+```
+
+The app reads masked values (`XXXXXX234F`) everywhere. A full value needs the
+`fn_customer_pii` RPC, which is officer-only and writes a `PII_REVEAL` audit event.
 
 ## Demo mode (no Supabase)
 
