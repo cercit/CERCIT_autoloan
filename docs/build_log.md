@@ -43,7 +43,7 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 | 17 Sep 2026 | 0.2 | LTV stays as today: ex-showroom primary, on-road rule kept |
 | 17 Sep 2026 | 0.3 | Demo login kept during the build; revisited later |
 | 17 Sep 2026 | 0.4 | Server-side logic stays on Supabase |
-| 17 Sep 2026 | 0.5 | Rules run in an open-source decision engine; rule versions and approvals stay in our tables. Evaluation 0.5a recommends GoRules Zen on AWS Lambda |
+| 17 Sep 2026 | 0.5 | Rules run in GoRules Zen (MIT) on a Python 3.12 AWS Lambda in `ap-south-1`, confirmed after evaluation 0.5a. Rule versions and approvals stay in our tables |
 | 17 Sep 2026 | 0.6 | `tenant_id` added to tables from the start |
 | 17 Sep 2026 | 0.7 | Hosting: Supabase + AWS `ap-south-1` |
 
