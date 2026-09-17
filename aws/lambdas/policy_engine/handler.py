@@ -1,0 +1,189 @@
+"""
+Lambda: policy engine (backlog FD4.3)
+
+Evaluates application facts against the credit policy version in force, using
+the GoRules Zen decision model stored in Supabase (policy_documents). The rules
+live in the database, versioned and approved; this function only runs them.
+
+POST /evaluate
+  body: {"facts": {...}, "product": "CAR_NEW", "at": "2026-09-17T10:00:00+05:30"}
+  "product" and "at" are optional (defaults: CAR_NEW, now).
+
+Every fact the policy version reads must be present (null is allowed, e.g. a
+bureau score when there is no bureau report). The response names the version
+used, so each decision can be traced to the exact rules that produced it.
+
+Called through API Gateway, the request must carry a signed-in user's Supabase
+token. Called directly (Lambda invoke), IAM already controls access.
+"""
+
+import json
+import os
+import re
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+
+import zen
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+POLICY_CACHE_SECONDS = int(os.environ.get("POLICY_CACHE_SECONDS", "60"))
+
+_engine = zen.ZenEngine()
+_policies: dict[str, tuple[float, dict]] = {}  # product -> (loaded, policy in force now)
+_decisions: dict[str, tuple[object, list[str]]] = {}  # sha256 -> (decision, required facts)
+
+_EXPRESSION_WORDS = {"and", "or", "not", "true", "false", "null", "in"}
+
+
+class PolicyError(Exception):
+    def __init__(self, status: int, message: str, **extra):
+        super().__init__(message)
+        self.status = status
+        self.body = {"error": message, **extra}
+
+
+def handler(event, context):
+    via_api = isinstance(event, dict) and "requestContext" in event
+    try:
+        if via_api:
+            _require_user(event.get("headers") or {})
+        body = _parse_body(event, via_api)
+        result = evaluate(body["facts"], body.get("product", "CAR_NEW"), body.get("at"))
+        return _response(200, result) if via_api else result
+    except PolicyError as e:
+        if not via_api:
+            raise
+        return _response(e.status, e.body)
+
+
+def evaluate(facts: dict, product: str = "CAR_NEW", at: str | None = None) -> dict:
+    policy = _policy_in_force(product, at)
+    decision, required = _decision_for(policy)
+
+    missing = [f for f in required if f not in facts]
+    if missing:
+        raise PolicyError(400, "facts missing", missing=missing, policyVersion=policy["version_code"])
+
+    try:
+        result = decision.evaluate(facts)["result"]
+    except Exception as e:  # Zen reports bad fact types here
+        raise PolicyError(400, f"facts could not be evaluated: {e}", policyVersion=policy["version_code"])
+
+    return {
+        "decision": result["decision"],
+        "hard": sorted(set(result.get("hard") or [])),
+        "soft": sorted(set(result.get("soft") or [])),
+        "score": result["score"],
+        "policyVersion": policy["version_code"],
+        "policyVersionId": policy["policy_version_id"],
+        "documentSha256": policy["document_sha256"],
+        "evaluatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def required_facts(document: dict) -> list[str]:
+    """Every fact the decision tables read: column fields plus names used in free-form conditions."""
+    fields: set[str] = set()
+    for node in document.get("nodes", []):
+        if node.get("type") != "decisionTableNode":
+            continue
+        content = node["content"]
+        free_columns = []
+        for column in content.get("inputs", []):
+            if column.get("field"):
+                fields.add(column["field"])
+            else:
+                free_columns.append(column["id"])
+        for rule in content.get("rules", []):
+            for column_id in free_columns:
+                cell = re.sub(r"'[^']*'", "", rule.get(column_id) or "")
+                for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", cell):
+                    if name not in _EXPRESSION_WORDS:
+                        fields.add(name)
+    return sorted(fields)
+
+
+def _policy_in_force(product: str, at: str | None) -> dict:
+    # Only "now" is cached, briefly, so an approved change takes effect within a minute
+    cached = None if at else _policies.get(product)
+    if cached and time.monotonic() - cached[0] < POLICY_CACHE_SECONDS:
+        return cached[1]
+
+    args = {"p_product": product}
+    if at:
+        args["p_at"] = at
+    rows = _rpc("fn_policy_document_at", args)
+    if not rows:
+        raise PolicyError(404, f"no policy version in force for {product}" + (f" at {at}" if at else ""))
+    policy = rows[0]
+    if policy["engine"] != "zen":
+        raise PolicyError(500, f"policy {policy['version_code']} uses engine {policy['engine']}, expected zen")
+
+    if not at:
+        _policies[product] = (time.monotonic(), policy)
+    return policy
+
+
+def _decision_for(policy: dict):
+    sha = policy["document_sha256"]
+    if sha not in _decisions:
+        document = policy["document"]
+        _decisions[sha] = (_engine.create_decision(json.dumps(document)), required_facts(document))
+    return _decisions[sha]
+
+
+def _require_user(headers: dict) -> None:
+    auth = next((v for k, v in headers.items() if k.lower() == "authorization"), "")
+    if not auth.lower().startswith("bearer "):
+        raise PolicyError(401, "sign-in required")
+    try:
+        _request("GET", "/auth/v1/user", auth_header=auth)
+    except PolicyError:
+        raise PolicyError(401, "sign-in required")
+
+
+def _parse_body(event: dict, via_api: bool) -> dict:
+    body = event.get("body") if via_api else event
+    if isinstance(body, str):
+        try:
+            body = json.loads(body)
+        except json.JSONDecodeError:
+            raise PolicyError(400, "body must be JSON")
+    if not isinstance(body, dict) or not isinstance(body.get("facts"), dict):
+        raise PolicyError(400, "body must contain a facts object")
+    return body
+
+
+def _rpc(name: str, args: dict):
+    return _request("POST", f"/rest/v1/rpc/{name}", payload=args)
+
+
+def _request(method: str, path: str, payload: dict | None = None, auth_header: str | None = None):
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}{path}",
+        data=json.dumps(payload).encode() if payload is not None else None,
+        method=method,
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": auth_header or f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read() or "null")
+    except urllib.error.HTTPError as e:
+        raise PolicyError(502, f"Supabase {path} returned {e.code}")
+    except urllib.error.URLError as e:
+        raise PolicyError(502, f"Supabase unreachable: {e.reason}")
+
+
+def _response(status: int, body: dict) -> dict:
+    return {
+        "statusCode": status,
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "body": json.dumps(body),
+    }

@@ -225,6 +225,26 @@ Resources:
             Path: /validate/{applicationId}
             Method: post
 
+  PolicyEngineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-policy-engine
+      Description: Runs the credit policy version in force (GoRules Zen) - backlog FD4.3
+      CodeUri: lambdas/policy_engine/
+      Handler: handler.handler
+      Timeout: 15
+      MemorySize: 512
+      Environment:
+        Variables:
+          POLICY_CACHE_SECONDS: "60"
+      Events:
+        Evaluate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /evaluate
+            Method: post
+
   CercitApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -233,7 +253,7 @@ Resources:
       Cors:
         AllowOrigin: "'*'"
         AllowMethods: "'GET,POST,OPTIONS'"
-        AllowHeaders: "'Content-Type'"
+        AllowHeaders: "'Content-Type,Authorization'"
 
 Outputs:
   ApiUrl:
