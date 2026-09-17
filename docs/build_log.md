@@ -18,7 +18,7 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 
 - Branch: `mod/<task-id>-<short-name>`, e.g. `mod/fd0.1-feature-flags`
 - Commit message starts with the task ID, e.g. `FD0.1: add feature_flags table`
-- Migrations are new numbered files in `sql/` (next free number: 018). Run `npm run test:sql` before running any of them in Supabase. They are reviewed and run by hand in the Supabase SQL editor; never edited after they have been run.
+- Migrations are new numbered files in `sql/` (next free number: 021). Run `npm run test:sql` before running any of them in Supabase. They are reviewed and run by hand in the Supabase SQL editor; never edited after they have been run.
 - This repository is public. Keys, passwords, provider credentials and security review findings never go in it; they live in Supabase / AWS secret stores and private notes.
 
 ## Build order
@@ -58,3 +58,4 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 | 17 Sep 2026 | fix | Migration 012 would have failed on the required `customers.mobile` column; fixed and tested before anyone ran it |
 | 17 Sep 2026 | FD0.1–FD0.3 | Tenants and module switches (015), `useFeature()` hook. Merged; switches take effect once 015 is run |
 | 17 Sep 2026 | FD1.1–FD1.4 | Versioned, approved policy (016) with database guards, baseline 2026.08 seed (017), read functions, `npm run test:sql` (44 checks). Merged; waits for 015–017 to be run |
+| 17 Sep 2026 | FD2.1–FD2.3 | Database permission checks (018, 019), API access narrowed, policy tables read-only through the API (020 — run when ready). `npm run test:sql` now 69 checks. Merged; waits for migrations to be run |
