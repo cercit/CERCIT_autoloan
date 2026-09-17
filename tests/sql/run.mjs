@@ -255,6 +255,26 @@ const asOperator = () => asApi("", "");
   t.equal("new rate in force after 1 Oct", (await one("select fn_policy_param('pricing.loading.cat_c', 'CAR_NEW', '2026-10-15T00:00:00+05:30') as v")).v, 1.5);
   t.equal("old rate still readable for September", (await one("select fn_policy_param('pricing.loading.cat_c', 'CAR_NEW', '2026-09-15T00:00:00+05:30') as v")).v, 1.25);
   await t.rejects("superseded version reactivated", () => db.query("update policy_versions set status = 'ACTIVE' where id = $1", [base.id]), /cannot move from SUPERSEDED/);
+
+  // 022: the rules engine on AWS reads the policy with the service role, and only reads.
+  // The live database refused this until 022; the local stubs grant more than Supabase does.
+  // Each statement runs in its own transaction: the first refusal would abort a shared one.
+  const asServiceRole = (sql, params) => async () => {
+    await db.query("begin");
+    try {
+      await db.query("set local role service_role");
+      return await db.query(sql, params);
+    } finally {
+      await db.query("rollback");
+    }
+  };
+  await t.ok("service role reads the version in force", asServiceRole("select version_code from fn_policy_document_at()"));
+  await t.ok("service role reads a setting", asServiceRole("select fn_policy_param('pricing.base_rate.approve')"));
+  await t.rejects("service role writes a version", asServiceRole("update policy_versions set rationale = 'x' where id = $1", [base.id]), /permission denied/);
+  await t.rejects("service role writes rules", asServiceRole("update policy_documents set document = '{}' where policy_version_id = $1", [base.id]), /permission denied/);
+  await t.rejects("service role adds a version", asServiceRole("insert into policy_versions (version_code, rationale) values ('9999.01', 'x')"), /permission denied/);
+  await t.rejects("service role changes a switch", asServiceRole("update feature_flags set enabled = true"), /permission denied/);
+
   failures += t.report();
 }
 
