@@ -20,6 +20,7 @@ Order matters: each file assumes the ones above it are already in.
 | 019 | `019_submit_application_permission.sql` | ✅ 17 Sep 2026 | Submitting an application needs the right to create one |
 | 022 | `022_service_role_policy_read.sql` | ✅ 17 Sep 2026 | Lets the AWS rules engine read the policy in force; no write rights |
 | 021 | `021_draft_policy_2026_09.sql` | ✅ 17 Sep 2026 | The unified rules stored as draft 2026.09 (not live until approved) |
+| 023 | `023_policy_change_workflow.sql` | ☐ | Propose, withdraw, approve, reject a policy change, and the job that makes an approved version live on its date |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.
