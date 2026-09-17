@@ -47,6 +47,7 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 | 17 Sep 2026 | 0.6 | `tenant_id` added to tables from the start |
 | 17 Sep 2026 | 0.7 | Hosting: Supabase + AWS `ap-south-1` |
 | 17 Sep 2026 | 0.11 | Repository stays public (needed for the GitHub Pages demo) |
+| 17 Sep 2026 | D1–D7 | Unified credit rules: age over 65 at maturity refers; FOIR over 50% refers; 1 bounce refers, 2+ decline; strict DPD with a referral for small old delays; one under-700 rule; missing data refers; all 24 rules from both engines kept |
 
 ## Entries
 

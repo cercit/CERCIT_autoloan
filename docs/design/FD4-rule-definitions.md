@@ -1,7 +1,7 @@
 # FD4.1 — One definition of the credit rules
 
 Date: 17 Sep 2026
-Status: **waiting for credit-policy decisions (D1–D7 below)**
+Status: decisions D1–D7 made 17 Sep 2026 — see the table at the end
 
 ## Why this is needed
 
@@ -89,3 +89,17 @@ Decision 0.1 keeps the database engine's method: existing obligations (from the 
 | D7 | Unified rule list | **Union of both engines** with D1–D6 applied: 24 rules (25 if the two DPD levels stay separate rules) — the 4 shared, the 4 that differ, 8 browser-only (the two "under 700" rules merged), 7 database-only (60+ DPD folded into DPD), plus the missing-data rule | Nothing either engine checks today is lost |
 
 Once D1–D7 are answered, FD4.2 writes the unified set as version `2026.09` (a proposed change against baseline `2026.08`, approved by someone other than its author), and the parity test compares each difference on purpose rather than by accident.
+
+## Decisions made (17 Sep 2026)
+
+| # | Decision | Chosen | Note |
+|---|---|---|---|
+| D1 | Age above 65 at maturity | **Refer** | As recommended |
+| D2 | FOIR above 50% | **Refer** | Differs from the recommendation. A file above 90% of on-road LTV with FOIR above 50% still declines through the on-road LTV rule |
+| D3 | Bounces in 6 months | **1 refers, 2 or more decline** | As recommended |
+| D4 | Payment delays | **Decline** 60+ DPD ever, 90+ DPD or write-off in 12 months, any DPD in the last 6 months; **refer** 1–30 DPD in months 7–12 | As recommended |
+| D5 | Two "under 700" rules | **One rule** (post-recalibration band) | As recommended |
+| D6 | Missing bureau, bank or income data | **Refer** | As recommended |
+| D7 | Unified rule list | **Everything from both engines** — 24 rules | As recommended |
+
+Consequence for the parity test: the new rule set is meant to differ from today's browser engine on D1–D6 and on the seven database-only rules. The test therefore compares against an expected-outcome table for the unified set, and separately lists every case whose outcome changed from today, so each change is visible and intended.
