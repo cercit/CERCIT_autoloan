@@ -126,6 +126,11 @@ ALTER TABLE customers
   ADD COLUMN IF NOT EXISTS mobile_enc   BYTEA,
   ADD COLUMN IF NOT EXISTS mobile_last4 VARCHAR(4);
 
+-- customers.mobile is NOT NULL in 001, but the trigger below empties it after
+-- encrypting. Without this the backfill fails on the first row. The "every
+-- customer has a mobile" guarantee moves to mobile_enc in section 6.
+ALTER TABLE customers ALTER COLUMN mobile DROP NOT NULL;
+
 -- =============================================================================
 -- 4. Write trigger — encrypts on the way in, blanks the plaintext column
 -- =============================================================================
@@ -182,6 +187,10 @@ WHERE pan_number IS NOT NULL OR mobile IS NOT NULL;
 -- =============================================================================
 
 ALTER TABLE customers DROP CONSTRAINT IF EXISTS uk_customers_pan;
+
+ALTER TABLE customers DROP CONSTRAINT IF EXISTS ck_customers_mobile_present;
+ALTER TABLE customers
+  ADD CONSTRAINT ck_customers_mobile_present CHECK (mobile_enc IS NOT NULL);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_customers_pan_hash
   ON customers (pan_hash)
