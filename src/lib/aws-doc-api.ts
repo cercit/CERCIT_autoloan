@@ -8,7 +8,7 @@
  * it outputs the API Gateway URL.
  */
 
-const API_BASE = import.meta.env.VITE_AWS_API_URL ?? "";
+const API_BASE = import.meta.env["VITE_AWS_API_URL"] ?? "";
 
 export type DocType =
   | "salary_slip"
