@@ -18,6 +18,7 @@ Run these in order in the Supabase SQL Editor to set up a fresh instance.
 | 012 | `012_pii_encryption.sql` | Encrypts PAN + mobile at rest (pgcrypto). **Set the key before running** |
 | 013 | `013_pii_enforce_no_plaintext.sql` | Locks the plaintext columns shut. Run after verifying 012 decrypts correctly |
 | 014 | `014_customer_employment_fields.sql` | Adds the customer employment/residence columns `api.ts` already queries |
+| 015 | `015_tenants_and_feature_flags.sql` | Tenants table (cercit as the default) and module switches, all off; switch history kept |
 
 ## Quick start
 
