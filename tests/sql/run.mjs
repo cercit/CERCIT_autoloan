@@ -196,6 +196,11 @@ const asOperator = () => asApi("", "");
   t.equal("rules document stored with hash", [doc.document_sha256.length, doc.hit], [64, "collect"]);
   t.equal("nothing in force before 1 Aug 2026", (await one("select fn_policy_version_at('CAR_NEW', '2026-07-31T00:00:00+05:30') as v")).v, null);
 
+  // 021: unified rules stored as a draft, not live
+  const d9 = await one("select v.status, v.tier, v.base_version_id = $1 as based_on_baseline, (select count(*)::int from policy_parameters p where p.policy_version_id = v.id) as params, (select document->'nodes'->1->>'name' from policy_documents d where d.policy_version_id = v.id) as table_name from policy_versions v where version_code = '2026.09'", [base.id]);
+  t.equal("2026.09 stored as a draft", d9, { status: "DRAFT", tier: "MATERIAL", based_on_baseline: true, params: 22, table_name: "Credit policy 2026.09" });
+  t.equal("baseline still the live version", (await one("select version_code from fn_policy_document_at()")).version_code, "2026.08");
+
   // Live content is frozen
   await t.rejects("edit live setting", () => db.query("update policy_parameters set value = '9.5' where policy_version_id = $1 and param_key = 'pricing.base_rate.approve'", [base.id]), /cannot change/);
   await t.rejects("edit live rules", () => db.query("update policy_documents set document = '{}' where policy_version_id = $1", [base.id]), /cannot change/);

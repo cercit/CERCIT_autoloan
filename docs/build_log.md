@@ -63,3 +63,4 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 | 17 Sep 2026 | FD3.1 | 009 revised before first use: staff-only reads of loan data; no self-edits of users; audit notes only in the writer's own name |
 | 17 Sep 2026 | FD4.1 | Rule engines compared; seven credit-policy decisions (D1–D7) needed before the unified rule set is written |
 | 17 Sep 2026 | FD6.1, FD7.1 | Broken RPC helper removed; unused modules inventoried; `npm run verify` added and passing (typecheck clean, 40/40 scenarios, 82 SQL checks) |
+| 17 Sep 2026 | FD4.2 | Unified 25-rule set written as a Zen model and stored as draft version 2026.09 (021). Zen and an independent hand-written copy agree on 40 scenarios and 3,000 generated cases; 3 scenario outcomes change as D2 and D4 intend. `npm run verify` now includes `test:rules` |

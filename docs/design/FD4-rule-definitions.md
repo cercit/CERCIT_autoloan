@@ -1,7 +1,7 @@
 # FD4.1 — One definition of the credit rules
 
 Date: 17 Sep 2026
-Status: decisions D1–D7 made 17 Sep 2026 — see the table at the end
+Status: decisions D1–D7 made 17 Sep 2026; unified rules written as `policy/credit-rules-2026.09.json` (draft version 2026.09, migration 021)
 
 ## Why this is needed
 
@@ -103,3 +103,15 @@ Once D1–D7 are answered, FD4.2 writes the unified set as version `2026.09` (a 
 | D7 | Unified rule list | **Everything from both engines** — 24 rules | As recommended |
 
 Consequence for the parity test: the new rule set is meant to differ from today's browser engine on D1–D6 and on the seven database-only rules. The test therefore compares against an expected-outcome table for the unified set, and separately lists every case whose outcome changed from today, so each change is visible and intended.
+
+## Result (FD4.2)
+
+`policy/credit-rules-2026.09.json` holds the unified rules: 25 rules (the payment-delay rule is split into a serious and a minor rule) in 27 table rows. `tests/policy/unified-reference.mjs` is an independent hand-written copy. `npm run test:rules` checks that the two agree on the 40 scenarios and on 3,000 generated cases that include missing reports, and that every rule fires at least once.
+
+Outcomes that change for the existing scenarios, all intended:
+
+| Scenario | Today | 2026.09 | Why |
+|---|---|---|---|
+| TC-18 — one 30 DPD in the last 6 months | Refer | Decline | D4 |
+| TC-25 — FOIR 55% | Decline | Refer | D2 |
+| TC-38 — a recent delay, otherwise clean | Refer | Decline | D4 |

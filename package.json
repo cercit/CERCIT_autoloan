@@ -14,7 +14,8 @@
     "test:sql": "node tests/sql/run.mjs",
     "test:policy": "node scripts/run-test-cases.ts",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run test:policy && npm run test:sql"
+    "verify": "npm run typecheck && npm run test:policy && npm run test:rules && npm run test:sql",
+    "test:rules": "node tests/policy/run-unified.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -80,6 +81,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@eslint/js": "^9.32.0",
+    "@gorules/zen-engine": "^2.0.2",
     "@lovable.dev/vite-tanstack-config": "^2.15.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.16.5",
