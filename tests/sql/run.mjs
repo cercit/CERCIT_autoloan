@@ -278,6 +278,112 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 7. Policy change workflow (023)
+// ---------------------------------------------------------------------------
+// On its own product line, so the dates here do not depend on the versions the
+// section above left behind.
+{
+  const t = makeChecker("policy change workflow");
+  const AUTHOR = "aaaaaaaa-0000-0000-0000-000000000001";
+  const HEAD = "bbbbbbbb-0000-0000-0000-000000000002";
+  const CLERK = "cccccccc-0000-0000-0000-000000000003";
+  await asOperator();
+  await db.query(`insert into users (email, full_name, role, auth_user_id) values
+    ('author@t.in', 'Policy Author', 'policy_manager', $1),
+    ('head@t.in', 'Credit Head', 'credit_head', $2),
+    ('clerk@t.in', 'Officer', 'credit_officer', $3)`, [AUTHOR, HEAD, CLERK]);
+  const authorId = (await one("select id from users where auth_user_id = $1", [AUTHOR])).id;
+  const headId = (await one("select id from users where auth_user_id = $1", [HEAD])).id;
+
+  // A live baseline for this product, started yesterday
+  const P = "CAR_TEST";
+  const oldV = await one("insert into policy_versions (product, version_code, rationale, is_baseline) values ($1, 'T.1', 'test baseline', true) returning id", [P]);
+  await db.query("insert into policy_documents (policy_version_id, document) select $1, document from policy_documents limit 1", [oldV.id]);
+  await db.query("update policy_versions set status = 'ACTIVE', effective_from = now() - interval '1 day' where id = $1", [oldV.id]);
+
+  const v = await one("insert into policy_versions (product, version_code, base_version_id, rationale, tier) values ($1, 'T.2', $2, 'Tighten the enquiry rule', 'STANDARD') returning id", [P, oldV.id]);
+  await db.query("insert into policy_documents (policy_version_id, document) select $1, document from policy_documents where policy_version_id = $2", [v.id, oldV.id]);
+  const later = new Date(Date.now() + 7 * 864e5).toISOString();
+
+  // Proposing
+  await asApi("authenticated", CLERK);
+  await t.rejects("officer proposes a policy change", () => db.query("select fn_policy_submit($1, 'Tighten enquiries')", [v.id]), /permission denied: policy.author/);
+  await asApi("authenticated", AUTHOR);
+  await t.ok("policy manager proposes", () => db.query("select fn_policy_submit($1, 'Tighten enquiries', 'Three enquiries in 90 days instead of four')", [v.id]));
+  t.equal("waiting for approval, author recorded",
+    await one("select status, authored_by = $1 as mine from policy_versions where id = $2", [authorId, v.id]),
+    { status: "PENDING_APPROVAL", mine: true });
+  await t.rejects("proposing twice", () => db.query("select fn_policy_submit($1, 'Again')", [v.id]), /only a draft can be proposed/);
+  t.equal("shows in the approval queue as the author's own",
+    await one("select count(*)::int as n, bool_or(mine) as mine from fn_policy_pending() where version_code = 'T.2'"), { n: 1, mine: true });
+
+  // Approving
+  await asApi("authenticated", CLERK);
+  await t.rejects("officer approves", () => db.query("select fn_policy_approve($1, $2)", [v.id, later]), /permission denied: policy.approve/);
+  await asApi("authenticated", HEAD);
+  await t.rejects("start date in the past", () => db.query("select fn_policy_approve($1, now() - interval '1 day')", [v.id]), /cannot start in the past/);
+  await t.rejects("rejecting without a reason", () => db.query("select fn_policy_reject($1, '  ')", [v.id]), /a reason is required/);
+  await t.rejects("someone else withdraws it", () => db.query("select fn_policy_withdraw($1)", [v.id]), /proposed by someone else/);
+
+  // The author takes it back, then sends it again
+  await asApi("authenticated", AUTHOR);
+  await t.ok("author withdraws", () => db.query("select fn_policy_withdraw($1, 'needs a rethink')", [v.id]));
+  t.equal("back to draft", (await one("select status from policy_versions where id = $1", [v.id])).status, "DRAFT");
+  await t.ok("author proposes again", () => db.query("select fn_policy_submit($1, 'Tighten enquiries')", [v.id]));
+
+  // Nobody approves their own change, even holding the right to approve
+  await asOperator();
+  const own = await one("insert into policy_versions (product, version_code, rationale, tier) values ($1, 'T.9', 'Written by the approver', 'STANDARD') returning id", [P]);
+  await db.query("insert into policy_documents (policy_version_id, document) select $1, document from policy_documents where policy_version_id = $2", [own.id, oldV.id]);
+  await asApi("authenticated", HEAD);
+  await t.ok("credit head may also write policy", () => db.query("select fn_policy_submit($1, 'Own change')", [own.id]));
+  await t.rejects("approver approves own change", () => db.query("select fn_policy_approve($1, $2)", [own.id, later]), /someone else must approve/);
+  await t.rejects("approver rejects own change", () => db.query("select fn_policy_reject($1, 'no')", [own.id]), /someone else must review/);
+  t.equal("own change is marked as the approver's own in the queue",
+    (await one("select mine from fn_policy_pending() where version_code = 'T.9'")).mine, true);
+  t.equal("author of the other change is unchanged",
+    (await one("select authored_by = $1 as v from policy_versions where id = $2", [authorId, v.id])).v, true);
+  void headId;
+
+  await asApi("authenticated", HEAD);
+  await t.ok("credit head approves with a start date", () => db.query("select fn_policy_approve($1, $2, 'Agreed at the credit committee')", [v.id, later]));
+  t.equal("approved, approver and date recorded",
+    await one("select status, approved_by is not null as who, effective_from is not null as dated from policy_versions where id = $1", [v.id]),
+    { status: "APPROVED", who: true, dated: true });
+  t.equal("approval recorded as a review",
+    await one("select decision, comment from policy_change_reviews order by reviewed_at desc limit 1"),
+    { decision: "APPROVE", comment: "Agreed at the credit committee" });
+  t.equal("queue no longer holds it", (await one("select count(*)::int as n from fn_policy_pending() where version_code = 'T.2'")).n, 0);
+  t.equal("not live until its date", (await one("select version_code from fn_policy_document_at($1)", [P])).version_code, "T.1");
+
+  // The scheduled job (CC1.2)
+  await asOperator();
+  t.equal("nothing due yet", (await one("select fn_policy_activate_due() as v")).v.activated, 0);
+  await db.query("update policy_versions set effective_from = now() - interval '1 minute' where id = $1", [v.id]);
+  t.equal("due version goes live", (await one("select fn_policy_activate_due() as v")).v.activated, 1);
+  t.equal("T.2 is now the version in force", (await one("select version_code from fn_policy_document_at($1)", [P])).version_code, "T.2");
+  const closed = await one("select effective_to, status from policy_versions where id = $1", [oldV.id]);
+  const started = await one("select effective_from, status from policy_versions where id = $1", [v.id]);
+  t.equal("previous version closed exactly where the new one starts",
+    [String(closed.effective_to), closed.status, started.status],
+    [String(started.effective_from), "SUPERSEDED", "ACTIVE"]);
+  t.equal("yesterday's rules still readable",
+    (await one("select version_code from fn_policy_document_at($1, now() - interval '12 hours')", [P])).version_code, "T.1");
+
+  // Nobody reaches these functions without a login
+  await db.query("set role anon");
+  await t.rejects("anon cannot propose", () => db.query("select fn_policy_submit($1, 'x')", [v.id]), /permission denied for function/);
+  await t.rejects("anon cannot approve", () => db.query("select fn_policy_approve($1, now())", [v.id]), /permission denied for function/);
+  await db.query("reset role");
+  await db.query("set role authenticated");
+  await t.rejects("app user cannot run the activation job", () => db.query("select fn_policy_activate_due()"), /permission denied for function/);
+  await db.query("reset role");
+  await asOperator();
+
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
