@@ -1,7 +1,7 @@
 // Checks policy/credit-rules-2026.09.json (Zen) against the hand-written reference,
 // and lists every existing scenario whose outcome changes from today.
 // Run: node tests/policy/run-unified.mjs
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZenEngine } from "@gorules/zen-engine";
@@ -29,9 +29,11 @@ const scenarios = readdirSync(dir).filter((f) => /^TC-.*\.json$/.test(f)).sort()
   .map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")));
 let matched = 0;
 const changed = [];
+const fixtures = []; // written for the Lambda test with --write-fixtures
 for (const tc of scenarios) {
   const facts = factsFromScenario(tc);
   const ref = evaluateUnified(facts);
+  fixtures.push({ id: tc.id, input: facts, expected: ref });
   const got = await zen(facts);
   if (same(ref, got)) matched++;
   else { failures++; console.log(`  MISMATCH ${tc.id}`, JSON.stringify({ ref, got })); }
@@ -88,6 +90,7 @@ for (let i = 0; i < N; i++) {
     ltvOnRoad: pick([60, 90, 90.1, 99.9, 100, 100.1]),
   };
   const ref = evaluateUnified(facts);
+  if (i < 500) fixtures.push({ id: `GEN-${String(i + 1).padStart(4, "0")}`, input: facts, expected: ref });
   let got;
   try {
     got = await zen(facts);
@@ -104,6 +107,11 @@ const allIds = [...new Set(RULES_2026_09.map((r) => r[0]))];
 const unfired = allIds.filter((id) => !fired.has(id));
 console.log(`generated: ${genMatched}/${N} Zen matches reference; ${allIds.length - unfired.length}/${allIds.length} rules triggered`);
 if (unfired.length) { failures++; console.log(`  rules never triggered: ${unfired.join(", ")}`); }
+
+if (process.argv.includes("--write-fixtures")) {
+  writeFileSync(join(ROOT, "tests", "policy", "fixtures-2026.09.json"), JSON.stringify(fixtures) + "\n");
+  console.log(`wrote tests/policy/fixtures-2026.09.json: ${fixtures.length} cases`);
+}
 
 if (failures) {
   console.log(`\n${failures} policy rule check(s) failed`);
