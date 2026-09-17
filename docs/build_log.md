@@ -18,7 +18,7 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 
 - Branch: `mod/<task-id>-<short-name>`, e.g. `mod/fd0.1-feature-flags`
 - Commit message starts with the task ID, e.g. `FD0.1: add feature_flags table`
-- Migrations are new numbered files in `sql/` (next free number: 015). They are reviewed and run by hand in the Supabase SQL editor; never edited after they have been run.
+- Migrations are new numbered files in `sql/` (next free number: 018). Run `npm run test:sql` before running any of them in Supabase. They are reviewed and run by hand in the Supabase SQL editor; never edited after they have been run.
 - This repository is public. Keys, passwords, provider credentials and security review findings never go in it; they live in Supabase / AWS secret stores and private notes.
 
 ## Build order
@@ -55,3 +55,6 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 | 17 Sep 2026 | 0.1–0.8 | Week 1 decisions recorded; regulatory values for prepayment charges, KFS, Aadhaar OTP limits and penal charges checked against RBI sources |
 | 17 Sep 2026 | baseline | 40/40 policy scenarios pass on `main` at `249a078` — the reference point for the engine parity test |
 | 17 Sep 2026 | 0.5a | Rules engine evaluation: GoRules Zen and json-rules-engine both matched today's engine on 40 scenarios and 2,000 generated cases. Recommended Zen on a Python 3.12 Lambda in `ap-south-1`; Zen does not load in Supabase's Deno runtime. Details in `docs/engine-evaluation/` |
+| 17 Sep 2026 | fix | Migration 012 would have failed on the required `customers.mobile` column; fixed and tested before anyone ran it |
+| 17 Sep 2026 | FD0.1–FD0.3 | Tenants and module switches (015), `useFeature()` hook. Merged; switches take effect once 015 is run |
+| 17 Sep 2026 | FD1.1–FD1.4 | Versioned, approved policy (016) with database guards, baseline 2026.08 seed (017), read functions, `npm run test:sql` (44 checks). Merged; waits for 015–017 to be run |
