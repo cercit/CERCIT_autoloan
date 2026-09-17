@@ -9,7 +9,13 @@ import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 
 const SQL_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "sql");
 
+// Supabase keeps extensions in their own schema and puts it on the search path.
+// Mirroring that catches functions that pin search_path to public only.
 const SUPABASE_STUBS = `
+  CREATE SCHEMA IF NOT EXISTS extensions;
+  CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+  CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
+  SET search_path TO "$user", public, extensions;
   DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;

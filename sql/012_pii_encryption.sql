@@ -15,6 +15,8 @@
 -- Non-deterministic ciphertext cannot back a UNIQUE constraint, which is why
 -- uk_customers_pan is replaced by a unique index on the blind index instead.
 
+-- On Supabase pgcrypto already lives in the extensions schema; the helpers
+-- below put that schema on their search path so they find it either way.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =============================================================================
@@ -61,7 +63,7 @@ RETURNS BYTEA
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
-SET search_path = public
+SET search_path = public, extensions
 AS $$
   SELECT CASE
     WHEN p_plain IS NULL OR btrim(p_plain) = '' THEN NULL
@@ -74,7 +76,7 @@ RETURNS TEXT
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
-SET search_path = public
+SET search_path = public, extensions
 AS $$
   SELECT CASE
     WHEN p_cipher IS NULL THEN NULL
@@ -91,7 +93,7 @@ RETURNS TEXT
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
-SET search_path = public
+SET search_path = public, extensions
 AS $$
   SELECT CASE
     WHEN p_plain IS NULL OR btrim(p_plain) = '' THEN NULL

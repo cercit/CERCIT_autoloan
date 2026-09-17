@@ -382,11 +382,14 @@ export async function getMappedPolicyRules(): Promise<{
 
 export async function togglePolicyRule(ruleId: string, isActive: boolean): Promise<boolean> {
   if (!isSupabaseConfigured || isDemoMode()) return true;
-  const { error } = await supabase
+  // Row-level security can refuse an update without raising an error, so a
+  // change only counts if a row actually came back.
+  const { data, error } = await supabase
     .from("policy_rules")
     .update({ is_active: isActive })
-    .eq("rule_id", ruleId);
-  return !error;
+    .eq("rule_id", ruleId)
+    .select("rule_id");
+  return !error && (data?.length ?? 0) > 0;
 }
 
 const rateBandRowSchema = z.object({
