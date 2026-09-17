@@ -19,7 +19,7 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 - Branch: `mod/<task-id>-<short-name>`, e.g. `mod/fd0.1-feature-flags`
 - Commit message starts with the task ID, e.g. `FD0.1: add feature_flags table`
 - Migrations are new numbered files in `sql/` (next free number: 015). They are reviewed and run by hand in the Supabase SQL editor; never edited after they have been run.
-- Secrets never go in the repo. Keys and provider credentials live in Supabase / AWS secret stores.
+- This repository is public. Keys, passwords, provider credentials and security review findings never go in it; they live in Supabase / AWS secret stores and private notes.
 
 ## Build order
 
@@ -46,6 +46,7 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 | 17 Sep 2026 | 0.5 | Rules run in GoRules Zen (MIT) on a Python 3.12 AWS Lambda in `ap-south-1`, confirmed after evaluation 0.5a. Rule versions and approvals stay in our tables |
 | 17 Sep 2026 | 0.6 | `tenant_id` added to tables from the start |
 | 17 Sep 2026 | 0.7 | Hosting: Supabase + AWS `ap-south-1` |
+| 17 Sep 2026 | 0.11 | Repository stays public (needed for the GitHub Pages demo) |
 
 ## Entries
 
