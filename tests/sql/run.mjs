@@ -144,7 +144,44 @@ const asOperator = () => asApi("", "");
 }
 
 // ---------------------------------------------------------------------------
-// 5. Versioned policy (016/017)
+// 5. Row-level security (009)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("row-level security");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const CUSTOMER = "55555555-5555-5555-5555-555555555555";
+  const GONE = "44444444-4444-4444-4444-444444444444";
+  const officerId = (await one("select id from users where auth_user_id = $1", [OFFICER])).id;
+  const viewerId = (await one("select id from users where email = 'v@t.in'")).id;
+  const count = async (table) => (await one(`select count(*)::int as n from ${table}`)).n;
+
+  await db.query("set role authenticated");
+  await asApi("authenticated", CUSTOMER);
+  t.equal("customer login sees no applicants", await count("customers"), 0);
+  t.equal("customer login sees no applications", await count("applications"), 0);
+  t.equal("customer login sees no staff", await count("users"), 0);
+  t.equal("customer login sees no audit trail", await count("audit_events"), 0);
+  await t.rejects("customer login writes an audit entry", () => db.query("insert into audit_events (event_type, event_detail, actor_type) values ('X', '{}', 'USER')"), /row-level security/);
+
+  await asApi("authenticated", GONE);
+  t.equal("deactivated officer sees no applicants", await count("customers"), 0);
+
+  await asApi("authenticated", OFFICER);
+  t.equal("officer sees applicants", (await count("customers")) > 0, true);
+  t.equal("officer sees applications", (await count("applications")) > 0, true);
+  const promoted = await db.query("update users set role = 'admin' where auth_user_id = $1 returning id", [OFFICER]);
+  t.equal("officer cannot change own role", promoted.rows.length, 0);
+  await t.ok("officer writes a note in own name", () => db.query("insert into audit_events (event_type, event_detail, actor_type, actor_id) values ('OFFICER_NOTE', '{}', 'OFFICER', $1)", [officerId]));
+  await t.rejects("officer writes a note in someone else's name", () => db.query("insert into audit_events (event_type, event_detail, actor_type, actor_id) values ('OFFICER_NOTE', '{}', 'OFFICER', $1)", [viewerId]), /row-level security/);
+  await t.rejects("officer writes a note with no name", () => db.query("insert into audit_events (event_type, event_detail, actor_type) values ('OFFICER_NOTE', '{}', 'OFFICER')"), /row-level security/);
+  await db.query("reset role");
+  await asOperator();
+  t.equal("role really unchanged", (await one("select role from users where auth_user_id = $1", [OFFICER])).role, "credit_officer");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 6. Versioned policy (016/017)
 // ---------------------------------------------------------------------------
 {
   const t = makeChecker("versioned policy");

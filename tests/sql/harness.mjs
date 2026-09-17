@@ -27,6 +27,13 @@ const SUPABASE_STUBS = `
   CREATE OR REPLACE FUNCTION auth.role() RETURNS TEXT LANGUAGE sql STABLE AS $f$ SELECT current_setting('request.jwt.claim.role', true) $f$;
   CREATE OR REPLACE FUNCTION auth.jwt() RETURNS JSONB LANGUAGE sql STABLE AS $f$ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $f$;
   GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+  GRANT USAGE ON SCHEMA auth, extensions TO anon, authenticated, service_role;
+  GRANT SELECT ON auth.users TO service_role;
+  -- Supabase grants API roles full table rights by default and relies on RLS and
+  -- explicit revokes to narrow them. Mirror that so the tests see the same starting point.
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
 `;
 
 // Placeholder key so 012 can run locally; the real key is only ever set in Supabase.

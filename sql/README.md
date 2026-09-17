@@ -12,7 +12,7 @@ Run these in order in the Supabase SQL Editor to set up a fresh instance.
 | 006 | `006_submit_application.sql` | `fn_submit_full_application` — single call that creates customer + application + runs pipeline |
 | 007 | `007_officer_decision.sql` | `fn_officer_decision` — approve/reject/refer with override logging |
 | 008 | `008_demo_scenarios.sql` | 3 test applications: Approve (CIBIL 780), Reject (CIBIL 580), Maybe (CIBIL 680) |
-| 009 | `009_rls_policies.sql` | Row-level security per role |
+| 009 | `009_rls_policies.sql` | Row-level security: loan data, staff list and audit trail readable by active staff only (customers see only their own rows via 001); no self-edits of `users`; audit notes only in the writer's own name |
 | 010 | `010_seed_auth_users.sql` | Demo user accounts (manual step: create in Supabase Auth dashboard first) |
 | 011 | `011_employer_category_pricing.sql` | Employer category pricing (A/B/C loadings, LTV, tenure, fee) for the rate grid page |
 | 012 | `012_pii_encryption.sql` | Encrypts PAN + mobile at rest (pgcrypto). **Set the key before running** |
