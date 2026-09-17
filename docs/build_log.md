@@ -6,7 +6,7 @@ The platform is being rebuilt module by module on top of this codebase. The curr
 
 1. **Pick** the next task from the backlog (one at a time).
 2. **Develop** on a branch.
-3. **Test** — `npx tsc --noEmit`, the 40 policy scenarios (`node scripts/run-test-cases.ts`), and the module's own tests. Task FD7.1 wraps these into `npm run verify`.
+3. **Test** — `npm run verify` (typecheck, the 40 policy scenarios, and the SQL tests on a local Postgres), plus the module's own tests.
 4. **Integrate** — merge to `main` with the feature switch off.
 5. **Go** — switch on, check it by hand, deploy.
 6. **Retire** — delete the code the new piece replaced.
@@ -59,3 +59,6 @@ A task is done when its code is merged, tests pass, it is deployed with its swit
 | 17 Sep 2026 | FD0.1–FD0.3 | Tenants and module switches (015), `useFeature()` hook. Merged; switches take effect once 015 is run |
 | 17 Sep 2026 | FD1.1–FD1.4 | Versioned, approved policy (016) with database guards, baseline 2026.08 seed (017), read functions, `npm run test:sql` (44 checks). Merged; waits for 015–017 to be run |
 | 17 Sep 2026 | FD2.1–FD2.3 | Database permission checks (018, 019), API access narrowed, policy tables read-only through the API (020 — run when ready). `npm run test:sql` now 69 checks. Merged; waits for migrations to be run |
+| 17 Sep 2026 | FD3.1 | 009 revised before first use: staff-only reads of loan data; no self-edits of users; audit notes only in the writer's own name |
+| 17 Sep 2026 | FD4.1 | Rule engines compared; seven credit-policy decisions (D1–D7) needed before the unified rule set is written |
+| 17 Sep 2026 | FD6.1, FD7.1 | Broken RPC helper removed; unused modules inventoried; `npm run verify` added and passing (typecheck clean, 40/40 scenarios, 82 SQL checks) |
