@@ -483,12 +483,18 @@ const asOperator = () => asApi("", "");
   const target = await one("select id from policy_versions where status = 'PENDING_APPROVAL' order by submitted_at desc limit 1");
   const liveId = (await one("select fn_policy_version_at() as v")).v;
   if (target) {
-    await t.ok("author records a comparison", () => db.query(
-      "select fn_policy_simulation_record($1, $2, 120, '{\"review->decline\": 4}'::jsonb, '{\"changed\": 4}'::jsonb)",
-      [target.id, liveId]));
+    // 027: only the rules engine may write the figures an approver reads
+    await t.ok("the engine records a comparison", async () => {
+      await asApi("service_role");          // how the Lambda's key arrives
+      try {
+        await db.query("select fn_policy_simulation_record($1, $2, 120, '{\"review->decline\": 4}'::jsonb, '{\"changed\": 4}'::jsonb)", [target.id, liveId]);
+      } finally {
+        await asApi("authenticated", AUTHOR);
+      }
+    });
     const impact = await one("select sample_size, flips, summary, run_by from fn_policy_impact($1)", [target.id]);
     t.equal("approval screen sees the comparison",
-      [impact.sample_size, impact.flips["review->decline"], impact.run_by !== null], [120, 4, true]);
+      [impact.sample_size, impact.flips["review->decline"], impact.run_by], [120, 4, null]);
     await asApi("authenticated", HEAD);
     await t.ok("the approver can read it too", () => db.query("select * from fn_policy_impact($1)", [target.id]));
   }
@@ -507,6 +513,88 @@ const asOperator = () => asApi("", "");
   await db.query("set role anon");
   await t.rejects("anon reads the facts", () => db.query("select * from fn_policy_facts(1)"), /permission denied for function/);
   await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 10. Fixes from the credit-control review (027)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("review fixes");
+  const AUTHOR = "aaaaaaaa-0000-0000-0000-000000000001";
+  const HEAD = "bbbbbbbb-0000-0000-0000-000000000002";
+  const CLERK = "cccccccc-0000-0000-0000-000000000003";
+  const P = "CAR_FIX";
+
+  // A live baseline on its own product line
+  await asOperator();
+  const src = await one("select policy_version_id as id from fn_policy_document_at() limit 1");
+  const base = await one("insert into policy_versions (product, version_code, rationale, is_baseline) values ($1, 'F.0', 'baseline', true) returning id", [P]);
+  await db.query("insert into policy_documents (policy_version_id, document) select $1, document from policy_documents where policy_version_id = $2", [base.id, src.id]);
+  await db.query("update policy_versions set status = 'ACTIVE', effective_from = now() - interval '2 days' where id = $1", [base.id]);
+
+  const mk = async (code) => {
+    const v = await one("insert into policy_versions (product, version_code, rationale, tier) values ($1, $2, 'test', 'STANDARD') returning id", [P, code]);
+    await db.query("insert into policy_documents (policy_version_id, document) select $1, document from policy_documents where policy_version_id = $2", [v.id, base.id]);
+    return v.id;
+  };
+  const a = await mk("F.1");
+  const b = await mk("F.2");
+  const when = new Date(Date.now() + 3 * 864e5).toISOString();
+
+  await asApi("authenticated", AUTHOR);
+  await db.query("select fn_policy_submit($1, 'first')", [a]);
+  await db.query("select fn_policy_submit($1, 'second')", [b]);
+  await asApi("authenticated", HEAD);
+  await t.ok("first change approved", () => db.query("select fn_policy_approve($1, $2)", [a, when]));
+  await t.rejects("second change cannot start at the same moment",
+    () => db.query("select fn_policy_approve($1, $2)", [b, when]), /already approved to start at the same moment/);
+
+  // Even if two do end up due together, the job must not stop dead
+  await t.ok("approved for a later moment", () => db.query("select fn_policy_approve($1, $2)", [b, new Date(Date.now() + 4 * 864e5).toISOString()]));
+  await asOperator();
+  await db.query("update policy_versions set effective_from = now() - interval '1 minute' where id in ($1, $2)", [a, b]);
+  const run = (await one("select fn_policy_activate_due() as v")).v;
+  t.equal("one goes live, the clash is cancelled rather than jamming the job",
+    [run.activated, run.cancelled], [1, 1]);
+  t.equal("a version is in force afterwards",
+    (await one("select version_code from fn_policy_document_at($1)", [P])).version_code !== null, true);
+  t.equal("running again is quiet", (await one("select fn_policy_activate_due() as v")).v.activated, 0);
+
+  // Facts say "not known" instead of guessing
+  await asApi("authenticated", AUTHOR);
+  const f = (await one("select facts from fn_policy_facts(1)")).facts;
+  t.equal("a delay's timing is not invented from a 12-month figure",
+    f.anyDpd6m === false || f.anyDpd6m === null, true, JSON.stringify(f.anyDpd6m));
+  t.equal("months 7-12 are not invented from a 24-month count", f.minorDpdMonths7to12, null);
+  await asOperator();
+  const noEmi = await one("select application_id from applications where indicative_emi is null and status <> 'DRAFT' limit 1");
+  if (noEmi) {
+    await asApi("authenticated", AUTHOR);
+    const row = await one("select facts from fn_policy_facts(50) where application_id = $1", [noEmi.application_id]);
+    t.equal("no EMI worked out means affordability is unknown, not perfect",
+      [row.facts.foir, row.facts.freeIncomeRatio, row.facts.ambVsEmiPct], [null, null, null]);
+  }
+
+  // Impact figures come from the engine only
+  await asApi("authenticated", AUTHOR);
+  await t.rejects("author writes impact figures by hand",
+    () => db.query("select fn_policy_simulation_record($1, $2, 999, '{}'::jsonb, '{}'::jsonb)", [a, base.id]),
+    /permission denied for function|only be recorded by the rules engine/);
+  await asApi("service_role");
+  await t.ok("the engine records them", () => db.query(
+    "select fn_policy_simulation_record($1, $2, 10, '{}'::jsonb, '{}'::jsonb)", [a, base.id]));
+  await asApi("authenticated", AUTHOR);
+
+  // Who may ask for an impact check, in their own name
+  await asApi("authenticated", AUTHOR);
+  t.equal("policy manager may run an impact check", (await one("select fn_policy_may_simulate() as v")).v, true);
+  await asApi("authenticated", CLERK);
+  t.equal("officer may not", (await one("select fn_policy_may_simulate() as v")).v, false);
+  await asApi("anon");
+  t.equal("nobody signed in may not", (await one("select fn_policy_may_simulate() as v")).v, false);
+
   await asOperator();
   failures += t.report();
 }

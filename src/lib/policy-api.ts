@@ -18,8 +18,12 @@ export type PolicyStatus =
   | "REJECTED"
   | "CANCELLED";
 
+/** Settings the database stores as numbers (sql/016 ck_param_value_type). */
+export const NUMERIC_VALUE_TYPES = ["number", "percent", "amount_inr", "months", "score"];
+
 export type PolicyVersion = {
   id: string;
+  authoredBy: string | null;
   versionCode: string;
   status: PolicyStatus;
   tier: string | null;
@@ -61,7 +65,7 @@ const unavailable = { ok: false as const, error: "Not connected to the database"
 
 /** Rows as the database returns them (snake_case). */
 type VersionRow = {
-  id: string; version_code: string; status: PolicyStatus; tier: string | null; rationale: string | null;
+  id: string; version_code: string; status: PolicyStatus; tier: string | null; rationale: string | null; authored_by: string | null;
   effective_from: string | null; effective_to: string | null; submitted_at: string | null; approved_at: string | null;
 };
 type SettingRow = {
@@ -83,12 +87,13 @@ export async function getPolicyVersions(): Promise<PolicyVersion[]> {
   if (!isSupabaseConfigured || isDemoMode()) return [];
   const { data, error } = await supabase
     .from("policy_versions")
-    .select("id, version_code, status, tier, rationale, effective_from, effective_to, submitted_at, approved_at")
+    .select("id, version_code, status, tier, rationale, authored_by, effective_from, effective_to, submitted_at, approved_at")
     .order("created_at", { ascending: false });
   if (error || !data) return [];
   return (data as VersionRow[]).map((r) => ({
     id: String(r.id),
     versionCode: String(r.version_code),
+    authoredBy: r.authored_by ?? null,
     status: r.status,
     tier: r.tier ?? null,
     rationale: String(r.rationale ?? ""),
