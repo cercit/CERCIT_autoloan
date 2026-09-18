@@ -3,8 +3,7 @@
   "configurations": [
     {
       "name": "cercit-dev",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "dev", "--port", "3007"],
+      "url": "http://127.0.0.1:3007",
       "port": 3007
     }
   ]
