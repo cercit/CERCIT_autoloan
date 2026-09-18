@@ -384,6 +384,68 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 8. Writing a policy draft (024)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("policy draft editing");
+  const AUTHOR = "aaaaaaaa-0000-0000-0000-000000000001";
+  const HEAD = "bbbbbbbb-0000-0000-0000-000000000002";
+  const CLERK = "cccccccc-0000-0000-0000-000000000003";
+  await asOperator();
+  const liveCode = (await one("select version_code from fn_policy_document_at()")).version_code;
+  const liveRate = (await one("select fn_policy_param('pricing.base_rate.approve') as v")).v;
+
+  await asApi("authenticated", CLERK);
+  await t.rejects("officer starts a draft", () => db.query("select fn_policy_draft_create('X.1', 'test')"), /permission denied: policy.author/);
+  await asApi("authenticated", AUTHOR);
+  await t.rejects("draft without a reason", () => db.query("select fn_policy_draft_create('X.1', '  ')"), /a reason for the change is required/);
+
+  const made = (await one("select fn_policy_draft_create('2027.01', 'Rate review for Q1', 'STANDARD') as v")).v;
+  const draftId = made.versionId;
+  t.equal("draft copied from the version in force", await one("select status, base_version_id = $1 as based_on_live, authored_by is not null as owned from policy_versions where id = $2",
+    [(await one("select fn_policy_version_at() as v")).v, draftId]), { status: "DRAFT", based_on_live: true, owned: true });
+  t.equal("settings and rules came with it", await one("select (select count(*)::int from policy_parameters where policy_version_id = $1) as params, (select count(*)::int from policy_documents where policy_version_id = $1) as docs", [draftId]),
+    { params: 22, docs: 1 });
+
+  // Changing settings
+  await t.ok("author changes a setting", () => db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '9.25'::jsonb)", [draftId]));
+  t.equal("new value on the draft, live value untouched",
+    [(await one("select value from policy_parameters where policy_version_id = $1 and param_key = 'pricing.base_rate.approve'", [draftId])).value,
+     (await one("select fn_policy_param('pricing.base_rate.approve') as v")).v], [9.25, liveRate]);
+  await t.rejects("value above the allowed maximum", () => db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '45'::jsonb)", [draftId]), /above the maximum/);
+  await t.rejects("text where a number belongs", () => db.query(`select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '"nine"'::jsonb)`, [draftId]), /must be a number/);
+  await t.rejects("setting that does not exist", () => db.query("select fn_policy_draft_set_param($1, 'pricing.invented', '1'::jsonb)", [draftId]), /fk_policy_parameters_key/);
+
+  // Somebody else's draft
+  await asApi("authenticated", HEAD);
+  await t.rejects("another person edits the draft", () => db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '9.5'::jsonb)", [draftId]), /belongs to someone else/);
+  await t.rejects("another person discards the draft", () => db.query("select fn_policy_draft_discard($1)", [draftId]), /belongs to someone else/);
+
+  // The settings view shows draft against live
+  await asApi("authenticated", AUTHOR);
+  const shown = await one("select value, live_value, min_value, max_value, label from fn_policy_settings($1) where param_key = 'pricing.base_rate.approve'", [draftId]);
+  t.equal("settings view shows the draft value beside the live one", [shown.value, shown.live_value, shown.label !== null], [9.25, liveRate, true]);
+  t.equal("every setting is listed", (await one("select count(*)::int as n from fn_policy_settings($1)", [draftId])).n, 22);
+
+  // Once sent, the draft is frozen
+  await t.ok("author sends it for approval", () => db.query("select fn_policy_submit($1, 'Rate review for Q1')", [draftId]));
+  await t.rejects("editing after sending", () => db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '9.1'::jsonb)", [draftId]), /only a draft can be changed/);
+  await t.rejects("discarding after sending", () => db.query("select fn_policy_draft_discard($1)", [draftId]), /only a draft can be discarded/);
+  t.equal("nothing changed for applications yet", (await one("select version_code from fn_policy_document_at()")).version_code, liveCode);
+
+  // Discarding a draft keeps the trail
+  const second = (await one("select fn_policy_draft_create('2027.02', 'Abandoned idea') as v")).v;
+  await t.ok("author discards an unsent draft", () => db.query("select fn_policy_draft_discard($1)", [second.versionId]));
+  t.equal("discarded draft is cancelled, not deleted", (await one("select status from policy_versions where id = $1", [second.versionId])).status, "CANCELLED");
+
+  await db.query("set role anon");
+  await t.rejects("anon cannot start a draft", () => db.query("select fn_policy_draft_create('X.9', 'x')"), /permission denied for function/);
+  await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
