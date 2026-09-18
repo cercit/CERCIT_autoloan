@@ -7,6 +7,8 @@ import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getMappedPolicyRules, togglePolicyRule } from "@/lib/api";
+import { useFeature } from "@/lib/feature-flags";
+import { PolicyControl } from "@/components/policy/policy-control";
 import type { PolicyRule } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,9 @@ export const Route = createFileRoute("/policy-rules")({
 });
 
 function PolicyRulesPage() {
+  // Credit control replaces the direct on/off switches with a proposal that
+  // someone else approves. Until its switch is on, the old screen stays.
+  const creditControl = useFeature("credit_control");
   const [policyRules, setPolicyRules] = useState<Record<string, PolicyRule[]>>({});
   const [policyTabs, setPolicyTabs] = useState<string[]>([]);
   const [tab, setTab] = useState<string>("");
@@ -43,6 +48,17 @@ function PolicyRulesPage() {
   }, []);
 
   const rules = policyRules[tab] ?? [];
+
+  if (creditControl) {
+    return (
+      <AppShell
+        title="Policy Rules"
+        subtitle="The version in force, and changes waiting for approval"
+      >
+        <PolicyControl />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
