@@ -568,14 +568,24 @@ const asOperator = () => asApi("", "");
   t.equal("a delay's timing is not invented from a 12-month figure",
     f.anyDpd6m === false || f.anyDpd6m === null, true, JSON.stringify(f.anyDpd6m));
   t.equal("months 7-12 are not invented from a 24-month count", f.minorDpdMonths7to12, null);
+  // 028: the EMI comes from what the assessment settled on, not just the indicative figure
   await asOperator();
-  const noEmi = await one("select application_id from applications where indicative_emi is null and status <> 'DRAFT' limit 1");
-  if (noEmi) {
+  const assessed = await one("select a.application_id from applications a join recommendations r on r.application_id = a.id where r.recommended_emi is not null and a.status <> 'DRAFT' limit 1");
+  if (assessed) {
     await asApi("authenticated", AUTHOR);
-    const row = await one("select facts from fn_policy_facts(50) where application_id = $1", [noEmi.application_id]);
-    t.equal("no EMI worked out means affordability is unknown, not perfect",
-      [row.facts.foir, row.facts.freeIncomeRatio, row.facts.ambVsEmiPct], [null, null, null]);
+    const row = await one("select facts from fn_policy_facts(200) where application_id = $1", [assessed.application_id]);
+    t.equal("an assessed file can be judged on affordability",
+      [row.facts.foir !== null, row.facts.freeIncomeRatio !== null], [true, true], JSON.stringify(row.facts.foir));
   }
+
+  // A file with no EMI anywhere is unknown, not perfect
+  await asOperator();
+  const cust = await one("insert into customers (full_name, email, mobile, age_at_application, employment_type) values ('No Emi', 'noemi@t.in', '9876512345', 30, 'PRIVATE') returning id");
+  await db.query("insert into applications (application_id, customer_id, status, declared_net_salary, tenure_months) values ('999999000001', $1, 'SUBMITTED', 80000, 60)", [cust.id]);
+  await asApi("authenticated", AUTHOR);
+  const bare = await one("select facts from fn_policy_facts(500) where application_id = '999999000001'");
+  t.equal("no EMI anywhere means affordability is unknown, not perfect",
+    [bare.facts.foir, bare.facts.freeIncomeRatio, bare.facts.ambVsEmiPct], [null, null, null]);
 
   // Impact figures come from the engine only
   await asApi("authenticated", AUTHOR);
