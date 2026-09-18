@@ -209,6 +209,32 @@ check("changes are explained", all(e["was"] != e["now"] for e in sim["examples"]
 check("result stored once", len(fake.recorded) == 1 and fake.recorded[0]["p_version_id"] == "id-2026.09", fake.recorded)
 check("stored result carries no applicant detail", "examples" not in (fake.recorded[0]["p_summary"] if fake.recorded else {}), fake.recorded[:1])
 
+# A run that could evaluate nothing is an error, not "no impact"
+saved_facts = fake.facts
+fake.facts = [{"application_id": "CER-9001", "decided_at": "2026-09-01T00:00:00+05:30",
+               "facts": {k: v for k, v in both[0].items() if k != "ambVsEmiPct"}}]
+try:
+    handler.simulate("id-2026.09", limit=5, record=False)
+    check("all-skipped run refuses to report no impact", False)
+except handler.PolicyError as e:
+    check("all-skipped run refuses to report no impact",
+          e.status == 422 and "ambVsEmiPct" in e.body.get("missing", {}), e.body)
+fake.facts = []
+try:
+    handler.simulate("id-2026.09", limit=5, record=False)
+    check("empty sample refuses to report no impact", False)
+except handler.PolicyError as e:
+    check("empty sample refuses to report no impact", e.status == 422, e.body)
+fake.facts = saved_facts
+
+# A fact that is present but unknown (null) still evaluates
+nulled = dict(both[0])
+nulled["ambVsEmiPct"] = None
+fake.facts = [{"application_id": "CER-9002", "decided_at": "2026-09-01T00:00:00+05:30", "facts": nulled}]
+partial = handler.simulate("id-2026.09", limit=5, record=False)
+check("null fact is evaluated, not skipped", partial["evaluated"] == 1 and partial["skipped"] == 0, partial)
+fake.facts = saved_facts
+
 # Nothing is stored when the caller only wants to look
 before_records = len(fake.recorded)
 handler.simulate("id-2026.09", limit=10, record=False)

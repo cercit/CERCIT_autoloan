@@ -466,8 +466,16 @@ const asOperator = () => asApi("", "");
     true, keys.join(","));
   // Only numbers and yes/no answers leave the database; nothing that identifies a person.
   t.equal("facts carry nothing personal",
-    Object.values(facts?.facts ?? {}).every((v) => typeof v === "number" || typeof v === "boolean"), true,
+    Object.values(facts?.facts ?? {}).every((v) => v === null || typeof v === "number" || typeof v === "boolean"), true,
     JSON.stringify(facts?.facts));
+  // 026: a fact that cannot be worked out stays present as null. Stripping it made the
+  // engine skip the whole application, and the first live run reported "nothing would
+  // change" after evaluating nothing.
+  t.equal("unknown facts stay present as null",
+    ["ambVsEmiPct", "bureauScore", "ltvOnRoad", "foir"].every((k) => k in (facts?.facts ?? {})), true,
+    Object.keys(facts?.facts ?? {}).join(","));
+  t.equal("every application carries the same fact keys",
+    (await one("select count(distinct k)::int as n from (select string_agg(key, ',' order by key) as k from fn_policy_facts(20), jsonb_object_keys(facts) as key group by application_id) x")).n <= 1, true);
   t.equal("the sample is limited to what was asked for",
     (await one("select count(*)::int as n from fn_policy_facts(2)")).n <= 2, true);
 

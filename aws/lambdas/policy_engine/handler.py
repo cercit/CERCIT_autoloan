@@ -83,14 +83,17 @@ def simulate(version_id: str, limit: int = 200, record: bool = True, product: st
     flips: dict[str, int] = {}
     changed: list[dict] = []
     skipped: list[str] = []
+    missing_counts: dict[str, int] = {}
 
     for row in rows:
         facts = row["facts"]
         try:
             before = _run(live, facts)
             after = _run(proposed, facts)
-        except PolicyError:
+        except PolicyError as e:
             skipped.append(row["application_id"])
+            for name in e.body.get("missing", []) or ["unreadable"]:
+                missing_counts[name] = missing_counts.get(name, 0) + 1
             continue
         was[before["decision"]] += 1
         counts[after["decision"]] += 1
@@ -105,16 +108,26 @@ def simulate(version_id: str, limit: int = 200, record: bool = True, product: st
                     "because": sorted(set(after["hard"] + after["soft"]) - set(before["hard"] + before["soft"])),
                 })
 
+    evaluated = len(rows) - len(skipped)
     summary = {
         "proposed": proposed["version_code"],
         "inForce": live["version_code"],
-        "evaluated": len(rows) - len(skipped),
+        "evaluated": evaluated,
         "skipped": len(skipped),
+        "skippedBecauseMissing": dict(sorted(missing_counts.items(), key=lambda kv: -kv[1])),
         "before": was,
         "after": counts,
         "changed": sum(flips.values()),
         "examples": changed,
     }
+
+    # "Nothing would change" and "nothing could be checked" must never look alike.
+    if rows and evaluated == 0:
+        raise PolicyError(422, "no application could be evaluated against both versions",
+                          sampleSize=len(rows), missing=summary["skippedBecauseMissing"],
+                          proposed=proposed["version_code"], inForce=live["version_code"])
+    if not rows:
+        raise PolicyError(422, "no applications to check the change against")
 
     if record and rows:
         summary["simulationId"] = _rpc("fn_policy_simulation_record", {
