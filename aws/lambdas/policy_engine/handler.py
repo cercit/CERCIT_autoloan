@@ -9,6 +9,12 @@ POST /evaluate
   body: {"facts": {...}, "product": "CAR_NEW", "at": "2026-09-17T10:00:00+05:30"}
   "product" and "at" are optional (defaults: CAR_NEW, now).
 
+POST /simulate  (backlog CC3.1)
+  body: {"versionId": "...", "limit": 200, "record": true}
+  Runs recent real applications through the proposed version and the version in
+  force, and reports what would change. Nothing about an applicant is returned
+  beyond the application reference an officer can already look up.
+
 Every fact the policy version reads must be present (null is allowed, e.g. a
 bureau score when there is no bureau report). The response names the version
 used, so each decision can be traced to the exact rules that produced it.
@@ -51,7 +57,14 @@ def handler(event, context):
         if via_api:
             _require_user(event.get("headers") or {})
         body = _parse_body(event, via_api)
-        result = evaluate(body["facts"], body.get("product", "CAR_NEW"), body.get("at"))
+        path = (event.get("path") or "") if via_api else ""
+        if path.endswith("/simulate") or ("versionId" in body and "facts" not in body):
+            if not body.get("versionId"):
+                raise PolicyError(400, "versionId is required")
+            result = simulate(body["versionId"], body.get("limit", 200), body.get("record", True),
+                              body.get("product", "CAR_NEW"))
+        else:
+            result = evaluate(body["facts"], body.get("product", "CAR_NEW"), body.get("at"))
         return _response(200, result) if via_api else result
     except PolicyError as e:
         if not via_api:
@@ -59,24 +72,97 @@ def handler(event, context):
         return _response(e.status, e.body)
 
 
-def evaluate(facts: dict, product: str = "CAR_NEW", at: str | None = None) -> dict:
-    policy = _policy_in_force(product, at)
-    decision, required = _decision_for(policy)
+def simulate(version_id: str, limit: int = 200, record: bool = True, product: str = "CAR_NEW") -> dict:
+    """Run recent applications through a proposed version and the one in force."""
+    proposed = _policy_by_id(version_id)
+    live = _policy_in_force(product, None)
 
+    rows = _rpc("fn_policy_facts", {"p_limit": max(1, min(int(limit), 2000))}) or []
+    counts = {"approve": 0, "review": 0, "decline": 0}
+    was = {"approve": 0, "review": 0, "decline": 0}
+    flips: dict[str, int] = {}
+    changed: list[dict] = []
+    skipped: list[str] = []
+
+    for row in rows:
+        facts = row["facts"]
+        try:
+            before = _run(live, facts)
+            after = _run(proposed, facts)
+        except PolicyError:
+            skipped.append(row["application_id"])
+            continue
+        was[before["decision"]] += 1
+        counts[after["decision"]] += 1
+        if before["decision"] != after["decision"]:
+            key = f"{before['decision']}->{after['decision']}"
+            flips[key] = flips.get(key, 0) + 1
+            if len(changed) < 50:
+                changed.append({
+                    "applicationId": row["application_id"],
+                    "was": before["decision"],
+                    "now": after["decision"],
+                    "because": sorted(set(after["hard"] + after["soft"]) - set(before["hard"] + before["soft"])),
+                })
+
+    summary = {
+        "proposed": proposed["version_code"],
+        "inForce": live["version_code"],
+        "evaluated": len(rows) - len(skipped),
+        "skipped": len(skipped),
+        "before": was,
+        "after": counts,
+        "changed": sum(flips.values()),
+        "examples": changed,
+    }
+
+    if record and rows:
+        summary["simulationId"] = _rpc("fn_policy_simulation_record", {
+            "p_version_id": version_id,
+            "p_compared_to": live["policy_version_id"],
+            "p_sample_size": len(rows) - len(skipped),
+            "p_flips": flips,
+            "p_summary": {k: v for k, v in summary.items() if k != "examples"},
+        })
+
+    return {"flips": flips, **summary}
+
+
+def _run(policy: dict, facts: dict) -> dict:
+    decision, required = _decision_for(policy)
     missing = [f for f in required if f not in facts]
     if missing:
         raise PolicyError(400, "facts missing", missing=missing, policyVersion=policy["version_code"])
-
-    try:
-        result = decision.evaluate(facts)["result"]
-    except Exception as e:  # Zen reports bad fact types here
-        raise PolicyError(400, f"facts could not be evaluated: {e}", policyVersion=policy["version_code"])
-
+    result = decision.evaluate(facts)["result"]
     return {
         "decision": result["decision"],
         "hard": sorted(set(result.get("hard") or [])),
         "soft": sorted(set(result.get("soft") or [])),
         "score": result["score"],
+    }
+
+
+def _policy_by_id(version_id: str) -> dict:
+    rows = _rpc("fn_policy_document_by_id", {"p_version_id": version_id})
+    if not rows:
+        raise PolicyError(404, "policy version not found")
+    policy = rows[0]
+    if policy["engine"] != "zen":
+        raise PolicyError(500, f"policy {policy['version_code']} uses engine {policy['engine']}, expected zen")
+    return policy
+
+
+def evaluate(facts: dict, product: str = "CAR_NEW", at: str | None = None) -> dict:
+    policy = _policy_in_force(product, at)
+    try:
+        result = _run(policy, facts)
+    except PolicyError:
+        raise
+    except Exception as e:  # Zen reports bad fact types here
+        raise PolicyError(400, f"facts could not be evaluated: {e}", policyVersion=policy["version_code"])
+
+    return {
+        **result,
         "policyVersion": policy["version_code"],
         "policyVersionId": policy["policy_version_id"],
         "documentSha256": policy["document_sha256"],
@@ -152,7 +238,7 @@ def _parse_body(event: dict, via_api: bool) -> dict:
             body = json.loads(body)
         except json.JSONDecodeError:
             raise PolicyError(400, "body must be JSON")
-    if not isinstance(body, dict) or not isinstance(body.get("facts"), dict):
+    if not isinstance(body, dict) or not (isinstance(body.get("facts"), dict) or body.get("versionId")):
         raise PolicyError(400, "body must contain a facts object")
     return body
 

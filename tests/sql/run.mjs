@@ -446,6 +446,63 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 9. Impact check before approval (025)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("policy impact check");
+  const AUTHOR = "aaaaaaaa-0000-0000-0000-000000000001";
+  const HEAD = "bbbbbbbb-0000-0000-0000-000000000002";
+  const CLERK = "cccccccc-0000-0000-0000-000000000003";
+
+  await asApi("authenticated", CLERK);
+  await t.rejects("officer reads application facts", () => db.query("select * from fn_policy_facts(5)"), /permission denied/);
+  await asApi("authenticated", AUTHOR);
+  const facts = await one("select application_id, facts from fn_policy_facts(5) limit 1");
+  t.equal("facts come back for a real application", typeof facts?.application_id === "string" && facts.facts !== null, true);
+  const keys = Object.keys(facts?.facts ?? {});
+  t.equal("facts use the names both rule sets read",
+    ["age", "foir", "tenureMonths", "hasBureau", "hasSevereDPD"].every((k) => keys.includes(k)),
+    true, keys.join(","));
+  // Only numbers and yes/no answers leave the database; nothing that identifies a person.
+  t.equal("facts carry nothing personal",
+    Object.values(facts?.facts ?? {}).every((v) => typeof v === "number" || typeof v === "boolean"), true,
+    JSON.stringify(facts?.facts));
+  t.equal("the sample is limited to what was asked for",
+    (await one("select count(*)::int as n from fn_policy_facts(2)")).n <= 2, true);
+
+  // Recording a comparison, then reading it back for the approval screen
+  const target = await one("select id from policy_versions where status = 'PENDING_APPROVAL' order by submitted_at desc limit 1");
+  const liveId = (await one("select fn_policy_version_at() as v")).v;
+  if (target) {
+    await t.ok("author records a comparison", () => db.query(
+      "select fn_policy_simulation_record($1, $2, 120, '{\"review->decline\": 4}'::jsonb, '{\"changed\": 4}'::jsonb)",
+      [target.id, liveId]));
+    const impact = await one("select sample_size, flips, summary, run_by from fn_policy_impact($1)", [target.id]);
+    t.equal("approval screen sees the comparison",
+      [impact.sample_size, impact.flips["review->decline"], impact.run_by !== null], [120, 4, true]);
+    await asApi("authenticated", HEAD);
+    await t.ok("the approver can read it too", () => db.query("select * from fn_policy_impact($1)", [target.id]));
+  }
+
+  // The engine reaches the facts as the service role, and writes only through the function
+  await db.query("begin");
+  await db.query("set local role service_role");
+  await t.ok("engine reads the facts", () => db.query("select * from fn_policy_facts(3)"));
+  await db.query("rollback");
+  await db.query("begin");
+  await db.query("set local role service_role");
+  await t.rejects("engine writes a simulation row directly", () =>
+    db.query("insert into policy_simulations (policy_version_id, sample_size) values ($1, 1)", [liveId]), /permission denied/);
+  await db.query("rollback");
+
+  await db.query("set role anon");
+  await t.rejects("anon reads the facts", () => db.query("select * from fn_policy_facts(1)"), /permission denied for function/);
+  await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
