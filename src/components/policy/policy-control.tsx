@@ -13,8 +13,10 @@ import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getCurrentUser } from "@/lib/auth";
 import {
   approveChange,
+  NUMERIC_VALUE_TYPES,
   createPolicyDraft,
   discardDraft,
   formatSettingValue,
@@ -57,14 +59,18 @@ export function PolicyControl() {
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [meId, setMeId] = useState<string | null>(null);
 
   const live = versions.find((v) => v.status === "ACTIVE") ?? null;
 
   async function refresh() {
-    const [vs, ps] = await Promise.all([getPolicyVersions(), getPendingChanges()]);
+    const [vs, ps, me] = await Promise.all([getPolicyVersions(), getPendingChanges(), getCurrentUser()]);
     setVersions(vs);
     setPending(ps);
-    const mine = vs.find((v) => v.status === "DRAFT");
+    setMeId(me?.id ?? null);
+    // Only your own draft. Somebody else's is theirs to finish, and the database
+    // refuses your edits to it anyway.
+    const mine = vs.find((v) => v.status === "DRAFT" && (me?.id ? v.authoredBy === me.id : false));
     setDraft(mine ?? null);
     const show = mine ?? vs.find((v) => v.status === "ACTIVE");
     setSettings(show ? await getPolicySettings(show.id) : []);
@@ -95,8 +101,9 @@ export function PolicyControl() {
     if (!draft) return;
     const raw = edits[s.key];
     if (raw === undefined || raw === "") return;
-    const value = s.valueType === "number" ? Number(raw) : raw;
-    if (s.valueType === "number" && Number.isNaN(value)) {
+    const numeric = NUMERIC_VALUE_TYPES.includes(s.valueType);
+    const value = numeric ? Number(raw) : raw;
+    if (numeric && Number.isNaN(value)) {
       toast.error("That is not a number");
       return;
     }
@@ -199,6 +206,12 @@ export function PolicyControl() {
           )
         }
       >
+        {!draft && versions.some((v) => v.status === "DRAFT" && v.authoredBy !== meId) && (
+          <p className="mb-3 rounded-lg border border-border bg-surface-subtle p-3 text-sm text-muted-foreground">
+            Someone else has a draft open. Proposing a change starts your own, separate from theirs.
+          </p>
+        )}
+
         {draft && (
           <p className="mb-3 rounded-lg border border-border bg-surface-subtle p-3 text-sm">
             <strong>Draft {draft.versionCode}</strong> — {draft.rationale}. Nothing here affects
@@ -250,7 +263,7 @@ export function PolicyControl() {
                               <Input
                                 id={`set-${s.key}`}
                                 className="h-8 w-28"
-                                inputMode={s.valueType === "number" ? "decimal" : "text"}
+                                inputMode={NUMERIC_VALUE_TYPES.includes(s.valueType) ? "decimal" : "text"}
                                 placeholder="New value"
                                 value={edits[s.key] ?? ""}
                                 onChange={(e) => setEdits((prev) => ({ ...prev, [s.key]: e.target.value }))}

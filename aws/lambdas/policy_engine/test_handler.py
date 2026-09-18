@@ -31,6 +31,8 @@ class FakeSupabase:
         self.valid_tokens = {"Bearer good-token"}
         self.calls = []
         self.recorded = []
+        # Who the database says may ask for an impact check, in their own name
+        self.may_simulate_tokens = {"Bearer good-token"}
         # Facts carrying both naming schemes, as fn_policy_facts returns them
         self.facts = []
 
@@ -40,6 +42,8 @@ class FakeSupabase:
             if auth_header not in self.valid_tokens:
                 raise handler.PolicyError(502, "Supabase /auth/v1/user returned 401")
             return {"id": "user-1"}
+        if path == "/rest/v1/rpc/fn_policy_may_simulate":
+            return auth_header in self.may_simulate_tokens
         if path == "/rest/v1/rpc/fn_policy_document_by_id":
             code = payload["p_version_id"].replace("id-", "")
             if code not in POLICIES:
@@ -250,6 +254,16 @@ check("simulate without a version", r["statusCode"] == 400, r)
 r = handler.handler({"requestContext": {}, "path": "/prod/simulate", "headers": {},
                      "body": json.dumps({"versionId": "id-2026.09"})}, None)
 check("simulate needs a sign-in", r["statusCode"] == 401, r)
+
+# Signed in is not enough: the caller's own rights are checked, not the engine's key
+fake.valid_tokens.add("Bearer officer-token")
+r = handler.handler({"requestContext": {}, "path": "/prod/simulate", "headers": {"Authorization": "Bearer officer-token"},
+                     "body": json.dumps({"versionId": "id-2026.09", "limit": 5, "record": False})}, None)
+check("a signed-in user without policy rights is refused", r["statusCode"] == 403, r)
+fake.may_simulate_tokens.add("Bearer officer-token")
+r = handler.handler({"requestContext": {}, "path": "/prod/simulate", "headers": {"Authorization": "Bearer officer-token"},
+                     "body": json.dumps({"versionId": "id-2026.09", "limit": 5, "record": False})}, None)
+check("once allowed, the same caller gets through", r["statusCode"] == 200, r)
 
 # An unknown version is reported rather than guessed at
 try:

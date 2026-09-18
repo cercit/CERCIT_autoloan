@@ -61,6 +61,10 @@ def handler(event, context):
         if path.endswith("/simulate") or ("versionId" in body and "facts" not in body):
             if not body.get("versionId"):
                 raise PolicyError(400, "versionId is required")
+            if via_api:
+                # This function holds a service key, which passes every check in the
+                # database. Ask, in the caller's own name, whether they may do this.
+                _require_permission_to_simulate(event.get("headers") or {})
             result = simulate(body["versionId"], body.get("limit", 200), body.get("record", True),
                               body.get("product", "CAR_NEW"))
         else:
@@ -84,6 +88,7 @@ def simulate(version_id: str, limit: int = 200, record: bool = True, product: st
     changed: list[dict] = []
     skipped: list[str] = []
     missing_counts: dict[str, int] = {}
+    unknown_counts: dict[str, int] = {}
 
     for row in rows:
         facts = row["facts"]
@@ -95,6 +100,9 @@ def simulate(version_id: str, limit: int = 200, record: bool = True, product: st
             for name in e.body.get("missing", []) or ["unreadable"]:
                 missing_counts[name] = missing_counts.get(name, 0) + 1
             continue
+        for name, value in facts.items():
+            if value is None:
+                unknown_counts[name] = unknown_counts.get(name, 0) + 1
         was[before["decision"]] += 1
         counts[after["decision"]] += 1
         if before["decision"] != after["decision"]:
@@ -115,6 +123,9 @@ def simulate(version_id: str, limit: int = 200, record: bool = True, product: st
         "evaluated": evaluated,
         "skipped": len(skipped),
         "skippedBecauseMissing": dict(sorted(missing_counts.items(), key=lambda kv: -kv[1])),
+        # A fact nobody recorded cannot be judged: the rule that reads it never fires,
+        # so these counts say how much of the comparison rests on unknowns.
+        "factsNotKnown": dict(sorted(unknown_counts.items(), key=lambda kv: -kv[1])),
         "before": was,
         "after": counts,
         "changed": sum(flips.values()),
@@ -232,6 +243,13 @@ def _decision_for(policy: dict):
         document = policy["document"]
         _decisions[sha] = (_engine.create_decision(json.dumps(document)), required_facts(document))
     return _decisions[sha]
+
+
+def _require_permission_to_simulate(headers: dict) -> None:
+    auth = next((v for k, v in headers.items() if k.lower() == "authorization"), "")
+    allowed = _request("POST", "/rest/v1/rpc/fn_policy_may_simulate", payload={}, auth_header=auth)
+    if allowed is not True:
+        raise PolicyError(403, "you do not have the right to run an impact check")
 
 
 def _require_user(headers: dict) -> None:

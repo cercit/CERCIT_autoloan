@@ -79,6 +79,20 @@ export function useFeatureFlags(): FeatureFlagMap {
   return data ?? {};
 }
 
+/**
+ * Whether a switch is on, and whether the answer is known yet. A screen that
+ * replaces an older one must wait: treating "still loading" as off shows the
+ * old screen for a moment, and its buttons work while it is on show.
+ */
+export function useFeatureStatus(flag: FeatureFlag): { enabled: boolean; ready: boolean } {
+  const { data, isPending, isError } = useQuery({
+    queryKey: featureFlagsQueryKey,
+    queryFn: fetchFeatureFlags,
+    staleTime: 60_000,
+  });
+  return { enabled: (data ?? {})[flag] === true, ready: !isPending || isError };
+}
+
 /** True only when the switch is explicitly on. */
 export function useFeature(flag: FeatureFlag): boolean {
   return useFeatureFlags()[flag] === true;
