@@ -1,6 +1,13 @@
 version = 0.1
 
+# OneDrive keeps the default .aws-sam folder open while it syncs, which makes
+# "sam build" fail with "Access is denied". The build output therefore lives
+# outside OneDrive, and the deploy reads its template from the same place.
+[default.build.parameters]
+build_dir = "C:/Users/samsm/AppData/Local/cercit-sam/build"
+
 [default.deploy.parameters]
+template_file = "C:/Users/samsm/AppData/Local/cercit-sam/build/template.yaml"
 stack_name = "cercit-pipeline"
 resolve_s3 = true
 s3_prefix = "cercit-pipeline"
