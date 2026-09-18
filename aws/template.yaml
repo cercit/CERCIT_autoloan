@@ -232,8 +232,8 @@ Resources:
       Description: Runs the credit policy version in force (GoRules Zen) - backlog FD4.3
       CodeUri: lambdas/policy_engine/
       Handler: handler.handler
-      Timeout: 15
-      MemorySize: 512
+      Timeout: 60
+      MemorySize: 1024
       Environment:
         Variables:
           POLICY_CACHE_SECONDS: "60"
@@ -243,6 +243,12 @@ Resources:
           Properties:
             RestApiId: !Ref CercitApi
             Path: /evaluate
+            Method: post
+        Simulate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /simulate
             Method: post
 
   CercitApi:

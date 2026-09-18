@@ -22,6 +22,7 @@ Order matters: each file assumes the ones above it are already in.
 | 021 | `021_draft_policy_2026_09.sql` | ✅ 17 Sep 2026 | The unified rules stored as draft 2026.09 (not live until approved) |
 | 023 | `023_policy_change_workflow.sql` | ✅ 18 Sep 2026 | Propose, withdraw, approve, reject a policy change, and the job that makes an approved version live on its date |
 | 024 | `024_policy_draft_editing.sql` | ☐ | Start a draft from the version in force, change its settings, discard it; read a version's settings with their limits |
+| 025 | `025_policy_impact_check.sql` | ☐ | Hands recent applications to the rules engine so a proposed change can be run beside the live one, and keeps the result |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.

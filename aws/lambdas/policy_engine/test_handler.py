@@ -30,6 +30,9 @@ class FakeSupabase:
         self.in_force = "2026.08"
         self.valid_tokens = {"Bearer good-token"}
         self.calls = []
+        self.recorded = []
+        # Facts carrying both naming schemes, as fn_policy_facts returns them
+        self.facts = []
 
     def request(self, method, path, payload=None, auth_header=None):
         self.calls.append((method, path, payload))
@@ -37,6 +40,22 @@ class FakeSupabase:
             if auth_header not in self.valid_tokens:
                 raise handler.PolicyError(502, "Supabase /auth/v1/user returned 401")
             return {"id": "user-1"}
+        if path == "/rest/v1/rpc/fn_policy_document_by_id":
+            code = payload["p_version_id"].replace("id-", "")
+            if code not in POLICIES:
+                return []
+            return [{
+                "policy_version_id": f"id-{code}",
+                "version_code": code,
+                "engine": "zen",
+                "document": POLICIES[code],
+                "document_sha256": f"sha-{code}",
+            }]
+        if path == "/rest/v1/rpc/fn_policy_facts":
+            return self.facts[: payload["p_limit"]]
+        if path == "/rest/v1/rpc/fn_policy_simulation_record":
+            self.recorded.append(payload)
+            return "sim-1"
         if path == "/rest/v1/rpc/fn_policy_document_at":
             code = payload.get("p_at", "")[:7].replace("-", ".") or self.in_force
             if code not in POLICIES:
@@ -157,6 +176,62 @@ check("dated requests not cached", len(fake.calls) - before == 2)
 # 7. Nothing in force
 r = handler.handler(api_event({"facts": facts_08, "at": "2020-01-01T00:00:00Z"}), None)
 check("no policy 404", r["statusCode"] == 404, r)
+
+# 8. The impact check (CC3.1): the same applications through both versions
+fake = FakeSupabase()
+reset(fake)
+both = []
+for c in CASES["2026.09"][:60]:
+    facts = dict(c["input"])
+    facts.update(
+        hasSevereDPD=bool(facts.get("dpd60Ever") or facts.get("dpd90OrWriteoff12m")),
+        hasRecentDPD=bool(facts.get("anyDpd6m")),
+        bounces=facts.get("bounces6m") or 0,
+    )
+    for key in ("bureauScore", "salaryMonthsRegular", "ccServicingPattern", "foir", "freeIncomeRatio",
+                "ltvOnExShowroom", "ltvOnRoad", "age", "ageAtMaturity", "tenureMonths", "onRoadPrice",
+                "employmentYears"):
+        if facts.get(key) is None:
+            facts[key] = 0
+    both.append(facts)
+fake.facts = [{"application_id": f"CER-{i:04d}", "decided_at": "2026-09-01T00:00:00+05:30", "facts": f}
+              for i, f in enumerate(both, 1)]
+
+sim = handler.simulate("id-2026.09", limit=60)
+print(f"impact check: {sim['evaluated']} applications, {sim['changed']} would change {sim['flips']}")
+check("simulation names both versions", (sim["proposed"], sim["inForce"]) == ("2026.09", "2026.08"), sim.get("proposed"))
+check("every application evaluated", sim["evaluated"] == len(both) and sim["skipped"] == 0,
+      {"evaluated": sim["evaluated"], "skipped": sim["skipped"]})
+check("before and after counts add up",
+      sum(sim["before"].values()) == sim["evaluated"] and sum(sim["after"].values()) == sim["evaluated"], sim)
+check("changes counted match the flips listed", sim["changed"] == sum(sim["flips"].values()), sim["flips"])
+check("changes are explained", all(e["was"] != e["now"] for e in sim["examples"]), sim["examples"][:2])
+check("result stored once", len(fake.recorded) == 1 and fake.recorded[0]["p_version_id"] == "id-2026.09", fake.recorded)
+check("stored result carries no applicant detail", "examples" not in (fake.recorded[0]["p_summary"] if fake.recorded else {}), fake.recorded[:1])
+
+# Nothing is stored when the caller only wants to look
+before_records = len(fake.recorded)
+handler.simulate("id-2026.09", limit=10, record=False)
+check("dry run stores nothing", len(fake.recorded) == before_records)
+
+# Through the API, with the path
+r = handler.handler({"requestContext": {}, "path": "/prod/simulate", "headers": {"Authorization": "Bearer good-token"},
+                     "body": json.dumps({"versionId": "id-2026.09", "limit": 5, "record": False})}, None)
+check("simulate through the API", r["statusCode"] == 200 and json.loads(r["body"])["proposed"] == "2026.09", r)
+r = handler.handler({"requestContext": {}, "path": "/prod/simulate", "headers": {"Authorization": "Bearer good-token"},
+                     "body": json.dumps({"limit": 5})}, None)
+check("simulate without a version", r["statusCode"] == 400, r)
+r = handler.handler({"requestContext": {}, "path": "/prod/simulate", "headers": {},
+                     "body": json.dumps({"versionId": "id-2026.09"})}, None)
+check("simulate needs a sign-in", r["statusCode"] == 401, r)
+
+# An unknown version is reported rather than guessed at
+try:
+    handler.simulate("id-9999.99", limit=5)
+    check("unknown version refused", False)
+except handler.PolicyError as e:
+    check("unknown version refused", e.status == 404, e.body)
+
 
 if failures:
     print(f"\n{failures} Lambda check(s) failed")
