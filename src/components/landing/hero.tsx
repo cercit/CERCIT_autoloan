@@ -23,8 +23,6 @@ import { LOAN_LIMITS, rupee, tenureLabel, type LoanState } from "./loan";
 const journey = ["Choose", "Check", "Apply", "Approve", "Drive"] as const;
 
 const navLinks = [
-  ["#journey", "EMI Calculator"],
-  ["#vehicles", "Vehicles"],
   ["#why-cercit", "Why cercit"],
   ["#faqs", "FAQs"],
 ] as const;
@@ -116,14 +114,6 @@ export function Hero() {
             <Button asChild variant="ghost" className="nav-login">
               <Link to="/login">Login</Link>
             </Button>
-            <Button asChild variant="outline" className="nav-track">
-              <Link to="/application-status">Track Application</Link>
-            </Button>
-            <Button asChild className="nav-start">
-              <Link to="/apply">
-                Get Started <ArrowRight />
-              </Link>
-            </Button>
           </div>
           <Button
             type="button"
@@ -149,14 +139,6 @@ export function Hero() {
               ))}
             </nav>
             <div className="mobile-panel-actions">
-              <Button asChild variant="outline" className="nav-track">
-                <Link to="/application-status">Track Application</Link>
-              </Button>
-              <Button asChild className="nav-start">
-                <Link to="/apply">
-                  Get Started <ArrowRight />
-                </Link>
-              </Button>
               <Link to="/login" className="mobile-login">
                 Employee login
               </Link>
