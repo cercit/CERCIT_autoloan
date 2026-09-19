@@ -9,14 +9,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { SectionCard } from "@/components/app-shell";
-import { ImpactPanel } from "@/components/policy/impact-panel";
+import { PendingChangeCard, when } from "@/components/policy/pending-change";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getCurrentUser } from "@/lib/auth";
 import {
-  approveChange,
   NUMERIC_VALUE_TYPES,
   createPolicyDraft,
   discardDraft,
@@ -24,10 +23,8 @@ import {
   getPendingChanges,
   getPolicySettings,
   getPolicyVersions,
-  rejectChange,
   setDraftSetting,
   submitForApproval,
-  withdrawChange,
   type PendingChange,
   type PolicySetting,
   type PolicyVersion,
@@ -45,11 +42,6 @@ function statusTone(status: string) {
   if (status === "PENDING_APPROVAL") return "warning" as const;
   if (status === "REJECTED" || status === "CANCELLED") return "destructive" as const;
   return "muted" as const;
-}
-
-function when(value: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function PolicyControl() {
@@ -145,38 +137,6 @@ export function PolicyControl() {
       return;
     }
     toast.success("Draft discarded");
-    await refresh();
-  }
-
-  async function act(change: PendingChange, action: "approve" | "reject" | "withdraw") {
-    setBusy(true);
-    let result;
-    if (action === "approve") {
-      const date = window.prompt("Start date (YYYY-MM-DD)", new Date(Date.now() + 864e5).toISOString().slice(0, 10));
-      if (!date) {
-        setBusy(false);
-        return;
-      }
-      result = await approveChange(change.versionId, `${date}T00:00:00+05:30`, window.prompt("Comment (optional)") ?? undefined);
-    } else if (action === "reject") {
-      const reason = window.prompt("Why is it being rejected?");
-      if (!reason) {
-        setBusy(false);
-        return;
-      }
-      result = await rejectChange(change.versionId, reason);
-    } else {
-      result = await withdrawChange(change.versionId, window.prompt("Why take it back? (optional)") ?? undefined);
-    }
-    setBusy(false);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success(
-      action === "approve" ? "Approved. It goes live on its start date." :
-      action === "reject" ? "Rejected" : "Taken back to your drafts"
-    );
     await refresh();
   }
 
@@ -294,38 +254,7 @@ export function PolicyControl() {
         ) : (
           <ul className="flex flex-col gap-3">
             {pending.map((c) => (
-              <li key={c.versionId} className="rounded-lg border border-border p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <strong>{c.versionCode}</strong>
-                  <Pill tone="warning">waiting</Pill>
-                  {c.tier ? <Pill tone="muted">{c.tier.toLowerCase()}</Pill> : null}
-                  <span className="text-sm text-muted-foreground">
-                    {c.author ? `by ${c.author}` : "author unknown"} · sent {when(c.submittedAt)}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm">{c.title ?? c.rationale}</p>
-                {c.summary ? <p className="mt-1 text-sm text-muted-foreground">{c.summary}</p> : null}
-                <ImpactPanel versionId={c.versionId} liveVersionCode={live?.versionCode ?? null} />
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {c.mine ? (
-                    <>
-                      <span className="text-sm text-muted-foreground">
-                        You wrote this one, so someone else has to approve it.
-                      </span>
-                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(c, "withdraw")}>
-                        Take it back
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="sm" disabled={busy} onClick={() => act(c, "approve")}>Approve</Button>
-                      <Button size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => act(c, "reject")}>
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </li>
+              <PendingChangeCard key={c.versionId} change={c} liveVersionCode={live?.versionCode ?? null} onDone={refresh} />
             ))}
           </ul>
         )}

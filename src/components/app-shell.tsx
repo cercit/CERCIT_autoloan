@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Building2,
+  ClipboardCheck,
   ClipboardList,
   Clock,
   LayoutDashboard,
@@ -12,7 +13,7 @@ import {
   Users2,
   X,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Pill } from "@/components/status";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -28,15 +29,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { currentUser } from "@/lib/mock-data";
+import { useFeatureStatus } from "@/lib/feature-flags";
+import { getPendingChanges } from "@/lib/policy-api";
 import { signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { NotificationDropdown } from "@/components/notification-dropdown";
 import type { NotificationItem } from "@/components/notification-dropdown";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ShortcutOverlay } from "@/components/shortcut-overlay";
-const nav = [
+const nav: { to: string; label: string; icon: typeof LayoutDashboard; badge?: number; creditControl?: boolean }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/applications", label: "Applications", icon: ClipboardList, badge: 12 },
+  { to: "/approvals", label: "Approvals", icon: ClipboardCheck, creditControl: true },
   { to: "/policy-rules", label: "Policy Rules", icon: Settings2 },
   { to: "/employers", label: "Employer Master", icon: Building2 },
   { to: "/rate-grid", label: "Rate Grid", icon: Table2 },
@@ -55,13 +59,33 @@ function Logo() {
   );
 }
 
+// Policy changes someone else wrote, waiting for sign-off. Only counted once
+// Credit control is on; before that there is nothing to approve.
+function useApprovalsWaiting(enabled: boolean) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void getPendingChanges().then((ps) => {
+      if (!cancelled) setCount(ps.filter((c) => !c.mine).length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return count;
+}
+
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { enabled: creditControl } = useFeatureStatus("credit_control");
+  const waiting = useApprovalsWaiting(creditControl);
 
   return (
     <nav className="flex flex-col gap-1">
-      {nav.map((item) => {
+      {nav.filter((item) => !item.creditControl || creditControl).map((item) => {
         const active = pathname.startsWith(item.to);
+        const badge = item.to === "/approvals" ? waiting : item.badge;
         return (
           <Link
             key={item.to}
@@ -76,9 +100,9 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           >
             <item.icon className="size-4 shrink-0" />
             <span className="flex-1">{item.label}</span>
-            {item.badge ? (
+            {badge ? (
               <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                {item.badge}
+                {badge}
               </span>
             ) : null}
           </Link>

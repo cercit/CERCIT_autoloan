@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApplicationStatusRouteImport } from './routes/application-status'
 import { Route as ApplyRouteImport } from './routes/apply'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AuditLogRouteImport } from './routes/audit-log'
 import { Route as CheckEligibilityRouteImport } from './routes/check-eligibility'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -40,6 +41,11 @@ const ApplicationStatusRoute = ApplicationStatusRouteImport.update({
 const ApplyRoute = ApplyRouteImport.update({
   id: '/apply',
   path: '/apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuditLogRoute = AuditLogRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/application-status': typeof ApplicationStatusRoute
   '/apply': typeof ApplyRoute
+  '/approvals': typeof ApprovalsRoute
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/application-status': typeof ApplicationStatusRoute
   '/apply': typeof ApplyRoute
+  '/approvals': typeof ApprovalsRoute
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/application-status': typeof ApplicationStatusRoute
   '/apply': typeof ApplyRoute
+  '/approvals': typeof ApprovalsRoute
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/'
     | '/application-status'
     | '/apply'
+    | '/approvals'
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/'
     | '/application-status'
     | '/apply'
+    | '/approvals'
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/'
     | '/application-status'
     | '/apply'
+    | '/approvals'
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApplicationStatusRoute: typeof ApplicationStatusRoute
   ApplyRoute: typeof ApplyRoute
+  ApprovalsRoute: typeof ApprovalsRoute
   AuditLogRoute: typeof AuditLogRoute
   CheckEligibilityRoute: typeof CheckEligibilityRoute
   DashboardRoute: typeof DashboardRoute
@@ -273,6 +286,13 @@ declare module '@tanstack/react-router' {
       path: '/apply'
       fullPath: '/apply'
       preLoaderRoute: typeof ApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvals': {
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audit-log': {
@@ -380,6 +400,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApplicationStatusRoute: ApplicationStatusRoute,
   ApplyRoute: ApplyRoute,
+  ApprovalsRoute: ApprovalsRoute,
   AuditLogRoute: AuditLogRoute,
   CheckEligibilityRoute: CheckEligibilityRoute,
   DashboardRoute: DashboardRoute,

@@ -141,6 +141,13 @@ export async function getPendingChanges(): Promise<PendingChange[]> {
   }));
 }
 
+/** Whether the signed-in person may sign policy changes off (checked by the database). */
+export async function canApprovePolicy(): Promise<boolean> {
+  if (!isSupabaseConfigured || isDemoMode()) return false;
+  const { data, error } = await supabase.rpc("fn_has_permission", { p_permission: "policy.approve" });
+  return !error && data === true;
+}
+
 export async function createPolicyDraft(input: {
   versionCode: string;
   rationale: string;
