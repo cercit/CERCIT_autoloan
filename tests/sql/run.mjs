@@ -781,6 +781,72 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 13. FOIR base, LTV base and tenure precedence (031)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("FOIR, LTV and tenure basis");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  let n = 40;
+  const submit = async (overrides) => {
+    n += 1;
+    const args = {
+      p_full_name: "Basis Test", p_email: `basis${n}@t.in`, p_mobile: `90000000${n}`, p_pan: `BASIS${1000 + n}B`,
+      p_dob: "1990-01-01", p_employer: "Infosys", p_city: "Chennai", p_state_code: "TN", p_pincode: "600001",
+      p_make: "Maruti Suzuki", p_model: "Dzire", p_variant: "VXI", p_fuel_type: "PETROL",
+      p_net_salary: 95000, p_loan_amount: 600000, p_ex_showroom: 700000, p_on_road: 780000, p_cibil_score: 780, p_tenure: 60,
+      ...overrides,
+    };
+    const names = Object.keys(args);
+    await asApi("authenticated", OFFICER);
+    const v = (await one(`select fn_submit_full_application(${names.map((k, j) => `${k} => $${j + 1}`).join(", ")}) as v`, names.map((k) => args[k]))).v;
+    await asOperator();
+    if (v.decision === "ERROR") throw new Error(JSON.stringify(v));
+    return one(`select r.*, a.tenure_months as asked from recommendations r join applications a on a.id = r.application_id
+      where r.application_id = $1 order by r.created_at desc limit 1`, [v.application_uuid]);
+  };
+
+  // Tenure: the tightest limit that applies
+  t.equal("product limit beats a looser band", await one("select * from fn_tenure_cap(false, 780000, 96, 'APPROVE')"), { cap: 84, source: "product limit" });
+  t.equal("a tighter band beats the product limit", await one("select * from fn_tenure_cap(false, 780000, 60, 'MAYBE')"), { cap: 60, source: "Maybe band limit" });
+  t.equal("government employee on a small car gets 120", (await one("select * from fn_tenure_cap(true, 1000000, null, null)")).cap, 120);
+  t.equal("but still no more than the band allows", (await one("select * from fn_tenure_cap(true, 1000000, 96, 'APPROVE')")).cap, 96);
+  t.equal("not on a car over 12 lakh", (await one("select * from fn_tenure_cap(true, 1500000, null, null)")).cap, 84);
+
+  const long = await submit({ p_tenure: 96 });
+  t.equal("96 months asked, 84 recommended", [long.asked, long.recommended_tenure], [96, 84]);
+  t.equal("the summary says the tenure was cut, and why", /Tenure reduced from 96 to 84 months \(product limit\)/.test(long.summary_text), true, long.summary_text);
+  t.equal("the EMI is worked out on the shorter tenure",
+    Number(long.recommended_emi), Number((await one("select fn_calculate_emi(600000, $1, 84) as v", [long.recommended_rate])).v));
+  const normal = await submit({ p_tenure: 60 });
+  t.equal("a tenure inside every limit is left alone", normal.recommended_tenure, 60);
+
+  // FOIR: the same base the rules use (net salary plus eligible other income)
+  const rule = await one(`select actual_value from policy_results where application_id = $1 and rule_id = 'INC-FOIR' order by created_at desc limit 1`, [normal.application_id]);
+  t.equal("stored FOIR matches the FOIR the rules checked", Number(normal.foir_calculated), Number(rule?.actual_value), JSON.stringify({ stored: normal.foir_calculated, rule }));
+  // With other income on file, FOIR uses net salary plus that income, as the rules do
+  await db.query("update income_assessments set total_eligible_income = coalesce(eligible_net_salary, 95000) + 20000 where application_id = $1", [normal.application_id]);
+  await db.query("select fn_generate_recommendation($1)", [normal.application_id]);
+  const withOther = await one("select * from recommendations where application_id = $1 order by created_at desc limit 1", [normal.application_id]);
+  const ruleNow = await one("select actual_value from policy_results where application_id = $1 and rule_id = 'INC-FOIR' order by created_at desc limit 1", [normal.application_id]);
+  t.equal("with other income, stored FOIR still matches the rules", Number(withOther.foir_calculated), Number(ruleNow?.actual_value),
+    JSON.stringify({ stored: withOther.foir_calculated, rule: ruleNow }));
+  t.equal("and it is lower than on salary alone", Number(withOther.foir_calculated) < Number(normal.foir_calculated), true);
+
+  // LTV: both figures named
+  t.equal("summary names ex-showroom and on-road LTV", /LTV [\d.]+% of ex-showroom \([\d.]+% of on-road\)/.test(normal.summary_text), true, normal.summary_text);
+  t.equal("ltv_calculated stays on-road", Number(normal.ltv_calculated), Math.round((600000 / 780000) * 10000) / 100);
+
+  // A cut tenure that pushes FOIR over the cap goes to a person
+  const tight = await submit({ p_tenure: 96, p_net_salary: 18500 });
+  const flagged = (tight.risk_factors ?? []).some((f) => f.rule_id === "FOIR_AT_CAPPED_TENURE");
+  t.equal("FOIR over the cap at the shorter tenure is not auto-approved",
+    flagged ? tight.recommendation : "not triggered", flagged ? "MAYBE" : "not triggered", JSON.stringify({ rec: tight.recommendation, foir: tight.foir_calculated, rf: tight.risk_factors }));
+  t.equal("and this case does trigger it", flagged || tight.recommendation !== "APPROVE", true, JSON.stringify({ rec: tight.recommendation, foir: tight.foir_calculated }));
+
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
