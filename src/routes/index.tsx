@@ -12,7 +12,7 @@ import {
 import { useCallback, useState } from "react";
 
 import { Hero, JourneyHud } from "@/components/landing/hero";
-import { DEFAULT_LOAN, LOAN_LIMITS, rupee, type LoanState } from "@/components/landing/loan";
+import { DEFAULT_LOAN, type LoanState } from "@/components/landing/loan";
 import { TiltCard } from "@/components/pointer-fx";
 import {
   Accordion,
@@ -21,9 +21,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { carBrands, faqs } from "@/lib/customer-data";
-import { emiFor } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -70,121 +68,6 @@ const whyCercit = [
   },
 ];
 
-interface CalculatorProps {
-  loan: LoanState;
-  onChange: (patch: Partial<LoanState>) => void;
-}
-
-function Calculator({ loan, onChange }: CalculatorProps) {
-  const emi = emiFor(loan.amount, loan.rate, loan.months);
-  const totalPayable = emi * loan.months;
-  const totalInterest = totalPayable - loan.amount;
-
-  return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-      <div className="space-y-8">
-        <div>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <label className="text-sm font-medium" htmlFor="loan-amount">
-              Loan amount
-            </label>
-            <span className="text-lg font-semibold tabular">{rupee(loan.amount)}</span>
-          </div>
-          <Slider
-            id="loan-amount"
-            className="mt-4"
-            min={LOAN_LIMITS.amount.min}
-            max={LOAN_LIMITS.amount.max}
-            step={LOAN_LIMITS.amount.step}
-            value={[loan.amount]}
-            onValueChange={([v]) => onChange({ amount: v ?? loan.amount })}
-          />
-          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-            <span>{rupee(LOAN_LIMITS.amount.min)}</span>
-            <span>{rupee(LOAN_LIMITS.amount.max)}</span>
-          </div>
-        </div>
-
-        <div>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <label className="text-sm font-medium" htmlFor="tenure">
-              Tenure
-            </label>
-            <span className="text-lg font-semibold tabular">{loan.months} months</span>
-          </div>
-          <Slider
-            id="tenure"
-            className="mt-4"
-            min={LOAN_LIMITS.months.min}
-            max={LOAN_LIMITS.months.max}
-            step={LOAN_LIMITS.months.step}
-            value={[loan.months]}
-            onValueChange={([v]) => onChange({ months: v ?? loan.months })}
-          />
-          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-            <span>{LOAN_LIMITS.months.min} months</span>
-            <span>{LOAN_LIMITS.months.max} months</span>
-          </div>
-        </div>
-
-        <div>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <label className="text-sm font-medium" htmlFor="rate">
-              Interest rate
-            </label>
-            <span className="text-lg font-semibold tabular">{loan.rate.toFixed(2)}% p.a.</span>
-          </div>
-          <Slider
-            id="rate"
-            className="mt-4"
-            min={LOAN_LIMITS.rate.min}
-            max={LOAN_LIMITS.rate.max}
-            step={LOAN_LIMITS.rate.step}
-            value={[loan.rate]}
-            onValueChange={([v]) => onChange({ rate: v ?? loan.rate })}
-          />
-          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-            <span>{LOAN_LIMITS.rate.min}%</span>
-            <span>{LOAN_LIMITS.rate.max}%</span>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border bg-surface-subtle px-4 py-3 text-sm">
-          <span className="font-medium">Rates start at 8.75% p.a.</span>
-          <span className="text-muted-foreground">
-            {" "}
-            Your exact rate depends on your credit profile and is confirmed after application.
-          </span>
-        </div>
-      </div>
-
-      <div className="panel flex flex-col justify-center gap-5 p-6">
-        <div>
-          <p className="text-sm text-muted-foreground">Monthly EMI</p>
-          <p className="mt-1 text-4xl font-bold tracking-tight text-primary tabular">
-            {rupee(emi)}
-          </p>
-        </div>
-        <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-1">
-          <div>
-            <p className="text-xs text-muted-foreground">Total interest</p>
-            <p className="text-base font-semibold tabular">{rupee(totalInterest)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Total payable</p>
-            <p className="text-base font-semibold tabular">{rupee(totalPayable)}</p>
-          </div>
-        </div>
-        <Button size="lg" className="h-12 w-full rounded-full text-base font-semibold" asChild>
-          <Link to="/apply">
-            Apply for this amount <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function Landing() {
   const [loan, setLoan] = useState<LoanState>(DEFAULT_LOAN);
   const update = useCallback(
@@ -196,20 +79,6 @@ function Landing() {
     <div className="landing min-h-screen bg-background">
       <Hero />
       <JourneyHud loan={loan} onChange={update} />
-
-      <section id="calculator" className="border-y border-border bg-surface-subtle">
-        <div className="mx-auto max-w-6xl px-4 py-20">
-          <p className="section-eyebrow">Loan calculator</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">What will my EMI be?</h2>
-          <p className="mt-3 max-w-xl text-muted-foreground">
-            Move the sliders to see how your monthly payment changes. The dashboard at the top
-            follows along.
-          </p>
-          <div className="mt-10">
-            <Calculator loan={loan} onChange={update} />
-          </div>
-        </div>
-      </section>
 
       <section id="vehicles" className="mx-auto max-w-6xl px-4 py-20">
         <p className="section-eyebrow text-center">Vehicles</p>
@@ -302,7 +171,7 @@ function Landing() {
               </p>
             </div>
             <nav className="flex flex-wrap gap-x-8 gap-y-2 text-sm" aria-label="Footer">
-              <a href="#calculator">Loan Calculator</a>
+              <a href="#journey">EMI Calculator</a>
               <Link to="/check-eligibility">Check Eligibility</Link>
               <Link to="/apply">Apply</Link>
               <Link to="/application-status">Track Application</Link>

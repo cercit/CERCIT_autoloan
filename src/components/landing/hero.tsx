@@ -23,7 +23,7 @@ import { LOAN_LIMITS, rupee, tenureLabel, type LoanState } from "./loan";
 const journey = ["Choose", "Check", "Apply", "Approve", "Drive"] as const;
 
 const navLinks = [
-  ["#calculator", "Loan Calculator"],
+  ["#journey", "EMI Calculator"],
   ["#vehicles", "Vehicles"],
   ["#why-cercit", "Why cercit"],
   ["#faqs", "FAQs"],
