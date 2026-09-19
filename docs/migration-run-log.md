@@ -26,7 +26,7 @@ Order matters: each file assumes the ones above it are already in.
 | 026 | `026_policy_facts_keep_nulls.sql` | ✅ 18 Sep 2026 | Keeps unknown facts present as null, so an application with a missing figure is still checked |
 | 027 | `027_impact_and_activation_fixes.sql` | ✅ 18 Sep 2026 | Review fixes: two changes due at once no longer jam activation; facts say "not known" instead of guessing; impact figures can only be written by the rules engine |
 | 028 | `028_facts_use_assessed_emi.sql` | ✅ 18 Sep 2026 | The impact check uses the EMI, amount and tenure the assessment settled on, so the affordability rules are actually exercised |
-| 029 | `029_loan_repayment_history.sql` | ☐ | Loans, their installment schedule and every payment attempt; works out how late each installment really was, and the realised return (IRR) |
+| 029 | `029_loan_repayment_history.sql` | ✅ 19 Sep 2026 | Loans, their installment schedule and every payment attempt; works out how late each installment really was, and the realised return (IRR) |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.
