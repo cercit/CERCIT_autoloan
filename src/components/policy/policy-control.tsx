@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { SectionCard } from "@/components/app-shell";
+import { ImpactPanel } from "@/components/policy/impact-panel";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,7 +287,7 @@ export function PolicyControl() {
 
       <SectionCard
         title="Waiting for approval"
-        description="A change can only be approved by someone other than the person who wrote it."
+        description="A change can only be approved by someone other than the person who wrote it. Check what it would do to recent applications first."
       >
         {pending.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing is waiting.</p>
@@ -304,6 +305,7 @@ export function PolicyControl() {
                 </div>
                 <p className="mt-1 text-sm">{c.title ?? c.rationale}</p>
                 {c.summary ? <p className="mt-1 text-sm text-muted-foreground">{c.summary}</p> : null}
+                <ImpactPanel versionId={c.versionId} liveVersionCode={live?.versionCode ?? null} />
                 <div className="mt-2 flex flex-wrap gap-2">
                   {c.mine ? (
                     <>

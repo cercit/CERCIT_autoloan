@@ -228,6 +228,87 @@ export async function rejectChange(versionId: string, comment: string): Promise<
   return { ok: true, data: null };
 }
 
+// ---------------------------------------------------------------------------
+// Impact check on a proposal (backlog CC3.1 engine, CC3.2 screen)
+// ---------------------------------------------------------------------------
+
+export type Decision = "approve" | "review" | "decline";
+
+export type ImpactCheck = {
+  /** Applications judged under both versions. */
+  evaluated: number;
+  /** Applications that could not be judged because a fact was missing. */
+  skipped: number;
+  changed: number;
+  before: Record<Decision, number>;
+  after: Record<Decision, number>;
+  /** "approve->decline": count */
+  flips: Record<string, number>;
+  /** Facts nobody recorded, and on how many applications. A rule reading one never fires. */
+  factsNotKnown: Record<string, number>;
+  skippedBecauseMissing: Record<string, number>;
+  comparedTo: string | null;
+  runBy: string | null;
+  runAt: string;
+};
+
+type ImpactRow = {
+  sample_size: number; flips: Record<string, number> | null; summary: Record<string, unknown> | null;
+  compared_to: string | null; run_by: string | null; run_at: string;
+};
+
+const counts = (v: unknown): Record<string, number> =>
+  v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, n]) => [k, Number(n) || 0])) : {};
+
+/** The latest impact check recorded for a version, or null if none has run. */
+export async function getImpact(versionId: string): Promise<ImpactCheck | null> {
+  if (!isSupabaseConfigured || isDemoMode()) return null;
+  const { data, error } = await supabase.rpc("fn_policy_impact", { p_version_id: versionId });
+  const row = (data as ImpactRow[] | null)?.[0];
+  if (error || !row) return null;
+  const summary = row.summary ?? {};
+  const decisions = (v: unknown) => ({ approve: 0, review: 0, decline: 0, ...counts(v) }) as Record<Decision, number>;
+  return {
+    evaluated: Number(summary["evaluated"] ?? row.sample_size) || 0,
+    skipped: Number(summary["skipped"] ?? 0) || 0,
+    changed: Number(summary["changed"] ?? 0) || 0,
+    before: decisions(summary["before"]),
+    after: decisions(summary["after"]),
+    flips: counts(row.flips),
+    factsNotKnown: counts(summary["factsNotKnown"]),
+    skippedBecauseMissing: counts(summary["skippedBecauseMissing"]),
+    comparedTo: row.compared_to ?? null,
+    runBy: row.run_by ?? null,
+    runAt: row.run_at,
+  };
+}
+
+/**
+ * Re-runs recent applications through the proposal and the version in force, on
+ * the rules engine. The engine checks the caller's rights in their own name and
+ * records the result, which getImpact then reads.
+ */
+export async function runImpactCheck(versionId: string): Promise<PolicyResult<null>> {
+  const base = import.meta.env["VITE_AWS_API_URL"] ?? "";
+  if (!isSupabaseConfigured || isDemoMode() || !base) return { ok: false, error: "The rules engine is not connected" };
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { ok: false, error: "Sign in again to run the check" };
+  try {
+    const res = await fetch(`${String(base).replace(/\/$/, "")}/simulate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ versionId, limit: 200, record: true }),
+    });
+    if (res.ok) return { ok: true, data: null };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (res.status === 403) return { ok: false, error: "Your role cannot run impact checks" };
+    return { ok: false, error: body.error ?? `The rules engine answered ${res.status}` };
+  } catch {
+    return { ok: false, error: "Could not reach the rules engine" };
+  }
+}
+
 /** "8.99" with its unit, for display. */
 export function formatSettingValue(s: Pick<PolicySetting, "value" | "unit">): string {
   if (s.value === null || s.value === undefined) return "—";
