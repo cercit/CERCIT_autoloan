@@ -847,6 +847,84 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 14. Before/after and change history (032)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("change history");
+  const AUTHOR = "aaaaaaaa-0000-0000-0000-000000000001"; // Policy Author (section 7)
+  const HEAD = "bbbbbbbb-0000-0000-0000-000000000002"; // Credit Head
+  const CLERK = "cccccccc-0000-0000-0000-000000000003"; // Officer
+
+  await asOperator();
+  // Its own product line, so it cannot clash with versions other sections scheduled
+  const liveRate = (await one("select fn_policy_param('pricing.base_rate.approve', 'CAR_TEST') as v")).v;
+  const liveCode = (await one("select version_code from fn_policy_document_at('CAR_TEST')")).version_code;
+
+  // A change goes the long way round: sent, taken back, fixed, sent again, approved, live
+  await asApi("authenticated", AUTHOR);
+  const id = (await one("select fn_policy_draft_create('H.1', 'History test', 'STANDARD', 'CAR_TEST') as v")).v.versionId;
+  await db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '9.5'::jsonb)", [id]);
+  await db.query("select fn_policy_submit($1, 'Raise the Approve rate', 'First go')", [id]);
+  await db.query("select fn_policy_withdraw($1, 'wrong figure')", [id]);
+  await db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '9.4'::jsonb)", [id]);
+  await db.query("select fn_policy_submit($1, 'Raise the Approve rate', 'Second go')", [id]);
+
+  // Before/after, while it waits
+  const diff = (await db.query("select * from fn_policy_change_diff($1)", [id])).rows;
+  const rate = diff.find((d) => d.item === "pricing.base_rate.approve");
+  t.equal("the changed setting shows before and after", rate && [rate.change, Number(rate.before_value), Number(rate.after_value), rate.compared_to],
+    [liveRate === null ? "ADDED" : "CHANGED", liveRate === null ? 0 : Number(liveRate), 9.4, liveCode], JSON.stringify(diff));
+  t.equal("nothing else is listed as changed", diff.length, 1, JSON.stringify(diff.map((d) => d.item)));
+  // A setting whose value really changes: draft 2027.01 (section 8) against the version it came from
+  await asApi("authenticated", HEAD);
+  const main = (await db.query("select * from fn_policy_change_diff((select id from policy_versions where version_code = '2027.01' and product = 'CAR_NEW')) where kind = 'SETTING'")).rows;
+  t.equal("an edited value reads as changed, old and new", main.some((d) => d.change === "CHANGED" && d.before_value !== null && d.after_value !== null && d.before_value !== d.after_value), true, JSON.stringify(main));
+  await asApi("authenticated", AUTHOR);
+
+  await asApi("authenticated", HEAD);
+  await db.query("select fn_policy_approve($1, now() + interval '1 day', 'Fine')", [id]);
+  await asOperator();
+  await db.query("update policy_versions set effective_from = now() - interval '1 minute' where id = $1", [id]);
+  await db.query("select fn_policy_activate_due()");
+
+  await asApi("authenticated", HEAD);
+  const hist = (await db.query("select event, actor, reconstructed from fn_policy_history($1) order by at", [id])).rows;
+  const steps = hist.filter((h) => !h.event.startsWith("Change request") && !h.event.startsWith("Review"));
+  t.equal("every step is on the record, in order", steps.map((h) => h.event), [
+    "Drafted", "Sent for approval", "Taken back by its author", "Sent for approval", "Approved", "Came into force",
+  ], JSON.stringify(steps));
+  t.equal("each step names who did it", steps.map((h) => h.actor), [
+    "Policy Author", "Policy Author", "Policy Author", "Policy Author", "Credit Head", "System",
+  ]);
+  t.equal("recorded as it happened, not rebuilt", steps.every((h) => h.reconstructed === false), true);
+  t.equal("the reviewer's comment is there", hist.some((h) => h.event === "Review: approve" && h.actor === "Credit Head"), true);
+  const note = (await db.query("select note from fn_policy_history($1) where event = 'Change request'", [id])).rows.map((r) => r.note).join(" ");
+  t.equal("the withdrawal reason is kept", /wrong figure/.test(note), true, note);
+  const replaced = (await one("select h.event, h.actor from fn_policy_history() h join policy_versions v on v.id = h.version_id where v.version_code = $1 and v.product = 'CAR_TEST' order by h.at desc limit 1", [liveCode]));
+  t.equal("the version it replaced shows that", replaced, { event: "Replaced by a newer version", actor: "System" });
+
+  // Older versions: history rebuilt from their dates, and marked as such
+  const seed = (await db.query("select event, reconstructed from fn_policy_history((select id from policy_versions where version_code = '2026.08' and product = 'CAR_NEW')) order by at")).rows;
+  t.equal("2026.08's history is rebuilt and says so", seed.length > 0 && seed.filter((h) => !h.event.startsWith("Replaced")).every((h) => h.reconstructed), true, JSON.stringify(seed));
+
+  // Rules: 2026.09 changes the rules document, and each difference is one line
+  const rules = (await db.query("select * from fn_policy_change_diff((select id from policy_versions where version_code = '2026.09' and product = 'CAR_NEW')) where kind = 'RULE'")).rows;
+  t.equal("rule differences are listed", rules.length > 0, true);
+  t.equal("each reads as the rule and its conditions",
+    rules.every((r) => /^[A-Z0-9_]+ \((hard|soft)\): /.test(r.after_value ?? r.before_value)), true, JSON.stringify(rules.slice(0, 3)));
+
+  // Who may see it, and nobody writes it by hand
+  await asApi("authenticated", CLERK);
+  await t.rejects("an officer cannot read policy history", () => db.query("select * from fn_policy_history()"), /permission denied/);
+  await db.query("set role authenticated");
+  await t.rejects("nobody adds history through the API", () => db.query("insert into policy_version_events (policy_version_id, to_status) values ($1, 'ACTIVE')", [id]), /permission denied/);
+  await db.query("reset role");
+
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

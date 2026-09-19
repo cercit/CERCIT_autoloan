@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { SectionCard } from "@/components/app-shell";
+import { PolicyHistory } from "@/components/policy/change-details";
 import { PendingChangeCard, when } from "@/components/policy/pending-change";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -285,6 +286,10 @@ export function PolicyControl() {
             </tbody>
           </table>
         </div>
+      </SectionCard>
+
+      <SectionCard title="Change history" description="Every step each version has been through, and who took it. Newest first.">
+        <PolicyHistory limit={30} />
       </SectionCard>
     </div>
   );

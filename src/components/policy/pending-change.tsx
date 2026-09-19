@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ChangeDiff, PolicyHistory } from "@/components/policy/change-details";
 import { ImpactPanel } from "@/components/policy/impact-panel";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,19 @@ export function PendingChangeCard({
       </div>
       <p className="mt-1 text-sm">{change.title ?? change.rationale}</p>
       {change.summary ? <p className="mt-1 text-sm text-muted-foreground">{change.summary}</p> : null}
+      <details className="mt-3 rounded-lg border border-border p-3" open>
+        <summary className="cursor-pointer text-sm font-medium">What changes</summary>
+        <div className="mt-2">
+          <ChangeDiff versionId={change.versionId} />
+        </div>
+      </details>
       <ImpactPanel versionId={change.versionId} liveVersionCode={liveVersionCode} />
+      <details className="mt-3 rounded-lg border border-border p-3">
+        <summary className="cursor-pointer text-sm font-medium">History of this change</summary>
+        <div className="mt-2">
+          <PolicyHistory versionId={change.versionId} />
+        </div>
+      </details>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {change.mine ? (
           <>

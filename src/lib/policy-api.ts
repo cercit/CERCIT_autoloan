@@ -316,6 +316,65 @@ export async function runImpactCheck(versionId: string): Promise<PolicyResult<nu
   }
 }
 
+// ---------------------------------------------------------------------------
+// Before/after and history (backlog CC4.2, sql/032)
+// ---------------------------------------------------------------------------
+
+export type ChangeLine = {
+  kind: "SETTING" | "RULE";
+  item: string;
+  label: string;
+  unit: string | null;
+  before: string | null;
+  after: string | null;
+  change: "CHANGED" | "ADDED" | "REMOVED";
+  comparedTo: string | null;
+};
+
+export type HistoryEvent = {
+  versionId: string;
+  versionCode: string;
+  at: string;
+  event: string;
+  actor: string | null;
+  note: string | null;
+  /** Rebuilt from dates for versions older than the history table. */
+  reconstructed: boolean;
+};
+
+/** Every setting and rule that differs from the version this one was built from. */
+export async function getChangeDiff(versionId: string): Promise<ChangeLine[]> {
+  if (!isSupabaseConfigured || isDemoMode()) return [];
+  const { data, error } = await supabase.rpc("fn_policy_change_diff", { p_version_id: versionId });
+  if (error || !data) return [];
+  return (data as Record<string, string | null>[]).map((r) => ({
+    kind: r["kind"] === "RULE" ? "RULE" : "SETTING",
+    item: String(r["item"]),
+    label: String(r["label"] ?? r["item"]),
+    unit: r["unit"] ?? null,
+    before: r["before_value"] ?? null,
+    after: r["after_value"] ?? null,
+    change: (r["change"] ?? "CHANGED") as ChangeLine["change"],
+    comparedTo: r["compared_to"] ?? null,
+  }));
+}
+
+/** What happened to a version, or to every version when no id is given. Newest first. */
+export async function getPolicyHistory(versionId?: string): Promise<HistoryEvent[]> {
+  if (!isSupabaseConfigured || isDemoMode()) return [];
+  const { data, error } = await supabase.rpc("fn_policy_history", { p_version_id: versionId ?? null });
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((r) => ({
+    versionId: String(r["version_id"]),
+    versionCode: String(r["version_code"]),
+    at: String(r["at"]),
+    event: String(r["event"]),
+    actor: (r["actor"] as string | null) ?? null,
+    note: (r["note"] as string | null) ?? null,
+    reconstructed: r["reconstructed"] === true,
+  }));
+}
+
 /** "8.99" with its unit, for display. */
 export function formatSettingValue(s: Pick<PolicySetting, "value" | "unit">): string {
   if (s.value === null || s.value === undefined) return "—";
