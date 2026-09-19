@@ -41,6 +41,7 @@ Resources:
         CorsRules:
           - AllowedOrigins:
               - https://cercit.github.io
+              - https://loan.cercit.workers.dev
               - http://localhost:5173
               - http://localhost:3007
               - http://localhost:3008
