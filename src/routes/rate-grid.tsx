@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Download } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { AlertTriangle, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
@@ -7,6 +7,8 @@ import { CategoryBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { rateBands, employerCategoryPricing } from "@/lib/mock-data";
 import { getRateGrid, effectiveRate, type RateGridData } from "@/lib/api";
+import { useFeatureStatus } from "@/lib/feature-flags";
+import { getRateGridFromPolicy, type RateGridFromPolicy } from "@/lib/policy-api";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -56,31 +58,79 @@ function RateGridPage() {
     bands: rateBands,
     categories: employerCategoryPricing,
   });
+  // With Credit control on, the grid shows what the approved policy version says,
+  // and changes go through a proposal on the Policy Rules screen.
+  const { enabled: creditControl, ready } = useFeatureStatus("credit_control");
+  const [approved, setApproved] = useState<RateGridFromPolicy | null>(null);
 
   useEffect(() => {
+    if (!ready) return;
     let cancelled = false;
-    getRateGrid()
-      .then((next) => {
+    const load = creditControl ? getRateGridFromPolicy() : Promise.resolve(null);
+    load
+      .then(async (fromPolicy) => {
+        if (cancelled) return;
+        if (fromPolicy) {
+          setApproved(fromPolicy);
+          setData(fromPolicy.data);
+          return;
+        }
+        const next = await getRateGrid();
         if (!cancelled && next.bands.length > 0) setData(next);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ready, creditControl]);
 
   const { bands, categories } = data;
+  const subtitle = approved
+    ? `Version ${approved.versionCode}, in force since ${
+        approved.effectiveFrom
+          ? new Date(approved.effectiveFrom).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : "—"
+      } — new car loans, salaried segment`
+    : "Effective 01 Aug 2026 — new car loans, salaried segment";
 
   return (
     <AppShell
       title="Rate Grid"
-      subtitle="Effective 01 Aug 2026 — new car loans, salaried segment"
+      subtitle={subtitle}
       actions={
-        <Button variant="outline" onClick={() => exportCsv(data)}>
-          <Download className="size-4" /> Export CSV
-        </Button>
+        <div className="flex gap-2">
+          {approved && (
+            <Button asChild variant="secondary">
+              <Link to="/policy-rules">Propose a change</Link>
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => exportCsv(data)}>
+            <Download className="size-4" /> Export CSV
+          </Button>
+        </div>
       }
     >
+      {approved && approved.drift.length > 0 && (
+        <div role="alert" className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+          <div>
+            <p className="font-medium">
+              The pricing tables new applications are priced from do not match approved version {approved.versionCode}.
+            </p>
+            <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+              {approved.drift.map((d) => (
+                <li key={d.what}>
+                  {d.what}: approved {d.approved}, in use {d.inTables}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-muted-foreground">
+              The grid below shows the approved figures. Until pricing is read from the policy itself, the tables
+              need correcting to match.
+            </p>
+          </div>
+        </div>
+      )}
       <SectionCard title="Base interest rate (% p.a.)" className="overflow-hidden">
         <div className="-mx-4 -mb-4 overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">

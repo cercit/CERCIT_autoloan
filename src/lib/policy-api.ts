@@ -6,7 +6,9 @@
  * screen can only offer what the database would allow anyway. In demo mode
  * nothing is written and the screens fall back to their sample data.
  */
+import { getRateGrid, type RateGridData } from "./api";
 import { isDemoMode } from "./auth";
+import type { EmployerCategoryPricing, RateBand } from "./mock-data";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 export type PolicyStatus =
@@ -231,4 +233,94 @@ export function formatSettingValue(s: Pick<PolicySetting, "value" | "unit">): st
   if (s.value === null || s.value === undefined) return "—";
   if (typeof s.value === "boolean") return s.value ? "Yes" : "No";
   return s.unit ? `${s.value}${s.unit === "%" ? "%" : ` ${s.unit}`}` : String(s.value);
+}
+
+// ---------------------------------------------------------------------------
+// Rate grid from the approved version (backlog CC2.2)
+// ---------------------------------------------------------------------------
+
+export type RateGridFromPolicy = {
+  versionCode: string;
+  effectiveFrom: string | null;
+  data: RateGridData;
+  /** Where the pricing tables the current engine reads differ from the approved version. */
+  drift: { what: string; approved: number; inTables: number }[];
+};
+
+const num = (v: PolicySetting["value"] | undefined): number => (typeof v === "number" ? v : Number(v ?? 0));
+
+/**
+ * The rate grid as the approved policy version states it. Band labels and
+ * category descriptions are not policy settings, so they come from the
+ * existing tables; every number comes from the version in force.
+ */
+export async function getRateGridFromPolicy(): Promise<RateGridFromPolicy | null> {
+  if (!isSupabaseConfigured || isDemoMode()) return null;
+  const versions = await getPolicyVersions();
+  const live = versions.find((v) => v.status === "ACTIVE");
+  if (!live) return null;
+
+  const [settings, tables] = await Promise.all([getPolicySettings(live.id), getRateGrid()]);
+  if (settings.length === 0) return null;
+  const s = Object.fromEntries(settings.map((x) => [x.key, x.value]));
+
+  const approveMin = num(s["bureau.band_min.approve"]);
+  const maybeMin = num(s["bureau.band_min.maybe"]);
+  const bands: RateBand[] = [
+    {
+      band: `${approveMin} – 900`,
+      label: "APPROVE",
+      baseRate: num(s["pricing.base_rate.approve"]),
+      maxLtvPct: num(s["caps.max_ltv_pct.approve"]),
+      maxFoirPct: num(s["caps.max_foir_pct.approve"]),
+      maxTenureMonths: num(s["caps.max_tenure_months.approve"]),
+    },
+    {
+      band: `${maybeMin} – ${approveMin - 1}`,
+      label: "MAYBE",
+      baseRate: num(s["pricing.base_rate.maybe"]),
+      maxLtvPct: num(s["caps.max_ltv_pct.maybe"]),
+      maxFoirPct: num(s["caps.max_foir_pct.maybe"]),
+      maxTenureMonths: num(s["caps.max_tenure_months.maybe"]),
+    },
+    { band: `Below ${maybeMin}`, label: "REJECT", baseRate: 0, maxLtvPct: 0, maxFoirPct: 0, maxTenureMonths: 0 },
+  ];
+
+  const categories: EmployerCategoryPricing[] = (["A", "B", "C"] as const).map((code) => {
+    const k = code.toLowerCase();
+    const known = tables.categories.find((c) => c.code === code);
+    return {
+      code,
+      label: known?.label ?? `Category ${code}`,
+      description: known?.description ?? "",
+      loadingPct: num(s[`pricing.loading.cat_${k}`]),
+      maxLtvPct: num(s[`caps.max_ltv_pct.cat_${k}`]),
+      maxTenureMonths: num(s[`caps.max_tenure_months.cat_${k}`]),
+      processingFeeInr: num(s[`charges.processing_fee.cat_${k}`]),
+    };
+  });
+
+  // Until pricing is read from the policy itself (FD5), recommendations are still
+  // priced from the old tables. Any difference means a rate is being charged that
+  // nobody approved, so it is shown rather than hidden.
+  const drift: RateGridFromPolicy["drift"] = [];
+  const compare = (what: string, approved: number, inTables: number | undefined) => {
+    if (inTables !== undefined && Math.abs(approved - inTables) > 0.001) drift.push({ what, approved, inTables });
+  };
+  for (const b of bands.filter((x) => x.label !== "REJECT")) {
+    const t = tables.bands.find((x) => x.label === b.label);
+    compare(`${b.label} base rate`, b.baseRate, t?.baseRate);
+    compare(`${b.label} max LTV`, b.maxLtvPct, t?.maxLtvPct);
+    compare(`${b.label} max FOIR`, b.maxFoirPct, t?.maxFoirPct);
+    compare(`${b.label} max tenure`, b.maxTenureMonths, t?.maxTenureMonths);
+  }
+  for (const c of categories) {
+    const t = tables.categories.find((x) => x.code === c.code);
+    compare(`Category ${c.code} loading`, c.loadingPct, t?.loadingPct);
+    compare(`Category ${c.code} max LTV`, c.maxLtvPct, t?.maxLtvPct);
+    compare(`Category ${c.code} max tenure`, c.maxTenureMonths, t?.maxTenureMonths);
+    compare(`Category ${c.code} processing fee`, c.processingFeeInr, t?.processingFeeInr);
+  }
+
+  return { versionCode: live.versionCode, effectiveFrom: live.effectiveFrom, data: { bands, categories }, drift };
 }
