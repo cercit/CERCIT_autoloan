@@ -6,8 +6,12 @@ import tsconfigPaths from "vite-tsconfig-paths";
 // # reason: vite config: library rollup manualChunks; function syntax
 // Self-review (vibe-check): vibe-check: (a) rollup library; (b) function form; (c) routes intact
 
+// GitHub Pages serves the site from /CERCIT_autoloan/; Cloudflare Pages serves it
+// from the root of its own address and sets CF_PAGES during its builds.
+const base = process.env["SPA_BASE"] ?? (process.env["CF_PAGES"] ? "/" : "/CERCIT_autoloan/");
+
 export default defineConfig({
-  base: "/CERCIT_autoloan/",
+  base,
   plugins: [react(), tailwindcss(), tsconfigPaths()],
   build: {
     outDir: "dist",
