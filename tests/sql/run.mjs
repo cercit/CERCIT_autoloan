@@ -688,6 +688,99 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 12. Every decision records the policy and model it was made under (030)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("decision version pinning");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  await asOperator();
+
+  // Rows that existed before 030: a fresh database stopped at 029, then 030 applied
+  {
+    const { readFileSync } = await import("node:fs");
+    const { db: old } = await migratedDb({ upTo: 29 });
+    const before = (await old.query("select count(*)::int as n from credit_decisions")).rows[0].n;
+    await old.exec(readFileSync(new URL("../../sql/030_decision_version_pinning.sql", import.meta.url), "utf8"));
+    const r = (await old.query(`select count(*)::int as n,
+        count(*) filter (where d.version_basis = 'ASSUMED' and pv.version_code = '2026.08' and d.rules_snapshot is null)::int as assumed
+      from credit_decisions d left join policy_versions pv on pv.id = d.policy_version_id`)).rows[0];
+    t.equal("old decisions are marked 2026.08 (assumed), not passed off as recorded", [before > 0, r.n, r.assumed], [true, before, before]);
+    await old.exec(readFileSync(new URL("../../sql/030_decision_version_pinning.sql", import.meta.url), "utf8"));
+    const again = (await old.query("select count(*) filter (where version_basis = 'ASSUMED')::int as n from credit_decisions")).rows[0].n;
+    t.equal("running 030 twice changes nothing", again, before);
+    await old.close();
+  }
+
+  // A new application, assessed and decided now
+  await asApi("authenticated", OFFICER);
+  const submitted = (await one("select fn_submit_full_application(p_full_name => 'Pin Test', p_email => 'pin1@t.in', p_mobile => '9000000031', p_pan => 'PINTS1234P', p_dob => '1990-01-01', p_employer => 'Infosys', p_city => 'Chennai', p_state_code => 'TN', p_pincode => '600001', p_tenure => 60, p_make => 'Maruti Suzuki', p_model => 'Dzire', p_variant => 'VXI', p_fuel_type => 'PETROL', p_net_salary => 95000, p_loan_amount => 600000, p_ex_showroom => 700000, p_on_road => 780000, p_cibil_score => 780) as v")).v;
+  await asOperator();
+  t.equal("the test application went through", submitted.decision !== "ERROR", true, JSON.stringify(submitted));
+  const app = { id: submitted.application_uuid, application_id: submitted.application_id };
+  const rec = await one(`select pv.version_code, r.version_basis, r.model_version, r.rules_snapshot
+    from recommendations r left join policy_versions pv on pv.id = r.policy_version_id where r.application_id = $1`, [app.id]);
+  t.equal("the recommendation records the version in force", [rec.version_code, rec.version_basis, rec.model_version], ["2026.08", "RECORDED", "cercit-risk-v1"]);
+  const dec = await one(`select d.id, pv.version_code, d.version_basis, d.model_version, d.rules_snapshot
+    from credit_decisions d left join policy_versions pv on pv.id = d.policy_version_id where d.application_id = $1`, [app.id]);
+  t.equal("the system decision records it too", [dec.version_code, dec.version_basis, dec.model_version], ["2026.08", "RECORDED", "cercit-risk-v1"]);
+  const snap = await one("select jsonb_array_length(rules) as n from rule_set_snapshots where rules_sha256 = $1", [dec.rules_snapshot]);
+  t.equal("the exact rule set used is kept", snap?.n > 0, true);
+
+  // The caller cannot choose the stamps
+  const forged = await one(`insert into credit_decisions (application_id, recommendation_id, decision, decided_by, policy_version_id, model_version, version_basis)
+    select $1, r.id, 'APPROVE', 'SYSTEM', null, null, 'ASSUMED' from recommendations r where r.application_id = $1
+    returning version_basis, model_version, policy_version_id is not null as has_version`, [app.id]);
+  t.equal("values supplied on insert are replaced", forged, { version_basis: "RECORDED", model_version: "cercit-risk-v1", has_version: true });
+  await db.query("update credit_decisions set version_basis = 'ASSUMED', model_version = null, officer_remarks = 'note' where id = $1", [dec.id]);
+  const kept = await one("select version_basis, model_version, officer_remarks from credit_decisions where id = $1", [dec.id]);
+  t.equal("an edit cannot rewrite them", kept, { version_basis: "RECORDED", model_version: "cercit-risk-v1", officer_remarks: "note" });
+
+  // A decision dated before any approved version records none, rather than guessing
+  const early = await one(`insert into credit_decisions (application_id, recommendation_id, decision, decided_by, decided_at)
+    select $1, r.id, 'REJECT', 'SYSTEM', '2026-07-01' from recommendations r where r.application_id = $1
+    returning policy_version_id, model_version`, [app.id]);
+  t.equal("the stamp follows the decision date", early, { policy_version_id: null, model_version: null });
+
+  // A rule changes later: the old decision still shows the old threshold
+  const oldRule = await one("select rule_id, threshold_value from policy_rules where is_active order by rule_id limit 1");
+  await db.query("update policy_rules set threshold_value = '999' where rule_id = $1", [oldRule.rule_id]);
+  await asApi("authenticated", OFFICER);
+  await db.query("select fn_officer_decision($1, 'REJECT', 'after the rule change')", [app.application_id]);
+  await asOperator();
+  const redecided = await one("select rules_snapshot from credit_decisions where application_id = $1 and decided_by = 'OFFICER' order by decided_at desc limit 1", [app.id]);
+  t.equal("a re-made decision gets a new fingerprint", redecided.rules_snapshot !== dec.rules_snapshot, true);
+  const replay = await one(`select r->>'threshold_value' as v from rule_set_snapshots s, jsonb_array_elements(s.rules) r
+    where s.rules_sha256 = $1 and r->>'rule_id' = $2`, [dec.rules_snapshot, oldRule.rule_id]);
+  t.equal("the old fingerprint still gives the old threshold", replay?.v, oldRule.threshold_value);
+  await db.query("update policy_rules set threshold_value = $2 where rule_id = $1", [oldRule.rule_id, oldRule.threshold_value]);
+
+  // Reading it back
+  await asApi("authenticated", OFFICER);
+  const rows = (await db.query("select source, version_code, version_basis, model_version from fn_decision_versions($1)", [app.id])).rows;
+  t.equal("an officer can see what a case was decided under", rows.some((r) => r.source === "DECISION" && r.version_code === "2026.08"), true, JSON.stringify(rows));
+  await asApi("anon");
+  await db.query("set role anon");
+  await t.rejects("anon cannot", () => db.query("select * from fn_decision_versions($1)", [app.id]), /permission denied/);
+  await db.query("reset role");
+  await asApi("authenticated", OFFICER);
+  await db.query("set role authenticated");
+  await t.rejects("nobody writes snapshots through the API", () => db.query("insert into rule_set_snapshots (rules_sha256, rules) values ('x', '[]')"), /permission denied/);
+  await t.rejects("nobody registers a model through the API", () => db.query("insert into model_versions (model_version, status, effective_from) values ('evil', 'RETIRED', now())"), /permission denied/);
+  await t.ok("nobody stamps a decision by hand through the API", async () => {
+    try {
+      const r = await db.query("update credit_decisions set version_basis = 'ASSUMED' where version_basis = 'RECORDED'");
+      if (r.affectedRows > 0) throw new Error(`${r.affectedRows} rows changed`);
+    } catch (e) {
+      if (!/permission denied/.test(e.message)) throw e;
+    }
+  });
+  await db.query("reset role");
+
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
