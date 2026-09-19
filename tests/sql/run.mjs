@@ -609,6 +609,85 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 11. Repayment history: how late was a payment, really (029)
+// ---------------------------------------------------------------------------
+// Sameer's example, 18 Sep 2026: EMI 15,000 due on the 5th.
+//   Jan-Mar paid on time; Apr paid 14,999 on time (1 rupee short);
+//   May 30 days late; Jun 60; Jul 90 (in three attempts after a failed mandate);
+//   Aug on time.
+{
+  const t = makeChecker("repayment history");
+  const AUTHOR = "aaaaaaaa-0000-0000-0000-000000000001";
+  await asOperator();
+
+  const cust = await one("insert into customers (full_name, email, mobile, age_at_application, employment_type) values ('Repay Example', 'repay@t.in', '9876500099', 35, 'PRIVATE') returning id");
+  const loan = await one(`insert into loan_accounts (loan_account_no, customer_id, disbursed_on, disbursed_amount, installment_day, emi_amount, tenure_months, contract_rate_pct)
+    values ('LN-EXAMPLE-1', $1, '2025-12-20', 700000, 5, 15000, 60, 8.99) returning id`, [cust.id]);
+
+  const months = ["2026-01-05", "2026-02-05", "2026-03-05", "2026-04-05", "2026-05-05", "2026-06-05", "2026-07-05", "2026-08-05"];
+  for (const [n, due] of months.entries()) {
+    await db.query("insert into loan_installments (loan_id, installment_no, due_date, amount_due) values ($1, $2, $3, 15000)", [loan.id, n + 1, due]);
+  }
+  // A receipt may name the installment it is for — a transaction tagged to that
+  // month — or name nothing, in which case it pays the oldest arrears first.
+  const pay = (on, amount, outcome = "SUCCESS", forNo = null, ref = null) =>
+    db.query(`insert into loan_repayments (loan_id, installment_id, paid_on, amount, outcome, reference_no)
+      values ($1, (select id from loan_installments where loan_id = $1 and installment_no = $2), $3, $4, $5, $6)`,
+      [loan.id, forNo, on, amount, outcome, ref ?? `${on}-${amount}-${outcome}-${forNo ?? "any"}`]);
+
+  await pay("2026-01-05", 15000);
+  await pay("2026-02-05", 15000);
+  await pay("2026-03-05", 15000);
+  await pay("2026-04-05", 14999);            // 1 rupee short, still on time
+  await pay("2026-06-04", 15000);                 // May's, 30 days late
+  await pay("2026-08-04", 15000);                 // June's, 60 days late
+  await pay("2026-08-05", 0, "BOUNCED", 7);       // July's mandate failed
+  await pay("2026-08-05", 15000, "SUCCESS", 8);   // August paid on time, tagged to August
+  await pay("2026-10-01", 5000);                  // July's arrears, paid in three goes
+  await pay("2026-10-02", 5000);
+  await pay("2026-10-03", 5001);
+
+  await asApi("authenticated", AUTHOR);
+  const rows = (await db.query("select * from fn_loan_installment_status($1)", [loan.id])).rows;
+  const late = Object.fromEntries(rows.map((r) => [r.installment_no, r.days_late]));
+  t.equal("Jan to Mar are on time", [late[1], late[2], late[3]], [0, 0, 0]);
+  t.equal("one rupee short on the due date is not a delay", late[4], 0);
+  t.equal("the April shortfall is still recorded",
+    Number(rows.find((r) => r.installment_no === 4).shortfall) > 0 || Number(rows.find((r) => r.installment_no === 4).amount_paid) < 15000, true,
+    JSON.stringify(rows.find((r) => r.installment_no === 4)));
+  t.equal("May is 30 days late", late[5], 30);
+  t.equal("June is 60 days late", late[6], 60);
+  t.equal("July is 90 days late, paid off in several attempts", late[7], 90);
+  t.equal("August, paid on time and tagged to August, stays on time", late[8], 0);
+  t.equal("the failed mandate is counted as an attempt",
+    rows.find((r) => r.installment_no === 7).attempts >= 2, true, JSON.stringify(rows.find((r) => r.installment_no === 7)));
+
+  // The facts the credit rules ask for, as of the day after the last payment
+  const facts = (await one("select fn_loan_dpd_facts($1, '2026-10-04') as v", [cust.id])).v;
+  t.equal("a delay inside the last 6 months is now answerable", facts.anyDpd6m, true);
+  t.equal("worst delay in 12 months", facts.worstDpd12m, 90);
+  t.equal("60 days late ever", facts.dpd60Ever, true);
+  t.equal("90 days late within 12 months", facts.dpd90OrWriteoff12m, true);
+
+  // Read as of a much later date, the same delays fall outside six months
+  const later = (await one("select fn_loan_dpd_facts($1, '2027-06-30') as v", [cust.id])).v;
+  t.equal("the same file is clean in the last 6 months a year later", later.anyDpd6m, false);
+  t.equal("but the 60-day delay is still on the record", later.dpd60Ever, true);
+
+  // A customer with no loan of ours is "not known", not "clean"
+  const stranger = await one("insert into customers (full_name, email, mobile) values ('No Loan', 'noloan@t.in', '9876500098') returning id");
+  const none = (await one("select fn_loan_dpd_facts($1) as v", [stranger.id])).v;
+  t.equal("no loan with us means nothing is claimed", [none.installmentsSeen, none.anyDpd6m === undefined], [0, true], JSON.stringify(none));
+
+  // What the loan really earned, given when the money arrived
+  const irr = (await one("select fn_loan_irr($1, '2026-10-04') as v", [loan.id])).v;
+  t.equal("the realised return is a sensible number", irr !== null && Number(irr) < 0, true, String(irr));
+
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
