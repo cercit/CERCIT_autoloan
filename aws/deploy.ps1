@@ -23,8 +23,12 @@ if (Test-Path $buildDir) {
 
 Set-Location $here
 Write-Host "Building..."
-sam build
-if ($LASTEXITCODE -ne 0) { throw "sam build failed" }
+$buildLog = Join-Path $env:TEMP "cercit-sam-build.log"
+cmd /c "sam build > ""$buildLog"" 2>&1"
+if ($LASTEXITCODE -ne 0) {
+  if (Test-Path $buildLog) { Write-Host (Get-Content $buildLog -Raw) }
+  throw "sam build failed. The full log is at $buildLog"
+}
 
 if ($BuildOnly) {
   Write-Host "Built. Skipping the deploy (-BuildOnly)."
@@ -32,15 +36,20 @@ if ($BuildOnly) {
 }
 
 Write-Host "Deploying to ap-south-1..."
-$out = & sam deploy 2>&1
-$out | ForEach-Object { Write-Host $_ }
-# "No changes to deploy" means the stack already matches the template. That is a
-# normal outcome, not a failure.
-if ($LASTEXITCODE -ne 0) {
-  if ($out -match "No changes to deploy") {
+# Windows PowerShell turns a native command's error output into a failure, and
+# sam writes normal progress there. Run it through cmd and read the log instead.
+$log = Join-Path $env:TEMP "cercit-sam-deploy.log"
+cmd /c "sam deploy > ""$log"" 2>&1"
+$code = $LASTEXITCODE
+$text = if (Test-Path $log) { Get-Content $log -Raw } else { "" }
+if ($text) { Write-Host $text }
+
+# "No changes to deploy" means AWS already matches the template: a normal outcome.
+if ($code -ne 0) {
+  if ($text -match "No changes to deploy") {
     Write-Host "Nothing to deploy: AWS already matches this template."
     return
   }
-  throw "sam deploy failed"
+  throw "sam deploy failed (exit $code). The full log is at $log"
 }
 Write-Host "Done."
