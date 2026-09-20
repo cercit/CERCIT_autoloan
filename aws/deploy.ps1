@@ -32,6 +32,15 @@ if ($BuildOnly) {
 }
 
 Write-Host "Deploying to ap-south-1..."
-sam deploy
-if ($LASTEXITCODE -ne 0) { throw "sam deploy failed" }
+$out = & sam deploy 2>&1
+$out | ForEach-Object { Write-Host $_ }
+# "No changes to deploy" means the stack already matches the template. That is a
+# normal outcome, not a failure.
+if ($LASTEXITCODE -ne 0) {
+  if ($out -match "No changes to deploy") {
+    Write-Host "Nothing to deploy: AWS already matches this template."
+    return
+  }
+  throw "sam deploy failed"
+}
 Write-Host "Done."
