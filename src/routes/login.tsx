@@ -7,7 +7,18 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn, getSession, isSupabaseConfigured, enableDemoMode, isEmployeeEmail, setCustomerEmail, DEMO_EMAIL } from "@/lib/auth";
+import {
+  signIn,
+  sendLoginCode,
+  verifyLoginCode,
+  getSession,
+  getCurrentUser,
+  isSupabaseConfigured,
+  enableDemoMode,
+  isEmployeeEmail,
+  setCustomerEmail,
+  DEMO_EMAIL,
+} from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -34,41 +45,60 @@ function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Accounts that hold every right sign in with a code sent to their inbox
+  // instead of a password.
+  const [byCode, setByCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
-    getSession().then((s) => {
-      if (s) {
-        const userEmail = s.user?.email ?? "";
-        if (isEmployeeEmail(userEmail)) {
-          navigate({ to: "/dashboard" });
-        } else {
-          setCustomerEmail(userEmail);
-          navigate({ to: "/application-status" });
-        }
-      }
+    getSession().then(async (s) => {
+      if (!s) return;
+      await routeByRole(s.user?.email ?? "");
     });
   }, []);
+
+  /** Staff go to the dashboard, customers to their application. */
+  async function routeByRole(userEmail: string) {
+    const staff = isSupabaseConfigured ? await getCurrentUser().catch(() => null) : null;
+    if (staff || isEmployeeEmail(userEmail)) {
+      navigate({ to: "/dashboard" });
+      return;
+    }
+    setCustomerEmail(userEmail);
+    navigate({ to: "/application-status" });
+  }
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
 
-    const routeAfterLogin = (userEmail: string) => {
-      if (isEmployeeEmail(userEmail)) {
-        navigate({ to: "/dashboard" });
-      } else {
-        setCustomerEmail(userEmail);
-        navigate({ to: "/application-status" });
-      }
-    };
-
     try {
       const normalized = email.trim().toLowerCase();
       // Demo access is explicit: the demo account, or a deployment with no backend.
       if (!isSupabaseConfigured || normalized === DEMO_EMAIL) {
         enableDemoMode();
-        routeAfterLogin(normalized);
+        await routeByRole(normalized);
+        return;
+      }
+
+      if (byCode) {
+        if (!codeSent) {
+          const sent = await sendLoginCode(normalized);
+          if (sent.error) {
+            setError(sent.error);
+            return;
+          }
+          setCodeSent(true);
+          return;
+        }
+        const checked = await verifyLoginCode(normalized, code);
+        if (checked.error) {
+          setError(checked.error);
+          return;
+        }
+        await routeByRole(normalized);
         return;
       }
 
@@ -77,7 +107,7 @@ function Login() {
         setError(result.error);
         return;
       }
-      routeAfterLogin(normalized);
+      await routeByRole(normalized);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -119,21 +149,69 @@ function Login() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder={isSupabaseConfigured ? "Enter your password" : "Enter any password"}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            {byCode ? (
+              codeSent ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="code">Code from your email</Label>
+                  <Input
+                    id="code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="6-digit code"
+                    required
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Sent to {email}. It is valid for a few minutes.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  We will email you a six-digit code. No password needed.
+                </p>
+              )
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder={isSupabaseConfigured ? "Enter your password" : "Enter any password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading
+                ? byCode && !codeSent
+                  ? "Sending the code..."
+                  : "Signing in..."
+                : byCode
+                  ? codeSent
+                    ? "Sign in"
+                    : "Email me a code"
+                  : "Sign in"}
             </Button>
+            {isSupabaseConfigured && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                disabled={loading}
+                onClick={() => {
+                  setByCode((on) => !on);
+                  setCodeSent(false);
+                  setCode("");
+                  setError(null);
+                }}
+              >
+                {byCode ? "Use a password instead" : "Email me a code instead"}
+              </Button>
+            )}
             {error && (
               <p className="text-sm text-destructive" role="alert">
                 {error}

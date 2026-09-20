@@ -1005,6 +1005,50 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 16. The three demo accounts, and how a login finds its role (034)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("demo accounts");
+  await asOperator();
+
+  const rows = (await db.query(`select email, role, is_active, max_sanction_amount, auth_user_id
+    from users where email in ('demo1@cercit.in', 'demo2@cercit.in', 'cercit+admin@gmail.com') order by email`)).rows;
+  t.equal("all three accounts are seeded", rows.length, 3, JSON.stringify(rows));
+  t.equal("each has the role it was asked for",
+    Object.fromEntries(rows.map((r) => [r.email, r.role])),
+    { "cercit+admin@gmail.com": "admin", "demo1@cercit.in": "credit_officer", "demo2@cercit.in": "credit_manager" });
+  t.equal("the admin has no lending limit", rows.find((r) => r.role === "admin").max_sanction_amount, null);
+  t.equal("the officer has one", Number(rows.find((r) => r.role === "credit_officer").max_sanction_amount) > 0, true);
+
+  // A login created in Supabase links itself to the waiting role row
+  const AUTHID = "dddddddd-0000-0000-0000-00000000000d";
+  await db.query("insert into auth.users (id, email) values ($1, 'DEMO1@cercit.in')", [AUTHID]);
+  const linked = await one("select auth_user_id from users where email = 'demo1@cercit.in'");
+  t.equal("a new login is linked to its role row, whatever the letter case", linked.auth_user_id, AUTHID);
+
+  // It cannot take over a row that already belongs to someone
+  const OTHER = "eeeeeeee-0000-0000-0000-00000000000e";
+  await db.query("insert into auth.users (id, email) values ($1, 'demo1@cercit.in')", [OTHER]);
+  const unchanged = await one("select auth_user_id from users where email = 'demo1@cercit.in'");
+  t.equal("a second login cannot take over the same role row", unchanged.auth_user_id, AUTHID);
+
+  // Signing in is not the same as being allowed in
+  const STRANGER = "ffffffff-0000-0000-0000-00000000000f";
+  await db.query("insert into auth.users (id, email) values ($1, 'stranger@example.com')", [STRANGER]);
+  await asApi("authenticated", STRANGER);
+  await t.rejects("a login with no role row can do nothing",
+    () => db.query("select fn_require_permission('app.view.all')"), /no active cercit user/);
+
+  // The seeded officer can work cases
+  await asApi("authenticated", AUTHID);
+  t.equal("demo1 may decide cases", (await one("select fn_has_permission('app.decide') as v")).v, true);
+  t.equal("demo1 may not change policy", (await one("select fn_has_permission('policy.author') as v")).v, false);
+
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

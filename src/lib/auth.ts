@@ -119,6 +119,38 @@ export async function signIn(email: string, password: string): Promise<{ error: 
   return { error: null };
 }
 
+/**
+ * Sends a six-digit sign-in code to the address. Used by accounts that hold
+ * every right, where a password alone is too little: the code proves the person
+ * also has the inbox. Supabase creates the login on first use if it does not
+ * exist yet; without a row in `users` it still cannot do anything (018).
+ */
+export async function sendLoginCode(email: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Sign-in is unavailable — this deployment has no Supabase connection." };
+  }
+  const { error } = await supabase.auth.signInWithOtp({
+    email: email.trim().toLowerCase(),
+    options: { shouldCreateUser: false },
+  });
+  return { error: error?.message ?? null };
+}
+
+/** Completes a code sign-in. The code is typed by the person, never stored. */
+export async function verifyLoginCode(email: string, code: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Sign-in is unavailable — this deployment has no Supabase connection." };
+  }
+  const { error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: code.trim(),
+    type: "email",
+  });
+  if (error) return { error: error.message };
+  disableDemoMode();
+  return { error: null };
+}
+
 export async function signOut(): Promise<{ error: string | null }> {
   disableDemoMode();
   try { sessionStorage.removeItem("cercit_customer_email"); } catch {}
