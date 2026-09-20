@@ -1,4 +1,5 @@
 -- cercit — Row Level Security policies
+-- Safe to re-run: each policy is dropped first (added 20 Sep 2026).
 -- Run AFTER enabling Supabase Auth and creating at least one auth user.
 -- All writes go through SECURITY DEFINER RPCs — no INSERT/UPDATE/DELETE
 -- policies needed on transactional tables.
@@ -62,10 +63,15 @@ ALTER TABLE audit_events           ENABLE ROW LEVEL SECURITY;
 -- 2. Lookup tables — anyone can read (including anon for public pages)
 -- =============================================================================
 
+DROP POLICY IF EXISTS "read_states" ON states;
 CREATE POLICY "read_states"       ON states       FOR SELECT USING (true);
+DROP POLICY IF EXISTS "read_reason_codes" ON reason_codes;
 CREATE POLICY "read_reason_codes" ON reason_codes  FOR SELECT USING (true);
+DROP POLICY IF EXISTS "read_dealers" ON dealers;
 CREATE POLICY "read_dealers"      ON dealers       FOR SELECT USING (true);
+DROP POLICY IF EXISTS "read_rate_grid" ON rate_grid;
 CREATE POLICY "read_rate_grid"    ON rate_grid     FOR SELECT USING (true);
+DROP POLICY IF EXISTS "read_policy_rules" ON policy_rules;
 CREATE POLICY "read_policy_rules" ON policy_rules  FOR SELECT USING (true);
 
 -- =============================================================================
@@ -74,6 +80,7 @@ CREATE POLICY "read_policy_rules" ON policy_rules  FOR SELECT USING (true);
 -- The row holds the user's role and sanction limit, so self-service updates
 -- would let a user raise their own rights. Changes go through the Admin module.
 
+DROP POLICY IF EXISTS "staff_read_users" ON users;
 CREATE POLICY "staff_read_users" ON users
   FOR SELECT TO authenticated
   USING ((SELECT fn_is_active_staff()));
@@ -83,51 +90,67 @@ CREATE POLICY "staff_read_users" ON users
 --    (writes go through SECURITY DEFINER RPCs, no direct INSERT/UPDATE needed)
 -- =============================================================================
 
+DROP POLICY IF EXISTS "staff_read_customers" ON customers;
 CREATE POLICY "staff_read_customers" ON customers
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_applications" ON applications;
 CREATE POLICY "staff_read_applications" ON applications
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_vehicles" ON vehicles;
 CREATE POLICY "staff_read_vehicles" ON vehicles
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_documents" ON documents;
 CREATE POLICY "staff_read_documents" ON documents
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_doc_extractions" ON document_extractions;
 CREATE POLICY "staff_read_doc_extractions" ON document_extractions
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_bureau" ON bureau_reports;
 CREATE POLICY "staff_read_bureau" ON bureau_reports
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_bank_analyses" ON bank_statement_analyses;
 CREATE POLICY "staff_read_bank_analyses" ON bank_statement_analyses
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_bank_txns" ON bank_transactions;
 CREATE POLICY "staff_read_bank_txns" ON bank_transactions
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_income" ON income_assessments;
 CREATE POLICY "staff_read_income" ON income_assessments
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_obligations" ON obligation_details;
 CREATE POLICY "staff_read_obligations" ON obligation_details
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_policy_results" ON policy_results;
 CREATE POLICY "staff_read_policy_results" ON policy_results
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_recommendations" ON recommendations;
 CREATE POLICY "staff_read_recommendations" ON recommendations
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_decisions" ON credit_decisions;
 CREATE POLICY "staff_read_decisions" ON credit_decisions
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_overrides" ON override_logs;
 CREATE POLICY "staff_read_overrides" ON override_logs
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_fraud" ON fraud_signals;
 CREATE POLICY "staff_read_fraud" ON fraud_signals
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
+DROP POLICY IF EXISTS "staff_read_audit" ON audit_events;
 CREATE POLICY "staff_read_audit" ON audit_events
   FOR SELECT TO authenticated USING ((SELECT fn_is_active_staff()));
 
@@ -135,6 +158,7 @@ CREATE POLICY "staff_read_audit" ON audit_events
 -- 5. Document uploads — staff can INSERT (direct upload flow)
 -- =============================================================================
 
+DROP POLICY IF EXISTS "staff_insert_documents" ON documents;
 CREATE POLICY "staff_insert_documents" ON documents
   FOR INSERT TO authenticated
   WITH CHECK ((SELECT fn_is_active_staff()));
@@ -143,6 +167,7 @@ CREATE POLICY "staff_insert_documents" ON documents
 -- 6. Audit events — staff can INSERT notes in their own name
 -- =============================================================================
 
+DROP POLICY IF EXISTS "staff_insert_own_audit" ON audit_events;
 CREATE POLICY "staff_insert_own_audit" ON audit_events
   FOR INSERT TO authenticated
   WITH CHECK (actor_id IS NOT NULL AND actor_id = (SELECT fn_current_staff_id()));
@@ -153,6 +178,7 @@ CREATE POLICY "staff_insert_own_audit" ON audit_events
 -- Kept so the current screen keeps working once RLS is on. Migration 020
 -- removes the underlying permission when Credit control takes over.
 
+DROP POLICY IF EXISTS "staff_update_policy_rules" ON policy_rules;
 CREATE POLICY "staff_update_policy_rules" ON policy_rules
   FOR UPDATE TO authenticated
   USING ((SELECT fn_is_active_staff()))
