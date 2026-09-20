@@ -30,6 +30,7 @@ Order matters: each file assumes the ones above it are already in.
 | 030 | `030_decision_version_pinning.sql` | ✅ 19 Sep 2026 | Every recommendation and decision records the policy version, the exact rule set and the model version it was made under; older rows are marked 2026.08 (assumed) |
 | 031 | `031_foir_ltv_tenure_basis.sql` | ✅ 19 Sep 2026 | FOIR on net salary plus other income (as the rules use); summary names ex-showroom and on-road LTV; tenure capped at the tightest of product and band limits, and a cut that pushes FOIR over the cap goes to review |
 | 032 | `032_policy_change_history.sql` | ✅ 19 Sep 2026 | Every status change on a policy version is recorded with who made it; before/after list of changed settings and rules; one history timeline per version. Older versions get history rebuilt from their dates, marked as rebuilt |
+| 033 | `033_server_engine_decisions.sql` | ☐ to run | The AWS rules engine can decide one application: facts for a single case, a record of every answer it gives, and — once the `server_engine` switch is on — that answer becomes the case's decision |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.

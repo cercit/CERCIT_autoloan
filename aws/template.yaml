@@ -251,6 +251,12 @@ Resources:
             RestApiId: !Ref CercitApi
             Path: /simulate
             Method: post
+        Assess:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /assess
+            Method: post
 
   CercitApi:
     Type: AWS::Serverless::Api

@@ -3,6 +3,7 @@ import { UserCog } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { EngineDecisionCard } from "@/components/policy/engine-decision-card";
 import { CopilotReview } from "@/components/copilot-review";
 import { DocumentList } from "@/components/document-list";
 import { CashflowSummaryCard } from "@/components/cashflow-summary-card";
@@ -237,7 +238,8 @@ function ApplicationDetail() {
           <TabsTrigger value="cam">CAM Report</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
+        <TabsContent value="overview" className="space-y-4">
+          <EngineDecisionCard applicationId={app.id} />
           <CopilotReview app={app} />
         </TabsContent>
 

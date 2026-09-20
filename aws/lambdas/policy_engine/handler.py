@@ -9,6 +9,13 @@ POST /evaluate
   body: {"facts": {...}, "product": "CAR_NEW", "at": "2026-09-17T10:00:00+05:30"}
   "product" and "at" are optional (defaults: CAR_NEW, now).
 
+POST /assess  (backlog FD4.5)
+  body: {"applicationId": "<uuid>", "product": "CAR_NEW"}
+  Reads one application's facts from the database, runs the policy version in
+  force, and records the answer against the application. While the
+  server_engine switch is off the answer is only recorded; with it on, the
+  answer becomes the application's decision.
+
 POST /simulate  (backlog CC3.1)
   body: {"versionId": "...", "limit": 200, "record": true}
   Runs recent real applications through the proposed version and the version in
@@ -58,7 +65,11 @@ def handler(event, context):
             _require_user(event.get("headers") or {})
         body = _parse_body(event, via_api)
         path = (event.get("path") or "") if via_api else ""
-        if path.endswith("/simulate") or ("versionId" in body and "facts" not in body):
+        if path.endswith("/assess") or ("applicationId" in body and "facts" not in body):
+            if not body.get("applicationId"):
+                raise PolicyError(400, "applicationId is required")
+            result = assess(body["applicationId"], body.get("product", "CAR_NEW"))
+        elif path.endswith("/simulate") or ("versionId" in body and "facts" not in body):
             if not body.get("versionId"):
                 raise PolicyError(400, "versionId is required")
             if via_api:
@@ -74,6 +85,47 @@ def handler(event, context):
         if not via_api:
             raise
         return _response(e.status, e.body)
+
+
+def assess(application_id: str, product: str = "CAR_NEW") -> dict:
+    """Decide one application on the policy in force, and record the answer."""
+    rows = _rpc("fn_policy_facts_for", {"p_application_id": application_id}) or []
+    if not rows:
+        raise PolicyError(404, "application not found, or it is still a draft")
+    facts = rows[0]["facts"] or {}
+
+    policy = _policy_in_force(product, None)
+    try:
+        result = _run(policy, facts)
+    except PolicyError:
+        raise
+    except Exception as e:
+        raise PolicyError(400, f"facts could not be evaluated: {e}", policyVersion=policy["version_code"])
+
+    # A fact nobody recorded is not a pass: the rule reading it never fires, so
+    # the answer is only as good as the facts, and the unknown ones are kept.
+    unknown = sorted(k for k, v in facts.items() if v is None)
+
+    recorded = _rpc("fn_engine_decision_record", {
+        "p_application_id": application_id,
+        "p_decision": result["decision"],
+        "p_version_id": policy["policy_version_id"],
+        "p_version_code": policy["version_code"],
+        "p_score": result["score"],
+        "p_hard": result["hard"],
+        "p_soft": result["soft"],
+        "p_facts_not_known": unknown,
+    }) or {}
+
+    return {
+        **result,
+        "applicationId": rows[0]["application_id"],
+        "policyVersion": policy["version_code"],
+        "policyVersionId": policy["policy_version_id"],
+        "factsNotKnown": unknown,
+        "applied": bool(recorded.get("applied")),
+        "decidedAt": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def simulate(version_id: str, limit: int = 200, record: bool = True, product: str = "CAR_NEW") -> dict:
@@ -269,8 +321,10 @@ def _parse_body(event: dict, via_api: bool) -> dict:
             body = json.loads(body)
         except json.JSONDecodeError:
             raise PolicyError(400, "body must be JSON")
-    if not isinstance(body, dict) or not (isinstance(body.get("facts"), dict) or body.get("versionId")):
-        raise PolicyError(400, "body must contain a facts object")
+    if not isinstance(body, dict) or not (
+        isinstance(body.get("facts"), dict) or body.get("versionId") or body.get("applicationId")
+    ):
+        raise PolicyError(400, "body must contain facts, a versionId or an applicationId")
     return body
 
 

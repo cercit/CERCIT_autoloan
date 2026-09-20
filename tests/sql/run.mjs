@@ -925,6 +925,86 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 15. The rules engine decides an application (033)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("server engine decisions");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const AUTHOR = "aaaaaaaa-0000-0000-0000-000000000001"; // policy manager
+  await asOperator();
+
+  await asApi("authenticated", OFFICER);
+  const sub = (await one(`select fn_submit_full_application(p_full_name => 'Engine Test', p_email => 'engine1@t.in',
+    p_mobile => '9000000051', p_pan => 'ENGIN1234E', p_dob => '1990-01-01', p_employer => 'Infosys', p_city => 'Chennai',
+    p_state_code => 'TN', p_pincode => '600001', p_tenure => 60, p_make => 'Maruti Suzuki', p_model => 'Dzire',
+    p_variant => 'VXI', p_fuel_type => 'PETROL', p_net_salary => 95000, p_loan_amount => 600000,
+    p_ex_showroom => 700000, p_on_road => 780000, p_cibil_score => 780) as v`)).v;
+  const appId = sub.application_uuid;
+  await asOperator();
+  const before = await one("select recommendation from recommendations where application_id = $1 order by created_at desc limit 1", [appId]);
+
+  // Facts for one application, for the engine to read
+  await asApi("authenticated", AUTHOR);
+  const facts = await one("select * from fn_policy_facts_for($1)", [appId]);
+  t.equal("the engine can ask for one application", [facts?.application_id === sub.application_id, typeof facts?.facts === "object"], [true, true], JSON.stringify(facts)?.slice(0, 200));
+  await t.rejects("an unknown application is refused", () => db.query("select * from fn_policy_facts_for($1)", ["99999999-9999-9999-9999-999999999999"]), /application not found/);
+
+  // Only the engine may record an answer
+  await t.rejects("a policy manager cannot record an engine decision",
+    () => db.query("select fn_engine_decision_record($1, 'approve', null, '2026.08')", [appId]), /only the rules engine/);
+  await asApi("authenticated", OFFICER);
+  await db.query("set role authenticated");
+  await t.rejects("nor can an officer through the API",
+    () => db.query("select fn_engine_decision_record($1, 'decline', null, '2026.08')", [appId]), /permission denied/);
+  await db.query("reset role");
+
+  // The engine records its answer. The switch is off, so nothing else changes.
+  await asApi("service_role");
+  const versionId = (await one("select fn_policy_version_at() as v")).v;
+  const off = (await one("select fn_engine_decision_record($1, 'decline', $2, '2026.08', 40, array['FOIR_LIMIT'], array['BOUNCES'], array['ambVsEmiPct']) as v", [appId, versionId])).v;
+  t.equal("recorded but not applied while the switch is off", off.applied, false, JSON.stringify(off));
+  await asOperator();
+  const still = await one("select recommendation from recommendations where application_id = $1 order by created_at desc limit 1", [appId]);
+  t.equal("the decision on file is untouched", still.recommendation, before.recommendation);
+
+  await asApi("authenticated", OFFICER);
+  const seen = await one("select * from fn_engine_decision($1)", [appId]);
+  t.equal("an officer can see what the engine said",
+    [seen.decision, seen.version_code, seen.applied, seen.hard_failed, seen.facts_not_known],
+    ["decline", "2026.08", false, ["FOIR_LIMIT"], ["ambVsEmiPct"]], JSON.stringify(seen));
+
+  // Switch on: the engine's answer becomes the decision
+  await asOperator();
+  await db.query("update feature_flags set enabled = true where flag_key = 'server_engine'");
+  await asApi("service_role");
+  const on = (await one("select fn_engine_decision_record($1, 'decline', $2, '2026.08', 40, array['FOIR_LIMIT'], '{}'::text[], '{}'::text[]) as v", [appId, versionId])).v;
+  t.equal("with the switch on, it is applied", on.applied, true, JSON.stringify(on));
+  await asOperator();
+  const after = await one(`select r.recommendation, r.summary_text, a.status,
+      (select d.decision from credit_decisions d where d.application_id = $1 and d.decided_by = 'SYSTEM' order by d.decided_at desc limit 1) as decided
+    from recommendations r join applications a on a.id = r.application_id
+    where r.application_id = $1 order by r.created_at desc limit 1`, [appId]);
+  t.equal("the case now reads as rejected", [after.recommendation, after.decided, after.status], ["REJECT", "REJECT", "REJECTED"], JSON.stringify(after));
+  t.equal("and says which policy decided it", /rules engine on policy 2026\.08/.test(after.summary_text), true, after.summary_text);
+  const stamp = await one("select version_basis, model_version from credit_decisions where application_id = $1 and decided_by = 'SYSTEM' order by decided_at desc limit 1", [appId]);
+  t.equal("the new decision is stamped with the policy it was made under", stamp.version_basis, "RECORDED", JSON.stringify(stamp));
+  const audit = await one("select event_detail from audit_events where application_id = $1 and event_type = 'ENGINE_DECISION' order by created_at desc limit 1", [appId]);
+  t.equal("it is on the audit trail", [audit?.event_detail?.decision, audit?.event_detail?.applied], ["decline", true], JSON.stringify(audit));
+
+  // A decision the rules cannot produce is refused
+  await asApi("service_role");
+  await t.rejects("an invented decision is refused", () => db.query("select fn_engine_decision_record($1, 'maybe-ish', $2, '2026.08')", [appId, versionId]), /approve, review or decline/);
+
+  await asOperator();
+  await db.query("update feature_flags set enabled = false where flag_key = 'server_engine'");
+  await db.query("set role authenticated");
+  await t.rejects("nobody writes engine decisions by hand", () => db.query("insert into engine_decisions (application_id, decision) values ($1, 'approve')", [appId]), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

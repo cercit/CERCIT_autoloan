@@ -31,6 +31,11 @@ class FakeSupabase:
         self.valid_tokens = {"Bearer good-token"}
         self.calls = []
         self.recorded = []
+        self.engine_recorded = []
+        # Which application fn_policy_facts_for answers for, and whether the
+        # server_engine switch is on in the database
+        self.app_ref = None
+        self.switch_on = False
         # Who the database says may ask for an impact check, in their own name
         self.may_simulate_tokens = {"Bearer good-token"}
         # Facts carrying both naming schemes, as fn_policy_facts returns them
@@ -57,6 +62,11 @@ class FakeSupabase:
             }]
         if path == "/rest/v1/rpc/fn_policy_facts":
             return self.facts[: payload["p_limit"]]
+        if path == "/rest/v1/rpc/fn_policy_facts_for":
+            return [r for r in self.facts if r["application_id"] == self.app_ref]
+        if path == "/rest/v1/rpc/fn_engine_decision_record":
+            self.engine_recorded.append(payload)
+            return {"engineDecisionId": "eng-1", "applied": self.switch_on, "decision": payload["p_decision"]}
         if path == "/rest/v1/rpc/fn_policy_simulation_record":
             self.recorded.append(payload)
             return "sim-1"
@@ -272,6 +282,60 @@ try:
 except handler.PolicyError as e:
     check("unknown version refused", e.status == 404, e.body)
 
+
+# 6. Deciding one application (FD4.5)
+reset(fake)
+fake.engine_recorded = []
+one = dict(both[0])
+one["foir"] = 70  # over the limit, so the answer is not "approve" by default
+fake.facts = [{"application_id": "CER-7001", "decided_at": "2026-09-01T00:00:00+05:30", "facts": one}]
+fake.app_ref = "CER-7001"
+
+got = handler.assess("app-uuid-1")
+check("assess answers on the version in force", got["policyVersion"] == "2026.08", got.get("policyVersion"))
+check("assess names the application", got["applicationId"] == "CER-7001", got.get("applicationId"))
+check("assess returns a decision and its reasons",
+      got["decision"] in ("approve", "review", "decline") and isinstance(got["hard"], list), got)
+check("the answer is recorded once", len(fake.engine_recorded) == 1, fake.engine_recorded)
+rec = fake.engine_recorded[0] if fake.engine_recorded else {}
+check("the record carries the policy version and the failed rules",
+      rec.get("p_version_code") == "2026.08" and rec.get("p_decision") == got["decision"]
+      and rec.get("p_hard") == got["hard"], rec)
+check("with the switch off, nothing is applied", got["applied"] is False, got)
+
+# With the switch on, the database says it applied the decision
+fake.switch_on = True
+fake.engine_recorded = []
+applied = handler.assess("app-uuid-1")
+check("with the switch on, the decision is applied", applied["applied"] is True, applied)
+
+# A fact nobody recorded is reported, not quietly treated as a pass
+fake.switch_on = False
+unknown = dict(one)
+unknown["ambVsEmiPct"] = None
+fake.facts = [{"application_id": "CER-7002", "decided_at": "2026-09-01T00:00:00+05:30", "facts": unknown}]
+fake.app_ref = "CER-7002"
+with_unknown = handler.assess("app-uuid-2")
+check("unknown facts are named in the answer",
+      with_unknown["factsNotKnown"] == ["ambVsEmiPct"], with_unknown.get("factsNotKnown"))
+
+# An application the database does not return is an error, not an approval
+fake.app_ref = "CER-NONE"
+try:
+    handler.assess("app-uuid-3")
+    check("missing application refused", False)
+except handler.PolicyError as e:
+    check("missing application refused", e.status == 404, e.body)
+
+# Through the API: the route is chosen by path, and sign-in is still required
+fake.app_ref = "CER-7001"
+fake.facts = [{"application_id": "CER-7001", "decided_at": "2026-09-01T00:00:00+05:30", "facts": one}]
+res = handler.handler({**api_event({"applicationId": "app-uuid-1"}), "path": "/prod/assess"}, None)
+check("assess route answers over the API", res["statusCode"] == 200, res)
+res = handler.handler({**api_event({"applicationId": "app-uuid-1"}, token=None), "path": "/prod/assess"}, None)
+check("assess needs a signed-in caller", res["statusCode"] == 401, res)
+res = handler.handler({**api_event({}), "path": "/prod/assess"}, None)
+check("assess without an application is refused", res["statusCode"] == 400, res)
 
 if failures:
     print(f"\n{failures} Lambda check(s) failed")

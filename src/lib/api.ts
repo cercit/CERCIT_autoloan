@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { assessIfServerEngineOn } from "./engine-api";
 import { isDemoMode } from "./auth";
 import {
   applications as mockApplications,
@@ -641,10 +642,23 @@ export type ApplicationFormData = {
 
 export type SubmitResult = {
   applicationId: string;
+  applicationUuid: string;
   decision: string;
   rate: number;
   summary: string;
 };
+
+/** What the case says after the pipeline, and the engine, have finished with it. */
+async function latestDecision(applicationUuid: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("recommendations")
+    .select("recommendation")
+    .eq("application_id", applicationUuid)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const row = (data as { recommendation?: string }[] | null)?.[0];
+  return row?.recommendation ?? null;
+}
 
 export async function submitFullApplication(
   form: ApplicationFormData
@@ -657,6 +671,7 @@ export async function submitFullApplication(
     const seq = String(Math.floor(Math.random() * 900) + 100);
     return {
       applicationId: `APP-2026-${seq.padStart(5, "0")}`,
+      applicationUuid: "",
       decision,
       rate: decision === "APPROVE" ? 8.99 : decision === "MAYBE" ? 9.9 : 0,
       summary: decision === "APPROVE" ? "All policy checks passed" : decision === "MAYBE" ? "Officer review needed — FOIR marginal" : "Bureau score below threshold",
@@ -693,9 +708,14 @@ export async function submitFullApplication(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = data as any;
+  // With the server_engine switch on, the rules engine decides the case and
+  // replaces the decision the database pipeline just made.
+  await assessIfServerEngineOn(r.application_uuid);
+  const decided = r.application_uuid ? await latestDecision(r.application_uuid) : null;
   return {
     applicationId: r.application_id ?? "",
-    decision: r.decision ?? "UNKNOWN",
+    applicationUuid: r.application_uuid ?? "",
+    decision: decided ?? r.decision ?? "UNKNOWN",
     rate: Number(r.rate) || 0,
     summary: r.summary ?? "",
   };
