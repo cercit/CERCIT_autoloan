@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-const BASE = "/CERCIT_autoloan";
+// The published demo is served under /CERCIT_autoloan; a local site is at the root.
+const BASE = process.env["BASE_PATH"] ?? "/CERCIT_autoloan";
 
 test.describe("Landing page", () => {
   test.beforeEach(async ({ page }) => {
@@ -25,20 +26,32 @@ test.describe("Landing page", () => {
     await expect(link).toHaveAttribute("href", `${BASE}/check-eligibility`);
   });
 
-  test("Login link visible in header", async ({ page }) => {
+  // On a phone the header keeps only the logo and the menu button, so the way
+  // in is the same but one tap further.
+  test("a way to sign in is in the header", async ({ page }) => {
+    const onPhone = (page.viewportSize()?.width ?? 1280) < 768;
+    if (onPhone) {
+      await page.click('button[aria-label="Open navigation"]');
+      const link = page.locator('a:has-text("Employee login")').first();
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute("href", `${BASE}/login`);
+      return;
+    }
     const link = page.locator('a:has-text("Login")').first();
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute("href", `${BASE}/login`);
   });
 
-  test("How it works section visible below fold", async ({ page }) => {
-    const section = page.locator('text="How it works"').first();
+  // The separate "How it works" and calculator sections were folded into the
+  // journey strip under the hero on 19 Sep 2026.
+  test("journey strip visible below the hero", async ({ page }) => {
+    const section = page.locator("#journey");
     await section.scrollIntoViewIfNeeded();
     await expect(section).toBeVisible();
   });
 
-  test("EMI calculator section visible", async ({ page }) => {
-    const section = page.locator('text="What will my EMI be?"').first();
+  test("why cercit section visible", async ({ page }) => {
+    const section = page.locator("#why-cercit");
     await section.scrollIntoViewIfNeeded();
     await expect(section).toBeVisible();
   });
@@ -102,7 +115,11 @@ test.describe("Login page", () => {
     expect(page.url()).toContain("dashboard");
   });
 
+  // Only meaningful where there is no database: with one connected, an address
+  // nobody has an account for is refused, which is the point of it.
   test("customer email routes to application-status", async ({ page }) => {
+    const demoOnly = await page.locator('text="Demo mode"').count();
+    test.skip(demoOnly === 0, "site is connected to a database, so unknown sign-ins are refused");
     await page.fill('input[type="email"]', "test@gmail.com");
     await page.fill('input[type="password"]', "test");
     await page.click('button:has-text("Sign in")');
@@ -218,9 +235,15 @@ test.describe("Dashboard (employee)", () => {
   });
 
   test("sidebar navigation links present", async ({ page }) => {
-    await expect(page.locator('a:has-text("Applications")').first()).toBeVisible();
-    await expect(page.locator('a:has-text("Policy Rules")').first()).toBeVisible();
-    await expect(page.locator('a:has-text("Audit Log")').first()).toBeVisible();
+    // The sidebar is behind the menu button on a phone.
+    if ((page.viewportSize()?.width ?? 1280) < 1024) {
+      await page.click('button[aria-label="Toggle menu"]');
+      await page.waitForTimeout(400);
+    }
+    // Both copies of the menu are in the page; only one of them is on screen.
+    await expect(page.locator('a:has-text("Applications"):visible').first()).toBeVisible();
+    await expect(page.locator('a:has-text("Policy Rules"):visible').first()).toBeVisible();
+    await expect(page.locator('a:has-text("Audit Log"):visible').first()).toBeVisible();
   });
 
   test("My Queue section visible", async ({ page }) => {
