@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Building2,
   ClipboardCheck,
@@ -31,7 +31,7 @@ import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { currentUser } from "@/lib/mock-data";
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { getPendingChanges } from "@/lib/policy-api";
-import { signOut } from "@/lib/auth";
+import { requireAuth, signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { NotificationDropdown } from "@/components/notification-dropdown";
 import type { NotificationItem } from "@/components/notification-dropdown";
@@ -132,6 +132,23 @@ export function AppShell({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { showWarning, dismissWarning } = useSessionTimeout();
+  const navigate = useNavigate();
+  // The route guard runs only in the browser, so a staff page opened by its
+  // address renders its frame before anyone has proved who they are. The
+  // database refuses the data either way, but the screen should not be there:
+  // every staff screen sits inside this shell, so the check belongs here.
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void requireAuth().then((ok) => {
+      if (cancelled) return;
+      setAllowed(ok);
+      if (!ok) navigate({ to: "/login" });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
@@ -139,6 +156,17 @@ export function AppShell({
     "?": () => setShortcutsOpen((o) => !o),
     "escape": () => { setShortcutsOpen(false); setSidebarOpen(false); },
   });
+
+  // Nothing of the staff screens is drawn until the check has answered.
+  if (allowed !== true) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">
+          {allowed === null ? "Checking your sign-in…" : "Please sign in."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
