@@ -1,0 +1,68 @@
+# Runs the checks on every push and pull request, so a break is caught here
+# rather than on someone's laptop (backlog FD7.2).
+#
+# What runs: types, the 40 policy scenarios, the rule set against its reference,
+# the ~300 database checks on a throwaway Postgres, the parity report between
+# today's engine and 2026.09, and the rules engine Lambda's own tests.
+#
+# Nothing here touches the live database: the SQL checks run migrations from
+# scratch against an in-memory Postgres, and no secrets are used.
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Policy scenarios
+        run: npm run test:policy
+
+      - name: Rule set against its reference
+        run: npm run test:rules
+
+      - name: Database checks
+        run: npm run test:sql
+
+      - name: Parity with today's engine
+        run: npm run test:parity
+
+  lambda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the rules engine
+        run: pip install -r aws/lambdas/policy_engine/requirements.txt
+
+      - name: Rules engine checks
+        run: python aws/lambdas/policy_engine/test_handler.py
