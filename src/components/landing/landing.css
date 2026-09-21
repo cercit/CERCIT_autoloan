@@ -132,7 +132,9 @@
 .landing-footer a:hover { color: white; }
 
 /* ---------- responsive ---------- */
-@media (max-width: 1180px) {
+/* Login stays in the header now that Track and Get Started have gone; on a
+   phone the menu button carries it instead. */
+@media (max-width: 560px) {
   .nav-login { display: none; }
 }
 @media (max-width: 1100px) {
