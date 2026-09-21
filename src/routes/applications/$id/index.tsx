@@ -1,13 +1,15 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { UserCog } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { EngineDecisionCard } from "@/components/policy/engine-decision-card";
 import { CopilotReview } from "@/components/copilot-review";
 import { DocumentList } from "@/components/document-list";
 import { CashflowSummaryCard } from "@/components/cashflow-summary-card";
-import { TransactionTable } from "@/components/transaction-table";
+import { BankStatementReview } from "@/components/bank-statement-review";
+import type { TransactionCategory } from "@/lib/transaction-categorizer";
+import type { RedFlag, MonthlyBreakdown, CategorizedTransaction } from "@/lib/bank-statement-analysis";
 import { DocumentUploadZone } from "@/components/document-upload-zone";
 import { OfficerNotes } from "@/components/officer-notes";
 import { DocumentExtractionReview } from "@/components/document-extraction-review";
@@ -78,6 +80,51 @@ export const Route = createFileRoute("/applications/$id/")({
   }),
   component: ApplicationDetail,
 });
+
+const CATEGORY_MAP: Record<string, TransactionCategory> = {
+  Salary: "salary", EMI: "emi", Rent: "transfer", ATM: "cash",
+  Transfer: "transfer", UPI: "upi", Other: "other",
+};
+
+function BankingAnalysisSection({ summary, transactions }: { summary: any; transactions: any[] }) {
+  const { categorized, monthly, flags } = useMemo(() => {
+    const cats: CategorizedTransaction[] = transactions.map((t: any) => ({
+      date: t.date,
+      description: t.description,
+      debit: t.debit ?? 0,
+      credit: t.credit ?? 0,
+      balance: t.balance ?? 0,
+      raw: t.description,
+      category: CATEGORY_MAP[t.category] ?? "other",
+    }));
+
+    const monthMap = new Map<string, { credits: number; debits: number; balances: number[]; salary: number; emi: number; bounces: number }>();
+    for (const t of cats) {
+      const m = t.date.slice(0, 7) || t.date.split(" ").slice(1).join("-");
+      if (!monthMap.has(m)) monthMap.set(m, { credits: 0, debits: 0, balances: [], salary: 0, emi: 0, bounces: 0 });
+      const e = monthMap.get(m)!;
+      e.credits += t.credit; e.debits += t.debit; e.balances.push(t.balance);
+      if (t.category === "salary") e.salary += t.credit;
+      if (t.category === "emi") e.emi += t.debit;
+      if (t.category === "bounce") e.bounces++;
+    }
+    const monthly: MonthlyBreakdown[] = Array.from(monthMap.entries()).sort().map(([month, e]) => ({
+      month, credits: e.credits, debits: e.debits,
+      avgBalance: e.balances.reduce((a, b) => a + b, 0) / e.balances.length || 0,
+      salaryCredits: e.salary, emiDebits: e.emi, bounces: e.bounces,
+    }));
+
+    const flags: RedFlag[] = [];
+    if (summary.chequeBounceOutward > 2) flags.push({ code: "BOUNCE_MULTIPLE", severity: "HIGH", message: `${summary.chequeBounceOutward} cheque bounces detected` });
+    const salReg = summary.months > 0 ? summary.salaryCreditCount / summary.months : 1;
+    if (salReg < 0.8) flags.push({ code: "SALARY_IRREGULAR", severity: "MEDIUM", message: `Salary in ${summary.salaryCreditCount} of ${summary.months} months (${Math.round(salReg * 100)}%)` });
+    if (summary.avgSalaryAmount > 0 && summary.cashDeposits > 3 * summary.avgSalaryAmount) flags.push({ code: "LARGE_CASH_DEPOSIT", severity: "MEDIUM", message: "Cash deposits exceed 3x average salary" });
+
+    return { categorized: cats, monthly, flags };
+  }, [transactions, summary]);
+
+  return <BankStatementReview transactions={categorized} monthlyBreakdown={monthly} redFlags={flags} />;
+}
 
 function ApplicationDetail() {
   const { id } = Route.useParams();
@@ -316,7 +363,7 @@ function ApplicationDetail() {
                 cashWithdrawalRatio={bankingSummary.avgMonthlyBalance > 0 ? Math.round((bankingSummary.cashDeposits / bankingSummary.avgMonthlyBalance) * 100) : 0}
                 monthCount={bankingSummary.months}
               />
-              <TransactionTable transactions={bankingTxns} />
+              <BankingAnalysisSection summary={bankingSummary} transactions={bankingTxns} />
             </>
           ) : (
             <p className="text-sm text-muted-foreground">No banking data available.</p>
