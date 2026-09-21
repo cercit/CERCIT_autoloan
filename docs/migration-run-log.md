@@ -31,8 +31,8 @@ Order matters: each file assumes the ones above it are already in.
 | 031 | `031_foir_ltv_tenure_basis.sql` | ✅ 19 Sep 2026 | FOIR on net salary plus other income (as the rules use); summary names ex-showroom and on-road LTV; tenure capped at the tightest of product and band limits, and a cut that pushes FOIR over the cap goes to review |
 | 032 | `032_policy_change_history.sql` | ✅ 19 Sep 2026 | Every status change on a policy version is recorded with who made it; before/after list of changed settings and rules; one history timeline per version. Older versions get history rebuilt from their dates, marked as rebuilt |
 | 033 | `033_server_engine_decisions.sql` | ☐ to run | The AWS rules engine can decide one application: facts for a single case, a record of every answer it gives, and — once the `server_engine` switch is on — that answer becomes the case's decision |
-| 034 | `034_demo_users.sql` | ☐ to run | Three demo accounts with their roles: demo1 (credit officer), demo2 (credit manager), demo_admin (admin). No passwords here; a login created in Supabase links itself to its role row by email |
-| 035 | `035_history_order.sql` | ☐ to run | Policy history keeps the order things happened in, even when two steps land in the same instant |
+| 034 | `034_demo_users.sql` | ✅ 21 Sep 2026 | Three demo accounts with their roles: demo1 (credit officer), demo2 (credit manager), demo_admin (admin). No passwords here; a login created in Supabase links itself to its role row by email |
+| 035 | `035_history_order.sql` | ✅ 21 Sep 2026 | Policy history keeps the order things happened in, even when two steps land in the same instant |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.
