@@ -42,3 +42,7 @@ qa-artifacts/
 *.njsproj
 *.sln
 *.sw?
+
+# Hermes working files
+hermes/
+tasks/

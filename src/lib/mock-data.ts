@@ -55,6 +55,11 @@ export type Application = {
   reasons: string[];
   referredBy?: string;
   referralNote?: string;
+  engineOutcome?: string;
+  policyVersionId?: string;
+  rulesSnapshot?: string;
+  modelVersion?: string;
+  versionBasis?: "RECORDED" | "ASSUMED";
 };
 
 const base = {

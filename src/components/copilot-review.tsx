@@ -286,6 +286,17 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </section>
 
+          <SectionCard title="Decision provenance">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <LabelValue label="Policy version" value={app.policyVersionId || "Not recorded"} />
+              <LabelValue label="Rules fingerprint" value={app.rulesSnapshot ? app.rulesSnapshot.slice(0, 12) : "Not recorded"} />
+              <LabelValue label="Model version" value={app.modelVersion || "Not recorded"} />
+              <LabelValue label="Basis" value={
+                <span className={cn(app.versionBasis === "ASSUMED" ? "text-warning" : "")}>{app.versionBasis || "Not recorded"}{app.versionBasis === "ASSUMED" ? " (backfilled)" : ""}</span>
+              } />
+            </div>
+          </SectionCard>
+
           <Collapsible title="Assessment Breakdown" defaultOpen>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <LabelValue label="Decision" value={assessment.decision.decision} />

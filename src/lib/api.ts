@@ -188,7 +188,24 @@ export async function getApplications(): Promise<Application[]> {
     return mockApplications;
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data as any[]).map(mapToApplication);
+  const apps = (data as any[]).map(mapToApplication);
+  // Batch-fetch engine decisions for these IDs
+  let engineOutcomes: Record<string, string> = {};
+  if (isSupabaseConfigured && !isDemoMode() && apps.length > 0) {
+    const ids = apps.map((a: Application) => a.id);
+    const { data: edData } = await supabase
+      .from("engine_decisions")
+      .select("application_id, decision")
+      .in("application_id", ids);
+    if (edData) {
+      for (const row of edData as any[]) {
+        const d = String(row.decision).toUpperCase();
+        const mapped = d === "APPROVE" ? "APPROVE" : d === "REVIEW" ? "MAYBE" : d === "DECLINE" ? "REJECT" : undefined;
+        if (mapped) engineOutcomes[String(row.application_id)] = mapped;
+      }
+    }
+  }
+  return apps.map((a) => ({ ...a, ...(engineOutcomes[a.id] ? { engineOutcome: engineOutcomes[a.id] } : {}) }));
 }
 
 export async function getApplication(
@@ -206,7 +223,7 @@ export async function getApplication(
       customers!inner(full_name, email, mobile, pan_number, age_at_application, employer_name, city, state_code, address_line1, address_line2, pincode, designation, residence_type, years_in_current_job, total_work_experience_years, salary_bank_name),
       vehicles!fk_vehicles_app(make, model, variant, ex_showroom_price, on_road_price),
       bureau_reports(score),
-      recommendations(recommendation, recommended_rate, foir_calculated, ltv_calculated, risk_factors, summary_text),
+      recommendations(recommendation, recommended_rate, foir_calculated, ltv_calculated, risk_factors, summary_text, policy_version_id, rules_snapshot, model_version, version_basis),
       credit_decisions(decision),
       obligation_details(lender_name, loan_type, emi_amount, outstanding_balance, dpd_current, source)
     `
@@ -617,6 +634,19 @@ function formatDateTime(iso: string): string {
   });
 }
 
+export interface RecommendationRecord {
+  recommendation?: string;
+  recommended_rate?: number;
+  foir_calculated?: number;
+  ltv_calculated?: number;
+  risk_factors?: Array<{ message: string }>;
+  summary_text?: string;
+  policyVersionId?: string;
+  rulesSnapshot?: string;
+  modelVersion?: string;
+  versionBasis?: "RECORDED" | "ASSUMED";
+}
+
 export type ApplicationFormData = {
   fullName: string;
   email: string;
@@ -804,11 +834,12 @@ export type DashboardStats = {
   stpRate: number;
   fpdRisk: number;
   totalTrend: number;
+  avgProcessingDays: number | null;
 };
 
 export async function getDashboardStats(from?: string): Promise<DashboardStats> {
   if (!isSupabaseConfigured || isDemoMode()) {
-    return { total: 1248, pending: 150, approved: 1028, rejected: 70, stpRate: 82.4, fpdRisk: 1.8, totalTrend: 12 };
+    return { total: 1248, pending: 150, approved: 1028, rejected: 70, stpRate: 82.4, fpdRisk: 1.8, totalTrend: 12, avgProcessingDays: 1.8 };
   }
 
   let query = supabase.from("applications").select("status");
@@ -817,7 +848,7 @@ export async function getDashboardStats(from?: string): Promise<DashboardStats> 
 
   if (error || !data) {
     console.error("Failed to fetch stats:", error);
-    return { total: 0, pending: 0, approved: 0, rejected: 0, stpRate: 0, fpdRisk: 0, totalTrend: 0 };
+    return { total: 0, pending: 0, approved: 0, rejected: 0, stpRate: 0, fpdRisk: 0, totalTrend: 0, avgProcessingDays: null };
   }
 
   const total = data.length;
@@ -826,7 +857,40 @@ export async function getDashboardStats(from?: string): Promise<DashboardStats> 
   const pending = total - approved - rejected;
   const stpRate = total > 0 ? Math.round((approved / total) * 1000) / 10 : 0;
 
-  return { total, pending, approved, rejected, stpRate, fpdRisk: 1.8, totalTrend: 12 };
+  return { total, pending, approved, rejected, stpRate, fpdRisk: 1.8, totalTrend: 12, avgProcessingDays: null };
+}
+
+export interface DecisionSlice {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export async function getDecisionDistribution(): Promise<DecisionSlice[]> {
+  if (!isSupabaseConfigured || isDemoMode()) {
+    return [
+      { name: "Approved", value: 58, color: "#16A34A" },
+      { name: "Maybe", value: 24, color: "#D97706" },
+      { name: "Rejected", value: 18, color: "#DC2626" },
+    ];
+  }
+  const { data, error } = await supabase.from("credit_decisions").select("decision");
+  if (error || !data || data.length === 0) return [{ name: "No data", value: 1, color: "#94A3B8" }];
+  const counts: Record<string, number> = {};
+  for (const row of data as any[]) {
+    const d = row.decision || "Unknown";
+    counts[d] = (counts[d] || 0) + 1;
+  }
+  const colorMap: Record<string, string> = {
+    APPROVE: "#16A34A",
+    MAYBE: "#D97706",
+    REJECT: "#DC2626",
+  };
+  return Object.entries(counts).map(([name, value]) => ({
+    name: name.charAt(0) + name.slice(1).toLowerCase(),
+    value,
+    color: colorMap[name] || "#94A3B8",
+  }));
 }
 
 export async function getDashboardTat(from?: string) {
@@ -1468,6 +1532,39 @@ export async function getApplicationTimeline(
       typeof row.details === "string"
         ? row.details
         : JSON.stringify(row.details ?? {}),
+  }));
+}
+
+export interface AuditTrailEntry {
+  id: string;
+  applicationId: string;
+  action: string;
+  performedBy: string;
+  details: string | null;
+  createdAt: string;
+}
+
+export async function getAuditLog(limit: number = 50): Promise<AuditTrailEntry[]> {
+  if (!isSupabaseConfigured || isDemoMode()) {
+    return [
+      { id: "1", applicationId: "202608000001", action: "APPLICATION_SUBMITTED", performedBy: "system", details: null, createdAt: new Date().toISOString() },
+      { id: "2", applicationId: "202608000001", action: "ASSESSMENT_COMPLETED", performedBy: "system", details: "APPROVE at 8.99%", createdAt: new Date().toISOString() },
+      { id: "3", applicationId: "202608000001", action: "OFFICER_APPROVED", performedBy: "demo1@cercit.in", details: "No override", createdAt: new Date().toISOString() },
+    ];
+  }
+  const { data, error } = await supabase
+    .from("audit_trail")
+    .select("id, application_id, action, performed_by, details, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((r: any) => ({
+    id: r.id ?? "",
+    applicationId: r.application_id ?? "",
+    action: r.action ?? "",
+    performedBy: r.performed_by ?? "",
+    details: r.details ?? null,
+    createdAt: r.created_at ?? "",
   }));
 }
 

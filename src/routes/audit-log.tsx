@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMappedAuditLog } from "@/lib/api";
+import { getAuditLog, type AuditTrailEntry } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/audit-log")({
@@ -69,10 +69,17 @@ function AuditLogPage() {
   const [users, setUsers] = useState<UserEntry[]>([]);
 
   useEffect(() => {
-    getMappedAuditLog().then(({ log, actions, users: u }) => {
-      setAuditLog(log);
-      setAuditActions(actions);
-      setUsers(u);
+    getAuditLog(50).then((log) => {
+      setAuditLog(log.map((r) => ({
+        time: new Date(r.createdAt).toLocaleString(),
+        user: r.performedBy,
+        action: r.action.replace(/_/g, " "),
+        app: r.applicationId,
+        details: r.details ?? "",
+        ip: "—",
+      })));
+      setAuditActions([...new Set(log.map((r) => r.action.replace(/_/g, " ")))]);
+      setUsers([]);
     });
   }, []);
 

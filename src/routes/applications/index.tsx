@@ -207,17 +207,32 @@ function Applications() {
                   </td>
                   <td className="px-4 py-2.5 text-right tabular">{app.foir.toFixed(1)}%</td>
                   <td className="px-4 py-2.5">
-                    <Pill
-                      tone={
-                        app.recommendation === "Approve"
-                          ? "success"
-                          : app.recommendation === "Maybe"
-                            ? "warning"
-                            : "destructive"
-                      }
-                    >
-                      {app.recommendation}
-                    </Pill>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Pill
+                        tone={
+                          app.recommendation === "Approve"
+                            ? "success"
+                            : app.recommendation === "Maybe"
+                              ? "warning"
+                              : "destructive"
+                        }
+                      >
+                        {app.recommendation}
+                      </Pill>
+                      {app.engineOutcome && (
+                        <Pill
+                          tone={
+                            app.engineOutcome === "APPROVE"
+                              ? "success"
+                              : app.engineOutcome === "MAYBE"
+                                ? "warning"
+                                : "destructive"
+                          }
+                        >
+                          Engine: {app.engineOutcome === "APPROVE" ? "Approve" : app.engineOutcome === "MAYBE" ? "Maybe" : "Reject"}
+                        </Pill>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2.5">
                     <StatusPill status={app.status} />

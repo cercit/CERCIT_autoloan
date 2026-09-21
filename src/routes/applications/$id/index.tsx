@@ -25,6 +25,7 @@ import { OverridePanel } from "@/components/override-panel";
 import { EscalationDialog } from "@/components/escalation-dialog";
 import { AuditTrailTimeline } from "@/components/audit-trail-timeline";
 import { CAMPreview } from "@/components/cam-preview";
+import { ApplicationTimeline } from "@/components/application-timeline";
 import { runAssessment } from "@/lib/engine";
 import { getAvailableTransitions } from "@/lib/workflow";
 import type { ApplicationStatus } from "@/lib/workflow";

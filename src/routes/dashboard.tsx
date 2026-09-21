@@ -12,7 +12,7 @@ import { AppShell, Pill, SectionCard } from "@/components/app-shell";
 import { CategoryBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getApplications, getDashboardStats, getDashboardTat } from "@/lib/api";
+import { getApplications, getDashboardStats, getDashboardTat, getDecisionDistribution } from "@/lib/api";
 import { tatData } from "@/lib/mock-data";
 import type { DashboardStats } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
@@ -105,7 +105,7 @@ function rangeToDate(r: string): string | undefined {
 function Dashboard() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
-    total: 0, pending: 0, approved: 0, rejected: 0, stpRate: 0, fpdRisk: 0, totalTrend: 0,
+    total: 0, pending: 0, approved: 0, rejected: 0, stpRate: 0, fpdRisk: 0, totalTrend: 0, avgProcessingDays: null,
   });
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("30d");
