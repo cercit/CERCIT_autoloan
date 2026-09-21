@@ -1,6 +1,6 @@
 # cercit build progress
 
-Last updated: 11 Sep 2026
+Last updated: 21 Sep 2026
 
 ## Status summary
 
@@ -11,7 +11,7 @@ Last updated: 11 Sep 2026
 | Backend functions | Live | 9 RPCs, policy engine, assessment pipeline, officer decision |
 | Seed data | Live | 132 dealers, 12 OEMs, rate grid, 16 rules, 3 demo scenarios |
 | Frontend | Live | React + TanStack Router + shadcn/ui, 18 routes (12 employee + 6 public) |
-| Supabase wiring | Live | Real data flowing, mock fallback retained |
+| Supabase wiring | Live | Real data flowing, mock fallback retained; engine.ts reads rate_grid from DB |
 | E2E flow | Working | Submit -> assess -> approve/reject -> review |
 | Git | Pushed | cercit/CERCIT_autoloan (public), main branch |
 | Smart login | Live | Email domain detection routes employee vs customer logins |
