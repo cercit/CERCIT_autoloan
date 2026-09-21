@@ -5,7 +5,22 @@ import {
   type Application,
   type BankStatementSummary,
   type BureauReport,
+  type RateBand,
 } from "@/lib/mock-data";
+import { getRateGrid, type RateGridData } from "@/lib/api";
+
+let cachedGrid: RateGridData | null = null;
+
+export async function fetchRateGrid(): Promise<RateGridData> {
+  if (!cachedGrid) {
+    cachedGrid = await getRateGrid();
+  }
+  return cachedGrid;
+}
+
+export function initEngine(): void {
+  fetchRateGrid().catch(() => {});
+}
 
 // -- Task 42: Income calculation ------------------------------------------------
 
@@ -75,11 +90,15 @@ export type LTVAssessment = {
   breached: boolean;
 };
 
-const maxLtvByCategory: Record<string, number> = {
-  A: 120,
-  B: 110,
-  C: 90,
-};
+const FALLBACK_LTV: Record<string, number> = { A: 120, B: 110, C: 90 };
+
+function maxLtvForCategory(category: string, cibil: number): number {
+  if (cachedGrid?.bands?.length) {
+    const label = cibil >= 750 ? "APPROVE" : cibil >= 650 ? "MAYBE" : "REJECT";
+    return cachedGrid.bands.find((b) => b.label === label)?.maxLtvPct ?? FALLBACK_LTV[category] ?? 90;
+  }
+  return FALLBACK_LTV[category] ?? 90;
+}
 
 export function calculateLTV(app: Application): LTVAssessment {
   const ltvExShowroom =
@@ -92,7 +111,7 @@ export function calculateLTV(app: Application): LTVAssessment {
       ? Math.round((app.loanAmount / app.onRoad) * 1000) / 10
       : 0;
 
-  const maxAllowedLtv = maxLtvByCategory[app.category] ?? 90;
+  const maxAllowedLtv = maxLtvForCategory(app.category, app.cibil);
   const breached = ltvExShowroom > maxAllowedLtv;
 
   return {
@@ -193,15 +212,19 @@ export function checkPolicyRules(
 ): PolicyCheckResult {
   const violations: PolicyViolation[] = [];
 
-  if (income.foir >= 65) {
+  const bandLabel = bureau.band === "A" ? "APPROVE" : bureau.band === "B" ? "MAYBE" : "REJECT";
+  const gridBand = cachedGrid?.bands?.find((b) => b.label === bandLabel);
+
+  const foirLimit = gridBand?.maxFoirPct ?? 65;
+  if (income.foir >= foirLimit) {
     violations.push({
       rule: "Maximum FOIR",
       actual: `${income.foir.toFixed(1)}%`,
-      limit: "65%",
+      limit: `${foirLimit}%`,
     });
   }
 
-  const ltvLimit = bureau.band === "C" ? 100 : 120;
+  const ltvLimit = gridBand?.maxLtvPct ?? (bureau.band === "C" ? 100 : 120);
   if (ltv.ltvExShowroom > ltvLimit) {
     violations.push({
       rule: "Maximum LTV (ex-showroom)",
@@ -210,7 +233,7 @@ export function checkPolicyRules(
     });
   }
 
-  const tenureLimit = bureau.band === "C" ? 60 : 84;
+  const tenureLimit = gridBand?.maxTenureMonths ?? (bureau.band === "C" ? 60 : 84);
   if (app.tenure > tenureLimit) {
     violations.push({
       rule: "Maximum loan tenure",
@@ -256,8 +279,12 @@ export type DecisionResult = {
   suggestedRate: number;
 };
 
-function lookupRate(score: number, band: CibilBand): number {
-  const col = band === "A" ? "catA" : band === "B" ? "catB" : "catC";
+function lookupRate(score: number, _band: CibilBand): number {
+  if (cachedGrid?.bands?.length) {
+    const label = score >= 750 ? "APPROVE" : score >= 650 ? "MAYBE" : "REJECT";
+    return cachedGrid.bands.find((b) => b.label === label)?.baseRate ?? 0;
+  }
+  const col = _band === "A" ? "catA" : _band === "B" ? "catB" : "catC";
   if (score >= 780) return rateGrid[0]?.[col] ?? 8.75;
   if (score >= 750) return rateGrid[1]?.[col] ?? 8.99;
   if (score >= 700) return rateGrid[2]?.[col] ?? 9.25;
@@ -546,7 +573,11 @@ export function quickEligibility(
   }
 
   const reasons: string[] = [];
-  const rate = cibilScore >= 750 ? 8.99 : cibilScore >= 700 ? 9.5 : 10.5;
+  let rate = cibilScore >= 750 ? 8.99 : cibilScore >= 700 ? 9.5 : 10.5;
+  if (cachedGrid?.bands?.length) {
+    const label = cibilScore >= 750 ? "APPROVE" : cibilScore >= 650 ? "MAYBE" : "REJECT";
+    rate = cachedGrid.bands.find((b) => b.label === label)?.baseRate || rate;
+  }
   const months = tenure ?? 60;
   const monthlyRate = rate / 100 / 12;
   const emi = Math.round(
