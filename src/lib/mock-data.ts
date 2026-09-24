@@ -766,6 +766,22 @@ export type BureauReport = {
   dpdHistory: { account: string; months: string[] }[];
   creditCardUtilization?: number;
   assetClassification?: "STD" | "SMA" | "SUB" | "DBT" | "LSS";
+  tradeLines?: TradeLine[];
+};
+
+export type TradeLine = {
+  lender: string;
+  type: string;
+  emi: number;
+  outstanding: number;
+  status: "ACTIVE" | "CLOSED";
+};
+
+// Synthetic loans that appear on the bureau but were not declared by the applicant.
+const UNDECLARED_TRADE_LINES: Record<string, TradeLine[]> = {
+  "APP-2026-00846": [
+    { lender: "Bajaj Finserv", type: "Consumer Durable", emi: 4800, outstanding: 38000, status: "ACTIVE" },
+  ],
 };
 
 export const mockBureauReport: BureauReport = {
@@ -869,5 +885,11 @@ export function buildMockBureau(app: Application): BureauReport {
     })),
     creditCardUtilization: app.cibil >= 750 ? 22 : app.cibil >= 700 ? 48 : 76,
     assetClassification: "STD",
+    tradeLines: [
+      ...app.obligations
+        .filter((o) => o.source === "Bureau")
+        .map((o) => ({ lender: o.lender, type: o.type, emi: o.emi, outstanding: o.outstanding, status: "ACTIVE" as const })),
+      ...(UNDECLARED_TRADE_LINES[app.id] ?? []),
+    ],
   };
 }

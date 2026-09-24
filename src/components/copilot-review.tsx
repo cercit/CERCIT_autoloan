@@ -324,7 +324,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             }>
               <ul className="space-y-2">
                 {assessment.bureau.flags.map((flag) => {
-                  const serious = /SMA-2|high risk|60\+|Thin file/.test(flag);
+                  const serious = /SMA-2|high risk|60\+|Thin file|Undeclared|EMI mismatch|FOIR recalculated/.test(flag);
                   return (
                     <li key={flag} className="flex items-start gap-3 rounded-md border border-border p-3">
                       <Pill tone={serious ? "warning" : "muted"}>{serious ? "REVIEW" : "NOTE"}</Pill>

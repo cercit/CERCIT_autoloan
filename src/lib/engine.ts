@@ -1,11 +1,13 @@
-import { emiFor } from "@/lib/format";
+import { emiFor, inr } from "@/lib/format";
 import {
   buildMockBureau,
   rateGrid,
   type Application,
   type BankStatementSummary,
   type BureauReport,
+  type Obligation,
   type RateBand,
+  type TradeLine,
 } from "@/lib/mock-data";
 import { getRateGrid, type RateGridData } from "@/lib/api";
 
@@ -41,6 +43,7 @@ export type IncomeAssessment = {
 export function calculateIncome(
   app: Application,
   banking?: BankStatementSummary,
+  undeclaredEmi = 0,
 ): IncomeAssessment {
   const declaredMonthlyIncome = app.netIncome;
   const verifiedMonthlyIncome = banking?.avgSalaryAmount ?? declaredMonthlyIncome;
@@ -57,7 +60,7 @@ export function calculateIncome(
   const estimatedTax = grossMonthlyIncome > 50000 ? (grossMonthlyIncome - 50000) * 0.2 : 0;
   const netMonthlyIncome = grossMonthlyIncome - estimatedTax;
 
-  const existingEmiTotal = app.obligations.reduce((sum, o) => sum + o.emi, 0);
+  const existingEmiTotal = app.obligations.reduce((sum, o) => sum + o.emi, 0) + undeclaredEmi;
   const proposedEmi = emiFor(app.loanAmount, app.rate, app.tenure || 60);
   const totalObligations = existingEmiTotal + proposedEmi;
 
@@ -155,11 +158,65 @@ export type BureauAssessment = {
   flags: string[];
   activeAccounts: number;
   totalExposure: number;
+  reconciliation: ReconciliationResult | null;
 };
+
+export type ReconciliationResult = {
+  undeclared: TradeLine[];
+  notOnBureau: Obligation[];
+  emiMismatches: { lender: string; type: string; declaredEmi: number; bureauEmi: number }[];
+  undeclaredEmi: number;
+};
+
+const normLender = (s: string) =>
+  s.toLowerCase().replace(/\b(bank|ltd|limited|finance|financial|finserv|services|corp)\b/g, "").replace(/[^a-z0-9]/g, "");
+const normType = (s: string) => s.toLowerCase().replace(/\bloan\b/g, "").replace(/[^a-z0-9]/g, "");
+
+function sameLoan(o: Obligation, t: TradeLine): boolean {
+  const a = normLender(o.lender), b = normLender(t.lender);
+  const x = normType(o.type), y = normType(t.type);
+  return !!a && !!b && (a.includes(b) || b.includes(a)) && (x.includes(y) || y.includes(x));
+}
+
+export function reconcileObligations(app: Application, bureau: BureauReport): ReconciliationResult | null {
+  if (!bureau.tradeLines) return null;
+  const declared = app.obligations.filter((o) => o.source !== "This application");
+  const active = bureau.tradeLines.filter((t) => t.status === "ACTIVE");
+
+  const undeclared = active.filter((t) => !declared.some((o) => sameLoan(o, t)));
+  const notOnBureau = declared.filter((o) => !active.some((t) => sameLoan(o, t)));
+  const emiMismatches = declared.flatMap((o) => {
+    const t = active.find((tl) => sameLoan(o, tl));
+    if (!t || t.emi <= 0) return [];
+    return Math.abs(o.emi - t.emi) / t.emi > 0.2
+      ? [{ lender: o.lender, type: o.type, declaredEmi: o.emi, bureauEmi: t.emi }]
+      : [];
+  });
+
+  return {
+    undeclared,
+    notOnBureau,
+    emiMismatches,
+    undeclaredEmi: undeclared.reduce((s, t) => s + t.emi, 0),
+  };
+}
 
 export function assessBureau(app: Application, bureau: BureauReport): BureauAssessment {
   const flags: string[] = [];
   const rejectReasons: string[] = [];
+
+  const reconciliation = reconcileObligations(app, bureau);
+  if (reconciliation) {
+    for (const t of reconciliation.undeclared) {
+      flags.push(`Undeclared loan on bureau: ${t.lender} ${t.type}, EMI ${inr(t.emi)}/month`);
+    }
+    for (const m of reconciliation.emiMismatches) {
+      flags.push(`EMI mismatch on ${m.lender} ${m.type}: declared ${inr(m.declaredEmi)} vs bureau ${inr(m.bureauEmi)}`);
+    }
+    for (const o of reconciliation.notOnBureau) {
+      flags.push(`Declared loan not on bureau: ${o.lender} ${o.type}, verify with lender statement`);
+    }
+  }
 
   let band: CibilBand = "C";
   if (bureau.score >= 750) band = "A";
@@ -237,6 +294,7 @@ export function assessBureau(app: Application, bureau: BureauReport): BureauAsse
     flags,
     activeAccounts: bureau.activeAccounts,
     totalExposure: bureau.totalOutstanding,
+    reconciliation,
   };
 }
 
@@ -425,7 +483,12 @@ export function runAssessment(
 
   const hardFilters = runHardFilters(app);
   const bureau = assessBureau(app, bureauReport);
-  const income = calculateIncome(app);
+  const undeclaredEmi = bureau.reconciliation?.undeclaredEmi ?? 0;
+  const income = calculateIncome(app, undefined, undeclaredEmi);
+  if (undeclaredEmi > 0) {
+    const added = income.foir - calculateIncome(app).foir;
+    bureau.flags.push(`FOIR recalculated: undeclared EMIs add ${added.toFixed(1)} pts (engine FOIR now ${income.foir.toFixed(1)}%)`);
+  }
   const ltv = calculateLTV(app);
   const policy = checkPolicyRules(app, income, ltv, bureau);
   const decision = routeDecision(hardFilters, bureau, income, ltv, policy);
