@@ -12,6 +12,8 @@ import uuid
 import boto3
 from botocore.config import Config
 
+from shared.supabase_client import is_staff_request, valid_application_id
+
 s3 = boto3.client(
     "s3",
     region_name="ap-south-1",
@@ -40,6 +42,8 @@ def handler(event, context):
     """
     if event.get("httpMethod") == "OPTIONS":
         return _response(200, {})
+    if not is_staff_request(event):
+        return _response(401, {"error": "sign-in required"})
 
     try:
         body = json.loads(event.get("body", "{}"))
@@ -51,8 +55,8 @@ def handler(event, context):
     file_name = body.get("fileName", f"doc-{uuid.uuid4().hex[:8]}")
     content_type = body.get("contentType", "application/pdf")
 
-    if not application_id:
-        return _response(400, {"error": "applicationId required"})
+    if not valid_application_id(application_id):
+        return _response(400, {"error": "valid applicationId required"})
     if doc_type not in DOC_TYPE_FOLDERS:
         return _response(400, {"error": f"Invalid docType. Must be one of: {list(DOC_TYPE_FOLDERS.keys())}"})
     if content_type not in ALLOWED_TYPES:
@@ -60,7 +64,7 @@ def handler(event, context):
 
     folder = DOC_TYPE_FOLDERS[doc_type]
     safe_name = file_name.replace("/", "_").replace("\\", "_")
-    key = f"{folder}/{application_id}/{safe_name}"
+    key = f"{folder}/{application_id}/{uuid.uuid4().hex[:8]}-{safe_name}"
 
     presigned_url = s3.generate_presigned_url(
         "put_object",
@@ -84,9 +88,11 @@ def get_extractions_handler(event, context):
     GET /extraction/{applicationId}
     Returns all extracted fields for an application.
     """
-    application_id = event.get("pathParameters", {}).get("applicationId")
-    if not application_id:
-        return _response(400, {"error": "applicationId required"})
+    if not is_staff_request(event):
+        return _response(401, {"error": "sign-in required"})
+    application_id = (event.get("pathParameters") or {}).get("applicationId")
+    if not valid_application_id(application_id):
+        return _response(400, {"error": "valid applicationId required"})
 
     prefix = f"extracted/{application_id}/"
     result = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix)

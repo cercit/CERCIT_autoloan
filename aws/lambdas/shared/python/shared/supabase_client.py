@@ -5,11 +5,41 @@ Uses only urllib (no external deps) to keep Lambda package small.
 
 import json
 import os
+import re
+import urllib.error
 import urllib.request
 from typing import Any
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+
+# IDs are interpolated into PostgREST filters and S3 keys, so only these shapes are accepted.
+_APP_ID_RE = re.compile(
+    r"^(APP-\d{4}-\d{5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+)
+
+
+def valid_application_id(value: Any) -> bool:
+    return isinstance(value, str) and bool(_APP_ID_RE.match(value))
+
+
+def is_staff_request(event: dict) -> bool:
+    """True only if the caller sent a Supabase session token belonging to active staff."""
+    headers = event.get("headers") or {}
+    auth = next((v for k, v in headers.items() if k.lower() == "authorization"), "")
+    if not auth.lower().startswith("bearer "):
+        return False
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/rpc/fn_current_staff_id",
+        data=b"{}",
+        method="POST",
+        headers={"apikey": SUPABASE_KEY, "Authorization": auth, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read() or "null") is not None
+    except (urllib.error.HTTPError, urllib.error.URLError, ValueError):
+        return False
 
 
 def _headers() -> dict[str, str]:

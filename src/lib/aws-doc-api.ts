@@ -8,7 +8,16 @@
  * it outputs the API Gateway URL.
  */
 
+import { supabase } from "./supabase";
+
 const API_BASE = import.meta.env["VITE_AWS_API_URL"] ?? "";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Sign in again to upload documents");
+  return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+}
 
 export type DocType =
   | "salary_slip"
@@ -59,7 +68,7 @@ export async function getPresignedUrl(
 ): Promise<PresignedResponse> {
   const res = await fetch(`${API_BASE}/upload`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders(),
     body: JSON.stringify({ applicationId, docType, fileName, contentType }),
   });
 
@@ -104,7 +113,9 @@ export async function uploadDocument(
 export async function getExtractions(
   applicationId: string
 ): Promise<ExtractionResult> {
-  const res = await fetch(`${API_BASE}/extraction/${applicationId}`);
+  const res = await fetch(`${API_BASE}/extraction/${encodeURIComponent(applicationId)}`, {
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch extractions");
   return res.json();
 }
@@ -132,9 +143,9 @@ export async function pollForExtraction(
 export async function runCrossValidation(
   applicationId: string
 ): Promise<ValidationCheck[]> {
-  const res = await fetch(`${API_BASE}/validate/${applicationId}`, {
+  const res = await fetch(`${API_BASE}/validate/${encodeURIComponent(applicationId)}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders(),
     body: JSON.stringify({ application_id: applicationId }),
   });
 

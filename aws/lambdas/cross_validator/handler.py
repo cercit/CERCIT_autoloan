@@ -11,7 +11,12 @@ import os
 import re
 import boto3
 
-from shared.supabase_client import get_extractions, write_validation_result
+from shared.supabase_client import (
+    get_extractions,
+    is_staff_request,
+    valid_application_id,
+    write_validation_result,
+)
 
 s3 = boto3.client("s3")
 BUCKET = os.environ.get("DOCS_BUCKET", "cercit-docs")
@@ -19,11 +24,23 @@ BUCKET = os.environ.get("DOCS_BUCKET", "cercit-docs")
 
 def handler(event, context):
     """Can be invoked directly via API Gateway or as step function."""
-    body = json.loads(event.get("body", "{}")) if isinstance(event.get("body"), str) else event
-    application_id = body.get("application_id")
+    via_api = "httpMethod" in event
+    if via_api and not is_staff_request(event):
+        return {"statusCode": 401, "body": "sign-in required"}
+    try:
+        body = json.loads(event.get("body") or "{}") if via_api else event
+    except json.JSONDecodeError:
+        return {"statusCode": 400, "body": "body must be JSON"}
+    if not isinstance(body, dict):
+        return {"statusCode": 400, "body": "body must be a JSON object"}
+    application_id = (
+        body.get("application_id")
+        or body.get("applicationId")
+        or (event.get("pathParameters") or {}).get("applicationId")
+    )
 
-    if not application_id:
-        return {"statusCode": 400, "body": "application_id required"}
+    if not valid_application_id(application_id):
+        return {"statusCode": 400, "body": "valid application_id required"}
 
     extractions = get_extractions(application_id)
     if not extractions:
