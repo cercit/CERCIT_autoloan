@@ -452,6 +452,18 @@ export function routeDecision(
     };
   }
 
+  const undeclared = bureau.reconciliation?.undeclared ?? [];
+  if (undeclared.length > 0) {
+    return {
+      decision: "MAYBE",
+      reasons: [
+        `${undeclared.length} loan${undeclared.length === 1 ? "" : "s"} on bureau not declared by applicant — manual review required`,
+      ],
+      riskFlags,
+      suggestedRate: lookupRate(bureau.score, bureau.band),
+    };
+  }
+
   reasons.push(`CIBIL ${bureau.score} — Band ${bureau.band}`);
   reasons.push(`FOIR ${income.foir.toFixed(1)}% — within limit`);
   reasons.push(`LTV ${ltv.ltvExShowroom.toFixed(1)}% — within limit`);
