@@ -165,11 +165,60 @@ export function assessBureau(app: Application, bureau: BureauReport): BureauAsse
   if (bureau.score >= 750) band = "A";
   else if (bureau.score >= 650) band = "B";
 
-  const has90PlusDpd = bureau.dpdHistory.some((account) =>
-    account.months.some((m) => parseInt(m, 10) >= 90),
-  );
-  if (has90PlusDpd) {
+  // DPD checks — granular 30/60/90+
+  let maxDpd = 0;
+  for (const account of bureau.dpdHistory) {
+    for (const m of account.months) {
+      const dpd = parseInt(m, 10);
+      if (dpd > maxDpd) maxDpd = dpd;
+    }
+  }
+  if (maxDpd >= 90) {
     rejectReasons.push("90+ DPD observed in last 24 months");
+  } else if (maxDpd >= 60) {
+    flags.push("60+ DPD observed — manual review required");
+  } else if (maxDpd >= 30) {
+    flags.push("30+ DPD observed — minor delinquency on record");
+  }
+
+  // SMA classification derived from max DPD (RBI norms)
+  let sma: "NONE" | "SMA-0" | "SMA-1" | "SMA-2" = "NONE";
+  if (maxDpd >= 61) sma = "SMA-2";
+  else if (maxDpd >= 31) sma = "SMA-1";
+  else if (maxDpd >= 1) sma = "SMA-0";
+  if (sma === "SMA-2") {
+    flags.push("SMA-2 classification — pre-NPA, escalate to credit head");
+  } else if (sma === "SMA-1") {
+    flags.push("SMA-1 classification — close monitoring required");
+  }
+
+  // Asset classification from bureau (NPA/SUB/DBT/LSS)
+  if (bureau.assetClassification && bureau.assetClassification !== "STD") {
+    if (bureau.assetClassification === "LSS") {
+      rejectReasons.push(`Asset classified as Loss — auto-reject`);
+    } else if (bureau.assetClassification === "DBT") {
+      rejectReasons.push(`Asset classified as Doubtful — auto-reject`);
+    } else if (bureau.assetClassification === "SUB") {
+      rejectReasons.push(`Asset classified as Sub-standard — auto-reject`);
+    } else if (bureau.assetClassification === "SMA") {
+      flags.push("Asset classified as SMA on bureau");
+    }
+  }
+
+  // Credit card utilization (CIBIL Red-Flag Matrix thresholds)
+  if (bureau.creditCardUtilization != null) {
+    if (bureau.creditCardUtilization > 70) {
+      flags.push(`Credit card utilization at ${bureau.creditCardUtilization}% — high risk (>70%)`);
+    } else if (bureau.creditCardUtilization > 30) {
+      flags.push(`Credit card utilization at ${bureau.creditCardUtilization}% — moderate (30-70%)`);
+    }
+  }
+
+  // Account vintage check
+  if (bureau.oldestAccountMonths < 12) {
+    flags.push("Thin file — credit history less than 1 year");
+  } else if (bureau.oldestAccountMonths < 36) {
+    flags.push(`Limited credit history: ${bureau.oldestAccountAge || Math.floor(bureau.oldestAccountMonths / 12) + " years"}`);
   }
 
   if (bureau.enquiries90Days > 6) {

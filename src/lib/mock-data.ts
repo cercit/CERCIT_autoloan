@@ -764,6 +764,8 @@ export type BureauReport = {
   settlements: boolean;
   suitsFiled: boolean;
   dpdHistory: { account: string; months: string[] }[];
+  creditCardUtilization?: number;
+  assetClassification?: "STD" | "SMA" | "SUB" | "DBT" | "LSS";
 };
 
 export const mockBureauReport: BureauReport = {
@@ -785,6 +787,8 @@ export const mockBureauReport: BureauReport = {
     { account: "Axis Credit Card", months: ["0","0","0","0","0","0","0","0","0","0","0","0"] },
     { account: "SBI Auto Loan (closed)", months: ["0","0","0","0","0","0","0","0","0","30","0","0"] },
   ],
+  creditCardUtilization: 42,
+  assetClassification: "STD",
 };
 
 export type BankStatementSummary = {
@@ -863,5 +867,7 @@ export function buildMockBureau(app: Application): BureauReport {
       account: `${o.lender} ${o.type}`,
       months: Array.from({ length: 12 }, (_, i) => (i === 0 ? o.dpd : "0")),
     })),
+    creditCardUtilization: app.cibil >= 750 ? 22 : app.cibil >= 700 ? 48 : 76,
+    assetClassification: "STD",
   };
 }

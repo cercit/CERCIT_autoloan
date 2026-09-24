@@ -318,6 +318,24 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             )}
           </Collapsible>
 
+          {assessment.bureau.flags.length > 0 && (
+            <Collapsible title="Bureau Red Flags" defaultOpen right={
+              <Pill tone="warning">{assessment.bureau.flags.length} flag{assessment.bureau.flags.length === 1 ? "" : "s"}</Pill>
+            }>
+              <ul className="space-y-2">
+                {assessment.bureau.flags.map((flag) => {
+                  const serious = /SMA-2|high risk|60\+|Thin file/.test(flag);
+                  return (
+                    <li key={flag} className="flex items-start gap-3 rounded-md border border-border p-3">
+                      <Pill tone={serious ? "warning" : "muted"}>{serious ? "REVIEW" : "NOTE"}</Pill>
+                      <p className="text-sm">{flag}</p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Collapsible>
+          )}
+
           {fraudCheck.flags.length > 0 && (
             <Collapsible title="Risk Flags" defaultOpen right={
               fraudCheck.hasCritical ? <Pill tone="destructive">Critical</Pill> : <Pill tone="warning">{fraudCheck.flags.length} flags</Pill>
