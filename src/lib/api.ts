@@ -225,7 +225,7 @@ export async function getApplication(
       bureau_reports(score),
       recommendations(recommendation, recommended_rate, foir_calculated, ltv_calculated, risk_factors, summary_text, policy_version_id, rules_snapshot, model_version, version_basis),
       credit_decisions(decision),
-      obligation_details(lender_name, loan_type, emi_amount, outstanding_balance, dpd_current, source)
+      obligation_details(lender_name, obligation_type, monthly_emi, outstanding_amount, dpd_current, source)
     `
     )
     .eq("application_id", id)
@@ -275,9 +275,9 @@ export async function getApplication(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const obligations = ((data as any).obligation_details ?? []).map((o: any) => ({
     lender: o.lender_name ?? "",
-    type: o.loan_type ?? "",
-    emi: Number(o.emi_amount) || 0,
-    outstanding: Number(o.outstanding_balance) || 0,
+    type: o.obligation_type ?? "",
+    emi: Number(o.monthly_emi) || 0,
+    outstanding: Number(o.outstanding_amount) || 0,
     dpd: String(o.dpd_current ?? "0"),
     source: o.source ?? "Bureau",
   }));
