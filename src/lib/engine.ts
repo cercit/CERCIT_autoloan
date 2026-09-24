@@ -1,6 +1,7 @@
 import { emiFor, inr } from "@/lib/format";
 import {
   buildMockBureau,
+  rateBands,
   rateGrid,
   type Application,
   type BankStatementSummary,
@@ -320,7 +321,8 @@ export function checkPolicyRules(
   const violations: PolicyViolation[] = [];
 
   const bandLabel = bureau.band === "A" ? "APPROVE" : bureau.band === "B" ? "MAYBE" : "REJECT";
-  const gridBand = cachedGrid?.bands?.find((b) => b.label === bandLabel);
+  const gridBand =
+    cachedGrid?.bands?.find((b) => b.label === bandLabel) ?? rateBands.find((b) => b.label === bandLabel);
 
   const foirLimit = gridBand?.maxFoirPct ?? 65;
   if (income.foir >= foirLimit) {
