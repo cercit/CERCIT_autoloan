@@ -99,6 +99,29 @@ export function DotField({ className }: { className?: string }) {
     function draw() {
       if (!ctx) return;
       ctx.clearRect(0, 0, width, height);
+      const light = !document.documentElement.classList.contains("dark");
+      const dotRgb = light ? "30, 64, 175" : "120, 178, 255";
+
+      // On the bright daytime photo the dots alone read too faintly, so light
+      // mode adds a soft lens under the cursor and a visible ripple ring.
+      if (light && pointerOn) {
+        const halo = ctx.createRadialGradient(pointerX, pointerY, 0, pointerX, pointerY, PUSH_RADIUS * 1.15);
+        halo.addColorStop(0, "rgba(59, 130, 246, 0.3)");
+        halo.addColorStop(0.55, "rgba(59, 130, 246, 0.12)");
+        halo.addColorStop(1, "rgba(59, 130, 246, 0)");
+        ctx.fillStyle = halo;
+        ctx.fillRect(pointerX - PUSH_RADIUS * 1.2, pointerY - PUSH_RADIUS * 1.2, PUSH_RADIUS * 2.4, PUSH_RADIUS * 2.4);
+      }
+      if (light) {
+        for (const ripple of ripples) {
+          const fade = 1 - ripple.t / RIPPLE_LIFE;
+          ctx.strokeStyle = `rgba(37, 99, 235, ${(0.45 * fade).toFixed(3)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(ripple.x, ripple.y, ripple.t * RIPPLE_SPEED, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
       // bucket dots by brightness so we only switch fillStyle a handful of times
       const buckets: Dot[][] = Array.from({ length: ALPHA_BUCKETS }, () => []);
       const lit: Dot[] = [];
@@ -128,16 +151,18 @@ export function DotField({ className }: { className?: string }) {
       for (let i = 1; i < ALPHA_BUCKETS; i++) {
         const bucket = buckets[i]!;
         if (!bucket.length) continue;
-        const alpha = (i / ALPHA_BUCKETS) * 0.78;
-        ctx.fillStyle = `rgba(120, 178, 255, ${alpha.toFixed(3)})`;
-        for (const dot of bucket) ctx.fillRect(dot.x - 0.7, dot.y - 0.7, 1.4, 1.4);
+        const alpha = (i / ALPHA_BUCKETS) * (light ? 0.85 : 0.78);
+        const size = light ? 1.5 + (i / ALPHA_BUCKETS) * 1.1 : 1.4;
+        ctx.fillStyle = `rgba(${dotRgb}, ${alpha.toFixed(3)})`;
+        for (const dot of bucket) ctx.fillRect(dot.x - size / 2, dot.y - size / 2, size, size);
       }
 
       if (lit.length) {
-        ctx.fillStyle = "rgba(186, 220, 255, 0.92)";
-        ctx.shadowColor = "rgba(90, 165, 255, 0.85)";
-        ctx.shadowBlur = 6;
-        for (const dot of lit) ctx.fillRect(dot.x - 1.1, dot.y - 1.1, 2.2, 2.2);
+        const size = light ? 3.2 : 2.2;
+        ctx.fillStyle = light ? "rgba(29, 78, 216, 1)" : "rgba(186, 220, 255, 0.92)";
+        ctx.shadowColor = light ? "rgba(59, 130, 246, 0.75)" : "rgba(90, 165, 255, 0.85)";
+        ctx.shadowBlur = light ? 8 : 6;
+        for (const dot of lit) ctx.fillRect(dot.x - size / 2, dot.y - size / 2, size, size);
         ctx.shadowBlur = 0;
       }
     }
@@ -238,11 +263,14 @@ export function DotField({ className }: { className?: string }) {
     }
     const observer = new ResizeObserver(() => build());
     observer.observe(canvas);
+    const themeObserver = new MutationObserver(() => draw());
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();
+      themeObserver.disconnect();
       host.removeEventListener("pointermove", onMove);
       host.removeEventListener("pointerleave", onLeave);
       host.removeEventListener("pointerdown", onDown);

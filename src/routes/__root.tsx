@@ -113,7 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   beforeLoad: async ({ location }) => {
-    const publicPaths = ["/", "/CERCIT_autoloan/", "/CERCIT_autoloan", "/check-eligibility", "/login", "/apply", "/application-status"];
+    const publicPaths = ["/", "/CERCIT_autoloan/", "/CERCIT_autoloan", "/check-eligibility", "/login", "/apply", "/application-status", "/legal"];
     if (publicPaths.includes(location.pathname)) return;
     if (typeof window === "undefined") return;
     const isAuth = await requireAuth();

@@ -1,18 +1,22 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   ArrowRight,
+  BadgeCheck,
+  CarFront,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   Eye,
-  Linkedin,
   Lock,
   Smartphone,
-  Twitter,
+  Upload,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { LandingFooter } from "@/components/landing/footer";
 import { Hero, JourneyHud } from "@/components/landing/hero";
 import { DEFAULT_LOAN, type LoanState } from "@/components/landing/loan";
+import { RatesSection } from "@/components/landing/rates-section";
 import { TiltCard } from "@/components/pointer-fx";
 import {
   Accordion,
@@ -30,7 +34,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Choose your vehicle, apply digitally and get approved in minutes. New car finance from cercit: rates from 8.75%, exact rate shown upfront, no branch visits.",
+          "Choose your vehicle, apply digitally and get approved in minutes. New car finance from cercit: rates from 8.99%, exact rate shown upfront, no branch visits.",
       },
       { property: "og:title", content: "cercit | Your new car is closer than you think" },
       {
@@ -68,6 +72,35 @@ const whyCercit = [
   },
 ];
 
+const howItWorks = [
+  {
+    icon: ClipboardCheck,
+    title: "Check eligibility",
+    body: "Enter your CIBIL score and salary. See what you qualify for in a minute, with no effect on your score.",
+  },
+  {
+    icon: Upload,
+    title: "Apply online",
+    body: "Fill one form and upload your documents from your phone. About five minutes.",
+  },
+  {
+    icon: BadgeCheck,
+    title: "Get your decision",
+    body: "Most salaried applications are decided within an hour, with the exact rate and EMI.",
+  },
+  {
+    icon: CarFront,
+    title: "Drive home",
+    body: "Sign digitally. We pay the dealer directly and you collect your car.",
+  },
+];
+
+const trustFacts = [
+  "132 partner dealers",
+  `${carBrands.length} car brands`,
+  "Up to 120% of ex-showroom",
+];
+
 function Landing() {
   const [loan, setLoan] = useState<LoanState>(DEFAULT_LOAN);
   const update = useCallback(
@@ -99,6 +132,39 @@ function Landing() {
             </TiltCard>
           ))}
         </div>
+        <ul className="trust-facts" aria-label="cercit in numbers">
+          {trustFacts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section id="how-it-works" className="mx-auto max-w-6xl px-4 pb-20">
+        <p className="section-eyebrow text-center">How it works</p>
+        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+          From showroom to driveway in four steps
+        </h2>
+        <ol className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {howItWorks.map((step, i) => (
+            <li key={step.title}>
+              <TiltCard className="panel h-full rounded-xl p-6">
+                <div className="flex items-center justify-between">
+                  <span className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <step.icon className="size-5" />
+                  </span>
+                  <span className="step-number" aria-hidden="true">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </div>
+                <h3 className="mt-4 text-base font-semibold">
+                  <span className="sr-only">Step {i + 1}: </span>
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">{step.body}</p>
+              </TiltCard>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section id="why-cercit" className="border-y border-border bg-surface-subtle">
@@ -121,6 +187,8 @@ function Landing() {
         </div>
       </section>
 
+      <RatesSection />
+
       <section id="faqs" className="mx-auto max-w-3xl px-4 py-20">
         <p className="section-eyebrow text-center">FAQs</p>
         <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
@@ -138,61 +206,25 @@ function Landing() {
 
       <section className="cta-band">
         <div className="relative mx-auto max-w-3xl px-4 py-20 text-center">
-          <p className="section-eyebrow" style={{ color: "oklch(0.7 0.2 246)" }}>
+          <p className="section-eyebrow cta-eyebrow">
             Ready when you are
           </p>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
             Start the engine on your application.
           </h2>
-          <p className="mt-4 text-white/75">It takes about five minutes. No branch visit needed.</p>
+          <p className="cta-sub mt-4">It takes about five minutes. No branch visit needed.</p>
           <Button size="lg" className="cta-primary mt-9" asChild>
             <Link to="/apply">
               Apply Now <ArrowRight className="size-4" />
             </Link>
           </Button>
-          <p className="mt-6 flex items-center justify-center gap-2 text-xs text-white/60">
+          <p className="cta-note mt-6 flex items-center justify-center gap-2 text-xs">
             <CheckCircle2 className="size-3.5" /> Salaried, first-time and repeat buyers welcome
           </p>
         </div>
       </section>
 
-      <footer className="landing-footer">
-        <div className="mx-auto max-w-6xl px-4 py-12">
-          <div className="flex flex-col gap-8 md:flex-row md:justify-between">
-            <div>
-              <Link to="/" className="inline-flex items-center gap-2" aria-label="cercit home">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
-                  c
-                </span>
-                <span className="text-lg font-bold tracking-tight text-white">cercit</span>
-              </Link>
-              <p className="mt-3 max-w-xs text-sm opacity-80">
-                Credit Evaluation and Risk Compliance Intelligence Tool for vehicle finance.
-              </p>
-            </div>
-            <nav className="flex flex-wrap gap-x-8 gap-y-2 text-sm" aria-label="Footer">
-              <a href="#journey">EMI Calculator</a>
-              <Link to="/check-eligibility">Check Eligibility</Link>
-              <Link to="/apply">Apply</Link>
-              <Link to="/application-status">Track Application</Link>
-              <Link to="/login">Login</Link>
-            </nav>
-          </div>
-          <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs opacity-70">
-              cercit is a product demo. Not a licensed financial institution.
-            </p>
-            <div className="flex gap-2">
-              <span className="flex size-8 items-center justify-center rounded-md border border-white/15 opacity-80">
-                <Linkedin className="size-4" />
-              </span>
-              <span className="flex size-8 items-center justify-center rounded-md border border-white/15 opacity-80">
-                <Twitter className="size-4" />
-              </span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <LandingFooter />
     </div>
   );
 }

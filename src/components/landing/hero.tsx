@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   Check,
-  ChevronDown,
   Clock,
   Menu,
   Percent,
@@ -12,29 +11,40 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import cockpitImage from "@/assets/cercit-rhd-cockpit.webp";
+import cockpitDark from "@/assets/cercit-cockpit-day-dark.webp";
+import cockpitLight from "@/assets/cercit-cockpit-day-light.webp";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { emiFor } from "@/lib/format";
 
 import { DotField } from "./dot-field";
 import { LOAN_LIMITS, rupee, tenureLabel, type LoanState } from "./loan";
 
-const journey = ["Choose", "Check", "Apply", "Approve", "Drive"] as const;
-
 const navLinks = [
+  ["#how-it-works", "How it works"],
   ["#why-cercit", "Why cercit"],
+  ["#rates", "Rates"],
   ["#faqs", "FAQs"],
 ] as const;
 
 const trust = [
   { icon: ShieldCheck, title: "50,000+ customers", body: "Trusted across India" },
   { icon: Clock, title: "Approval in ~47 min", body: "Average decision time" },
-  { icon: Percent, title: "Rates from 8.75%", body: "Exact rate shown upfront" },
+  { icon: Percent, title: "Rates from 8.99%", body: "Exact rate shown upfront" },
   { icon: Smartphone, title: "100% digital", body: "No branch visits" },
 ];
 
-const tenureOptions = [12, 24, 36, 48, 60, 72, 84];
+const tenureOptions = Array.from(
+  { length: (LOAN_LIMITS.months.max - LOAN_LIMITS.months.min) / LOAN_LIMITS.months.step + 1 },
+  (_, i) => LOAN_LIMITS.months.min + i * LOAN_LIMITS.months.step,
+);
 
 interface LoanProps {
   loan: LoanState;
@@ -45,6 +55,28 @@ interface LoanProps {
 export function Hero() {
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    let last = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (Math.abs(y - last) > 6) {
+          setHeaderHidden(y > last && y > 120);
+          last = y;
+        }
+        setScrolled(y > 8);
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
     if (event.pointerType === "touch") return;
@@ -63,38 +95,13 @@ export function Hero() {
   return (
     <section className="hero-scroll landing-hero" aria-label="Your vehicle finance journey">
       <div
-        className="hero-stage"
-        onPointerMove={handlePointerMove}
-        onPointerLeave={() => setPointer({ x: 0, y: 0 })}
+        className={[
+          "header-shell",
+          headerHidden && !menuOpen ? "is-hidden" : "",
+          scrolled ? "is-scrolled" : "",
+        ].join(" ")}
+        onFocusCapture={() => setHeaderHidden(false)}
       >
-        <div className="hero-image-layer" style={parallax}>
-          <img
-            src={cockpitImage}
-            alt="First-person view from the driver's seat of a right-hand-drive car, looking down a city highway at golden hour"
-            width={1920}
-            height={1080}
-            fetchPriority="high"
-            className="h-full w-full object-cover"
-          />
-        </div>
-        <div className="hero-shade" aria-hidden="true" />
-        <div
-          className="dashboard-light"
-          aria-hidden="true"
-          style={
-            {
-              "--light-x": `${70 + pointer.x * 5}%`,
-              "--light-y": `${68 + pointer.y * 3}%`,
-            } as React.CSSProperties
-          }
-        />
-
-        {/* light caught on the windscreen: dots scatter under the cursor */}
-        <DotField />
-        <p className="hero-ink-caption" aria-hidden="true">
-          Move your cursor across the glass. Click to send a ripple.
-        </p>
-
         <header className="site-header">
           <Link to="/" className="brand" aria-label="cercit home">
             <span className="brand-mark">c</span>
@@ -145,6 +152,44 @@ export function Hero() {
             </div>
           </div>
         )}
+      </div>
+
+      <div
+        className="hero-stage"
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => setPointer({ x: 0, y: 0 })}
+      >
+        <div className="hero-image-layer" style={parallax}>
+          <img
+            src={cockpitLight}
+            alt="First-person view from the driver's seat of a right-hand-drive car with a beige interior, looking down a city expressway on a sunny day"
+            width={1672}
+            height={941}
+            fetchPriority="high"
+            className="hero-img-light h-full w-full object-cover"
+          />
+          <img
+            src={cockpitDark}
+            alt="First-person view from the driver's seat of a right-hand-drive car with a dark interior, looking down a city expressway on a sunny day"
+            width={1671}
+            height={941}
+            className="hero-img-dark h-full w-full object-cover"
+          />
+        </div>
+        <div className="hero-shade" aria-hidden="true" />
+        <div
+          className="dashboard-light"
+          aria-hidden="true"
+          style={
+            {
+              "--light-x": `${70 + pointer.x * 5}%`,
+              "--light-y": `${68 + pointer.y * 3}%`,
+            } as React.CSSProperties
+          }
+        />
+
+        {/* light caught on the windscreen: dots scatter under the cursor */}
+        <DotField />
 
         <div id="top" className="hero-content">
           <div className="hero-copy">
@@ -190,61 +235,24 @@ export function Hero() {
   );
 }
 
-/** "Your journey" dashboard strip: journey steps plus live EMI controls. Sits below the hero. */
+/** EMI calculator strip directly below the hero. */
 export function JourneyHud({ loan, onChange }: LoanProps) {
-  const [step, setStep] = useState(0);
-  const [paused, setPaused] = useState(false);
   const emi = emiFor(loan.amount, loan.rate, loan.months);
   const tenureChoices = tenureOptions.includes(loan.months)
     ? tenureOptions
     : [...tenureOptions, loan.months].sort((a, b) => a - b);
 
-  useEffect(() => {
-    if (paused) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const id = window.setInterval(() => setStep((s) => (s + 1) % journey.length), 2400);
-    return () => window.clearInterval(id);
-  }, [paused]);
-
   return (
-    <section id="journey" className="hud-strip landing-hero" aria-label="Your journey">
-      <div
-        className="finance-hud"
-        onPointerEnter={() => setPaused(true)}
-        onPointerLeave={() => setPaused(false)}
-        onFocusCapture={() => setPaused(true)}
-        onBlurCapture={() => setPaused(false)}
-      >
-        <div className="hud-journey">
-          <div className="hud-heading">
-            <div>
-              <p>Your journey</p>
-              <span>
-                {step === journey.length - 1
-                  ? "Approved. Ready to drive."
-                  : `Step ${step + 1} of ${journey.length}`}
-              </span>
-            </div>
-            <span className="live-indicator">
-              <i /> Live
-            </span>
+    <section id="journey" className="hud-strip landing-hero" aria-label="EMI calculator">
+      <div className="finance-hud">
+        <div className="hud-heading">
+          <div>
+            <p>EMI calculator</p>
+            <span>Move the sliders to see your monthly payment</span>
           </div>
-          <ol className="journey-steps" aria-label="Application journey">
-            {journey.map((label, index) => (
-              <li key={label} className={index <= step ? "active" : ""}>
-                <button
-                  type="button"
-                  className="step-dot"
-                  aria-current={index === step ? "step" : undefined}
-                  aria-label={`${label}, step ${index + 1}`}
-                  onClick={() => setStep(index)}
-                >
-                  {index < step ? <Check /> : index + 1}
-                </button>
-                <span>{label}</span>
-              </li>
-            ))}
-          </ol>
+          <span className="live-indicator">
+            <i /> Live
+          </span>
         </div>
 
         <div className="hud-finance">
@@ -277,23 +285,24 @@ export function JourneyHud({ loan, onChange }: LoanProps) {
                 aria-label="Annual interest rate"
               />
             </label>
-            <label className="tenure-control">
-              <span>Tenure</span>
-              <span className="select-wrap">
-                <select
-                  value={loan.months}
-                  onChange={(event) => onChange({ months: Number(event.target.value) })}
-                  aria-label="Loan tenure"
-                >
+            <div className="tenure-control">
+              <span id="tenure-label">Tenure</span>
+              <Select
+                value={String(loan.months)}
+                onValueChange={(value) => onChange({ months: Number(value) })}
+              >
+                <SelectTrigger className="hud-select" aria-labelledby="tenure-label">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="hud-select-menu">
                   {tenureChoices.map((months) => (
-                    <option key={months} value={months}>
+                    <SelectItem key={months} value={String(months)}>
                       {tenureLabel(months)}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <ChevronDown />
-              </span>
-            </label>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="emi-output">
               <span>Estimated EMI</span>
               <strong aria-live="polite">
