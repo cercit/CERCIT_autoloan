@@ -1283,6 +1283,26 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 20. Who am I (040)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("my account");
+  await asApi("authenticated", "abababab-0000-0000-0000-0000000000ab");
+  await db.query("set role authenticated");
+  const me = (await db.query("select email, role, role_name from fn_my_account()")).rows;
+  t.equal("staff see their own row only", me, [{ email: "adm@t.in", role: "admin", role_name: "Admin" }]);
+  await asApi("authenticated", "55555555-5555-5555-5555-555555555555");
+  t.equal("a customer login gets no row", (await db.query("select * from fn_my_account()")).rows.length, 0);
+  await db.query("reset role");
+  await db.query("set role anon");
+  await asApi("anon");
+  await t.rejects("anon cannot ask", () => db.query("select * from fn_my_account()"), /permission denied for function/);
+  await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

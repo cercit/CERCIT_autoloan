@@ -32,7 +32,7 @@ import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { currentUser as sampleUser } from "@/lib/mock-data";
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { getPendingChanges } from "@/lib/policy-api";
-import { getCurrentUser, requireAuth, roleLabel, signOut } from "@/lib/auth";
+import { getCurrentUser, isDemoMode, requireAuth, roleLabel, signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { NotificationDropdown } from "@/components/notification-dropdown";
 import type { NotificationItem } from "@/components/notification-dropdown";
@@ -150,7 +150,9 @@ export function AppShell({
   // database refuses the data either way, but the screen should not be there:
   // every staff screen sits inside this shell, so the check belongs here.
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [currentUser, setCurrentUser] = useState(sampleUser);
+  // Sample name only in demo mode; a real login shows its own name, or nothing
+  // until it has loaded, never someone else's.
+  const [currentUser, setCurrentUser] = useState(isDemoMode() ? sampleUser : { name: "", role: "", initials: "" });
   useEffect(() => {
     let cancelled = false;
     void requireAuth().then(async (ok) => {

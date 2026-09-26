@@ -145,23 +145,20 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   const session = await getSession();
   if (!session) return null;
 
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, email, full_name, role, state_code, is_active, max_sanction_amount, daily_case_limit")
-    .eq("auth_user_id", session.user.id)
-    .single();
-
-  if (error || !data) return null;
+  // Own row through fn_my_account (040): works whatever the table grants are.
+  const { data, error } = await supabase.rpc("fn_my_account");
+  const row = Array.isArray(data) ? data[0] : null;
+  if (error || !row) return null;
 
   return {
-    id: data.id,
-    email: data.email,
-    fullName: data.full_name,
-    role: data.role,
-    stateCode: data.state_code,
-    isActive: data.is_active,
-    maxSanctionAmount: data.max_sanction_amount,
-    dailyCaseLimit: data.daily_case_limit,
+    id: row.id,
+    email: row.email,
+    fullName: row.full_name,
+    role: row.role,
+    stateCode: row.state_code,
+    isActive: row.is_active,
+    maxSanctionAmount: row.max_sanction_amount == null ? null : Number(row.max_sanction_amount),
+    dailyCaseLimit: row.daily_case_limit,
   };
 }
 
