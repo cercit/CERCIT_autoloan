@@ -38,7 +38,7 @@ export function useSessionTimeout() {
       }
       const { signOut } = await import("@/lib/auth");
       await signOut();
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.replace(`${import.meta.env.BASE_URL}login`);
     }, timeoutMs);
   }, []);
 

@@ -220,7 +220,10 @@ export async function signOut(): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured) {
     return { error: null };
   }
+  // Ends the session everywhere. If that call fails (offline, server error),
+  // still forget it in this browser, so a failed sign-out never leaves you signed in.
   const { error } = await supabase.auth.signOut();
+  if (error) await supabase.auth.signOut({ scope: "local" });
   return { error: error?.message ?? null };
 }
 

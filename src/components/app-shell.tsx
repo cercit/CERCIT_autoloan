@@ -119,6 +119,16 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
   { id: "4", type: "error", title: "Bureau fetch failed", message: "CIBIL API timeout for APP-2026-00843 — retry in progress", timestamp: new Date(Date.now() - 5 * 3600000).toISOString(), read: false },
 ];
 
+/**
+ * Ends the session, then loads the sign-in page fresh. A full page load (not a
+ * router move) drops everything the old session left in memory, and replace()
+ * keeps the back button from returning to a staff screen.
+ */
+async function signOutToLogin() {
+  await signOut();
+  window.location.replace(`${import.meta.env.BASE_URL}login`);
+}
+
 export function AppShell({
   title,
   subtitle,
@@ -190,10 +200,7 @@ export function AppShell({
           <Button
             variant="outline"
             className="w-full justify-start gap-2 text-sm"
-            onClick={async () => {
-              await signOut();
-              window.location.href = "/";
-            }}
+            onClick={() => void signOutToLogin()}
           >
             <LogOut className="size-4" />
             Sign out
@@ -239,10 +246,7 @@ export function AppShell({
           <Button
             variant="outline"
             className="w-full justify-start gap-2 text-sm"
-            onClick={async () => {
-              await signOut();
-              window.location.href = "/";
-            }}
+            onClick={() => void signOutToLogin()}
           >
             <LogOut className="size-4" />
             Sign out
@@ -296,10 +300,8 @@ export function AppShell({
                 <p className="text-xs text-muted-foreground">{currentUser.role}</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" asChild aria-label="Logout">
-              <Link to="/">
-                <LogOut className="size-4" />
-              </Link>
+            <Button variant="ghost" size="icon" aria-label="Sign out" onClick={() => void signOutToLogin()}>
+              <LogOut className="size-4" />
             </Button>
           </div>
         </header>
