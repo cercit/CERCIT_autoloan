@@ -363,3 +363,27 @@ html:not(.dark) .rate-note { color: oklch(0.45 0.03 256); }
   html:not(.dark) .emi-output { border-color: oklch(0.52 0.2 256 / 30%); background: oklch(0.95 0.03 250 / 60%); box-shadow: none; }
   html:not(.dark) .trust-strip { background: oklch(0.955 0.01 240); }
 }
+
+/* audience chooser popup (renders in a portal, so not scoped under .landing) */
+.audience-dialog { font-family: "Manrope", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif; border-radius: 20px; border-color: oklch(0.62 0.22 253 / 18%); box-shadow: 0 30px 90px oklch(0.02 0.02 250 / 45%); }
+.audience-eyebrow { color: oklch(0.62 0.22 253); font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 10px; }
+.audience-card { position: relative; text-align: left; border: 1px solid var(--border); border-radius: 16px; padding: 18px; background: var(--card); cursor: pointer; transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
+.audience-card:hover, .audience-card:focus-visible { border-color: oklch(0.62 0.22 253 / 55%); transform: translateY(-2px); box-shadow: 0 12px 30px oklch(0.62 0.22 253 / 14%); outline: none; }
+.audience-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 12px; background: oklch(0.62 0.22 253 / 12%); color: oklch(0.62 0.22 253); }
+.audience-arrow { position: absolute; right: 16px; top: 18px; color: var(--muted-foreground); opacity: .5; transition: transform 180ms ease, opacity 180ms ease; }
+.audience-card:hover .audience-arrow { transform: translateX(3px); opacity: 1; color: oklch(0.62 0.22 253); }
+.audience-skip { margin-top: 18px; font-size: 13px; font-weight: 600; color: var(--muted-foreground); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; background: none; border: 0; padding: 4px 0; }
+.audience-skip:hover { color: var(--foreground); }
+.audience-panel-head { background: linear-gradient(160deg, oklch(0.62 0.22 253 / 12%), transparent 70%); border-bottom: 1px solid var(--border); }
+.audience-back { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted-foreground); background: none; border: 0; cursor: pointer; padding: 4px 0; }
+.audience-back:hover { color: var(--foreground); }
+.audience-cta, .audience-cta-secondary { border-radius: 999px; font-weight: 700; }
+.audience-cta { background: oklch(0.62 0.22 253); color: #fff; box-shadow: 0 8px 26px oklch(0.62 0.22 253 / 30%); }
+.audience-cta:hover { background: oklch(0.66 0.22 253); }
+.audience-dialog > button[class*="absolute"] { top: 18px; right: 18px; }
+@media (prefers-reduced-motion: reduce) { .audience-card, .audience-arrow { transition: none; } .audience-card:hover { transform: none; } }
+.landing-footer .footer-link-btn { all: unset; cursor: pointer; color: oklch(0.86 0.03 247); }
+.landing-footer .footer-link-btn:hover { color: white; }
+.landing-footer .footer-link-btn:focus-visible { outline: 2px solid oklch(0.7 0.2 246); outline-offset: 2px; border-radius: 3px; }
+html:not(.dark) .landing-footer .footer-link-btn { color: oklch(0.36 0.03 256); }
+html:not(.dark) .landing-footer .footer-link-btn:hover { color: oklch(0.52 0.2 256); }

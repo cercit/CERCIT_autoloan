@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Linkedin, Mail, MessageCircle, Phone, Twitter } from "lucide-react";
 
+import { openAudiencePopup } from "./audience-popup";
+
 const legalLinks = [
   ["grievance", "Grievance redressal"],
   ["privacy", "Privacy policy"],
@@ -35,6 +37,12 @@ export function LandingFooter() {
             <Link to="/apply">Apply</Link>
             <Link to="/application-status">Track application</Link>
             <Link to="/login">Login</Link>
+            <button type="button" className="footer-link-btn" onClick={() => openAudiencePopup("investor")}>
+              For investors
+            </button>
+            <button type="button" className="footer-link-btn" onClick={() => openAudiencePopup("lender")}>
+              For banks &amp; NBFCs
+            </button>
           </nav>
 
           <div className="footer-col">

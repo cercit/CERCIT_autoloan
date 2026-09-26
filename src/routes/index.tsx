@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { AudiencePopup } from "@/components/landing/audience-popup";
 import { LandingFooter } from "@/components/landing/footer";
 import { Hero, JourneyHud } from "@/components/landing/hero";
 import { DEFAULT_LOAN, type LoanState } from "@/components/landing/loan";
@@ -225,6 +226,7 @@ function Landing() {
       </section>
 
       <LandingFooter />
+      <AudiencePopup />
     </div>
   );
 }
