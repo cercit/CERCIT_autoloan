@@ -21,6 +21,7 @@ import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
 import { Route as RateGridRouteImport } from './routes/rate-grid'
+import { Route as RolesRouteImport } from './routes/roles'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as ApplicationsIndexRouteImport } from './routes/applications/index'
 import { Route as ApplicationsNewRouteImport } from './routes/applications/new'
@@ -89,6 +90,11 @@ const RateGridRoute = RateGridRouteImport.update({
   path: '/rate-grid',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RolesRoute = RolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
+  '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications/': typeof ApplicationsIndexRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
+  '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications': typeof ApplicationsIndexRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
+  '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
   '/applications/': typeof ApplicationsIndexRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/policy-rules'
     | '/rate-grid'
+    | '/roles'
     | '/users'
     | '/applications/new'
     | '/applications/'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/policy-rules'
     | '/rate-grid'
+    | '/roles'
     | '/users'
     | '/applications/new'
     | '/applications'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/policy-rules'
     | '/rate-grid'
+    | '/roles'
     | '/users'
     | '/applications/new'
     | '/applications/'
@@ -269,6 +281,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PolicyRulesRoute: typeof PolicyRulesRoute
   RateGridRoute: typeof RateGridRoute
+  RolesRoute: typeof RolesRoute
   UsersRoute: typeof UsersRoute
   ApplicationsNewRoute: typeof ApplicationsNewRoute
   ApplicationsIndexRoute: typeof ApplicationsIndexRoute
@@ -364,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RateGridRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/roles': {
+      id: '/roles'
+      path: '/roles'
+      fullPath: '/roles'
+      preLoaderRoute: typeof RolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/users': {
       id: '/users'
       path: '/users'
@@ -429,6 +449,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PolicyRulesRoute: PolicyRulesRoute,
   RateGridRoute: RateGridRoute,
+  RolesRoute: RolesRoute,
   UsersRoute: UsersRoute,
   ApplicationsNewRoute: ApplicationsNewRoute,
   ApplicationsIndexRoute: ApplicationsIndexRoute,

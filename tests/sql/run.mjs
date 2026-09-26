@@ -1062,8 +1062,9 @@ const asOperator = () => asApi("", "");
   // Same rights as the CASE list in 018, role by role
   const counts = Object.fromEntries((await db.query(
     "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
+  // compliance: the 12 from 018, plus role.approve from 039
   t.equal("every role keeps its 018 rights", counts,
-    { admin: 12, compliance: 12, credit_head: 20, credit_manager: 9, credit_officer: 7, policy_manager: 11, reviewer: 5, viewer: 3 });
+    { admin: 12, compliance: 13, credit_head: 20, credit_manager: 9, credit_officer: 7, policy_manager: 11, reviewer: 5, viewer: 3 });
   t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
     ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
   const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
@@ -1205,6 +1206,79 @@ const asOperator = () => asApi("", "");
   t.equal("the change keeps before and after", changed, { b: "credit_officer", a: "credit_manager" });
   await db.query("set role anon");
   await t.rejects("anon cannot add staff", () => save({ email: "n6@t.in", role: "credit_officer" }), /permission denied for function/);
+  await db.query("reset role");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 19. Role builder with a second approval (039)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("role change approval");
+  await asOperator();
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const COMP = "c0c0c0c0-0000-0000-0000-0000000000c0";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('comp@t.in', 'Compliance', 'compliance', $1)", [COMP]);
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('adm2@t.in', 'Second Admin', 'admin', 'adadadad-0000-0000-0000-0000000000ad')");
+  const submit = (code, perms, opts = {}) => db.query(
+    "select fn_role_request_submit($1, $2, $3, $4, $5, $6, $7, $8) as id",
+    [code, opts.name ?? "Branch Auditor", opts.desc ?? "Reads cases for audits", perms, opts.mfa ?? false, opts.idle ?? 15, opts.active ?? true, opts.reason ?? "branch audit team needs read access"]);
+
+  await asApi("authenticated", OFFICER);
+  await t.rejects("an officer cannot propose", () => submit("branch_auditor", ["app.view.all"]), /permission denied: role.manage/);
+
+  await asApi("authenticated", ADMIN);
+  await t.rejects("a conflicting pair is refused at once", () => submit("bad_mix", ["app.decide", "policy.author"]), /cannot sit on one role/);
+  await t.rejects("unknown right", () => submit("bad_right", ["app.fly"]), /unknown rights/);
+  await t.rejects("short reason", () => submit("x_role", ["app.view.all"], { reason: "why" }), /explain the change/);
+  await t.rejects("admin role is fixed", () => submit("admin", ["user.view"], { name: "Admin" }), /cannot be changed here/);
+  await t.rejects("switching off a role people hold", () => submit("credit_officer", ["app.view.own"], { name: "Credit Officer", active: false }), /active users still hold/);
+  const reqId = (await submit("branch_auditor", ["app.view.all", "audit.view", "report.view"])).rows[0].id;
+  await t.rejects("one open proposal per role", () => submit("branch_auditor", ["app.view.all"]), /already waiting/);
+  t.equal("nothing changes before approval", (await one("select count(*)::int as n from roles where code = 'branch_auditor'")).n, 0);
+
+  await t.rejects("admin cannot approve (no role.approve)", () => db.query("select fn_role_request_decide($1, true)", [reqId]), /permission denied: role.approve/);
+  await asApi("authenticated", COMP);
+  await t.rejects("reject needs a reason", () => db.query("select fn_role_request_decide($1, false, '')", [reqId]), /say why/);
+  await t.ok("compliance approves", () => db.query("select fn_role_request_decide($1, true, 'ok')", [reqId]));
+  t.equal("the new role exists with its rights", (await one("select fn_role_permissions('branch_auditor') as v")).v, ["app.view.all", "audit.view", "report.view"]);
+  await t.rejects("cannot decide twice", () => db.query("select fn_role_request_decide($1, true)", [reqId]), /already approved/);
+
+  // Change: drop a right, then reject
+  await asApi("authenticated", ADMIN);
+  await t.rejects("no change is refused", () => submit("branch_auditor", ["app.view.all", "audit.view", "report.view"]), /nothing has changed/);
+  const req2 = (await submit("branch_auditor", ["app.view.all", "report.view"], { reason: "audit trail access not needed any more" })).rows[0].id;
+  await asApi("authenticated", COMP);
+  await t.ok("compliance rejects with a reason", () => db.query("select fn_role_request_decide($1, false, 'keep audit access for now')", [req2]));
+  t.equal("rejected change leaves rights alone", (await one("select cardinality(fn_role_permissions('branch_auditor')) as n")).n, 3);
+
+  // Withdraw: only the proposer
+  await asApi("authenticated", ADMIN);
+  const req3 = (await submit("branch_auditor", ["app.view.all"], { reason: "trim to case reading only" })).rows[0].id;
+  await asApi("authenticated", "adadadad-0000-0000-0000-0000000000ad");
+  await t.rejects("another admin cannot withdraw it", () => db.query("select fn_role_request_withdraw($1)", [req3]), /only the person who proposed/);
+  await asApi("authenticated", ADMIN);
+  await t.ok("proposer withdraws", () => db.query("select fn_role_request_withdraw($1)", [req3]));
+
+  // Nobody approves their own proposal, even with both rights (operator sets up a test role)
+  await asOperator();
+  await t.rejects("no role may hold propose and approve", () => db.query("insert into role_permissions (role_code, permission_code) values ('admin', 'role.approve')"), /cannot hold both/);
+
+  const ov = (await one("select fn_roles_overview() as v")).v;
+  t.equal("overview lists roles, rights and requests", [ov.roles.some((r) => r.code === "branch_auditor"), ov.permissions.length > 25, ov.requests.length], [true, true, 3]);
+  await asApi("authenticated", COMP);
+  const ovc = (await one("select fn_roles_overview() as v")).v;
+  t.equal("compliance may approve, not manage", [ovc.can_manage, ovc.can_approve], [false, true]);
+  await asApi("authenticated", OFFICER);
+  await t.rejects("an officer cannot see the role screen", () => db.query("select fn_roles_overview()"), /permission denied/);
+
+  await asOperator();
+  const ev = (await db.query("select event_type from audit_events where event_type like 'ROLE_CHANGE_%' order by created_at")).rows.map((r) => r.event_type);
+  t.equal("proposals and decisions are audited", ev,
+    ["ROLE_CHANGE_PROPOSED", "ROLE_CHANGE_APPROVED", "ROLE_CHANGE_PROPOSED", "ROLE_CHANGE_REJECTED", "ROLE_CHANGE_PROPOSED", "ROLE_CHANGE_WITHDRAWN"]);
+  await db.query("set role authenticated");
+  await t.rejects("nobody edits requests directly", () => db.query("update role_change_requests set status = 'APPROVED'"), /permission denied/);
   await db.query("reset role");
   failures += t.report();
 }
