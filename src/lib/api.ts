@@ -1000,32 +1000,6 @@ export async function getMakes(): Promise<Record<string, string[]>> {
   return mockMakes;
 }
 
-export async function getUsers() {
-  if (!isSupabaseConfigured || isDemoMode()) return mockUsers;
-
-  const { data, error } = await supabase
-    .from("users")
-    .select("full_name, email, role, max_sanction_amount, state_code, is_active, locked_until")
-    .order("full_name");
-
-  if (error || !data) return mockUsers;
-
-  const { inr } = await import("./format");
-  const { roleLabel } = await import("./auth");
-
-  return (data as any[]).map((u) => ({
-    name: u.full_name ?? "",
-    email: u.email ?? "",
-    role: roleLabel(u.role ?? ""),
-    limit: u.max_sanction_amount == null ? "No lending limit" : inr(Number(u.max_sanction_amount)),
-    branch: u.state_code ?? "All branches",
-    status: !u.is_active ? "Inactive"
-      : u.locked_until && new Date(u.locked_until) > new Date() ? "Locked"
-      : "Active",
-  }));
-}
-
-
 export type Document = {
   id: string;
   type: string;

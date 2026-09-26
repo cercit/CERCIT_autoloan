@@ -1147,6 +1147,68 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 18. Staff account management (037)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("user admin");
+  await asOperator();
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const adminId = (await one("select id from users where auth_user_id = $1", [ADMIN])).id;
+  const save = (args) => db.query(
+    "select fn_admin_save_user($1, $2, $3, $4, $5, $6, $7) as id",
+    [args.id ?? null, args.email, args.name ?? "Test Person", args.role, args.state ?? null, args.limit ?? null, args.daily ?? null]);
+
+  await asApi("authenticated", OFFICER);
+  await t.rejects("an officer cannot add staff", () => save({ email: "n1@t.in", role: "credit_officer" }), /permission denied: user.manage/);
+
+  await asApi("authenticated", ADMIN);
+  const created = (await save({ email: " New.Officer@T.in ", name: "New Officer", role: "credit_officer", state: "KA", limit: 1500000, daily: 30 })).rows[0].id;
+  const row = await one("select email, role, state_code, max_sanction_amount::int as lim, is_active from users where id = $1", [created]);
+  t.equal("admin adds an officer", row, { email: "new.officer@t.in", role: "credit_officer", state_code: "KA", lim: 1500000, is_active: true });
+  await t.rejects("same email twice", () => save({ email: "new.officer@t.in", role: "credit_officer" }), /already exists/);
+  await t.rejects("bad email", () => save({ email: "not-an-email", role: "credit_officer" }), /valid email/);
+  await t.rejects("unknown role", () => save({ email: "n2@t.in", role: "superuser" }), /does not exist/);
+  await t.rejects("older role for a new person", () => save({ email: "n3@t.in", role: "viewer" }), /older role/);
+  await t.rejects("a sanction limit for a role that does not decide", () => save({ email: "n4@t.in", role: "policy_manager", limit: 100000 }), /has no sanction limit/);
+  await t.rejects("unknown state", () => save({ email: "n5@t.in", role: "credit_officer", state: "ZZ" }), /unknown state/);
+
+  await t.ok("admin changes the officer's limit", () => save({ id: created, email: "new.officer@t.in", name: "New Officer", role: "credit_manager", state: "KA", limit: 3000000, daily: 20 }));
+  await t.rejects("admin cannot change their own account", () => save({ id: adminId, email: "adm@t.in", name: "Admin", role: "credit_head" }), /cannot change your own/);
+
+  // A login for the new address links itself (034), then the address is fixed
+  await asOperator();
+  await db.query("insert into auth.users (id, email) values ('cdcdcdcd-0000-0000-0000-0000000000cd', 'new.officer@t.in')");
+  await asApi("authenticated", ADMIN);
+  await t.rejects("email of a signed-in person cannot change", () => save({ id: created, email: "other@t.in", name: "New Officer", role: "credit_manager" }), /cannot be changed/);
+
+  await t.rejects("suspend needs a reason", () => db.query("select fn_admin_set_user_active($1, false, '')", [created]), /give a reason/);
+  await t.ok("admin suspends", () => db.query("select fn_admin_set_user_active($1, false, 'left the company')", [created]));
+  await t.rejects("admin cannot suspend themselves", () => db.query("select fn_admin_set_user_active($1, false, 'testing it')", [adminId]), /own account/);
+  await asApi("authenticated", "cdcdcdcd-0000-0000-0000-0000000000cd");
+  await t.rejects("a suspended person can do nothing", () => db.query("select fn_require_permission('app.view.team')"), /no active cercit user/);
+  await asApi("authenticated", ADMIN);
+  await t.ok("admin reactivates", () => db.query("select fn_admin_set_user_active($1, true, 'came back')", [created]));
+
+  const list = (await db.query("select email, role_name, has_login, is_me, can_manage from fn_admin_list_users() where email in ('adm@t.in', 'new.officer@t.in') order by email")).rows;
+  t.equal("list shows roles, logins and who is me", list, [
+    { email: "adm@t.in", role_name: "Admin", has_login: true, is_me: true, can_manage: true },
+    { email: "new.officer@t.in", role_name: "Credit Manager", has_login: true, is_me: false, can_manage: true }]);
+  await asApi("authenticated", OFFICER);
+  await t.rejects("an officer cannot list staff", () => db.query("select * from fn_admin_list_users()"), /permission denied: user.view/);
+
+  await asOperator();
+  const ev = (await db.query("select event_type from audit_events where event_type like 'USER_%' order by created_at")).rows.map((r) => r.event_type);
+  t.equal("every change is audited", ev, ["USER_CREATED", "USER_CHANGED", "USER_SUSPENDED", "USER_REACTIVATED"]);
+  const changed = await one("select event_detail->'before'->>'role' as b, event_detail->'after'->>'role' as a from audit_events where event_type = 'USER_CHANGED'");
+  t.equal("the change keeps before and after", changed, { b: "credit_officer", a: "credit_manager" });
+  await db.query("set role anon");
+  await t.rejects("anon cannot add staff", () => save({ email: "n6@t.in", role: "credit_officer" }), /permission denied for function/);
+  await db.query("reset role");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
