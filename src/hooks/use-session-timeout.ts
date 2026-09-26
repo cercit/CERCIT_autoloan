@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { getIdleTimeoutMinutes } from "@/lib/auth";
 import { toast } from "sonner";
 
-const TIMEOUT_MS = 15 * 60 * 1000;
-const WARNING_MS = 13 * 60 * 1000;
+// The limit comes from the person's role at sign-in (036): 15 minutes for
+// officers and managers, 10 for admin and the policy roles. Warn 2 minutes early.
+const WARNING_LEAD_MS = 2 * 60 * 1000;
 
 export function useSessionTimeout() {
   const [showWarning, setShowWarning] = useState(false);
@@ -20,13 +22,14 @@ export function useSessionTimeout() {
     }
     clearTimeout(timerRef.current);
     clearTimeout(warningRef.current);
+    const timeoutMs = getIdleTimeoutMinutes() * 60 * 1000;
     warningRef.current = setTimeout(() => {
       setShowWarning(true);
       toastIdRef.current = toast.warning("Session expiring soon", {
         description: "Move your mouse or press a key to stay signed in.",
         duration: 120000,
       });
-    }, WARNING_MS);
+    }, timeoutMs - WARNING_LEAD_MS);
     timerRef.current = setTimeout(async () => {
       setShowWarning(false);
       if (toastIdRef.current !== undefined) {
@@ -35,8 +38,8 @@ export function useSessionTimeout() {
       }
       const { signOut } = await import("@/lib/auth");
       await signOut();
-      window.location.href = "/";
-    }, TIMEOUT_MS);
+      window.location.href = import.meta.env.BASE_URL;
+    }, timeoutMs);
   }, []);
 
   const dismissWarning = useCallback(() => {

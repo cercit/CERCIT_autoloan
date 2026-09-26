@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   signIn,
+  checkLogin,
+  recordFailedLogin,
+  lockedMessage,
   sendLoginCode,
   verifyLoginCode,
   getSession,
@@ -69,6 +72,13 @@ function Login() {
     navigate({ to: "/application-status" });
   }
 
+  /** A locked account is signed straight out again, with the reason shown. */
+  async function passesLoginCheck(): Promise<boolean> {
+    const check = await checkLogin();
+    if (!check.allowed) setError(lockedMessage(check.lockedUntil));
+    return check.allowed;
+  }
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -98,15 +108,23 @@ function Login() {
           setError(checked.error);
           return;
         }
+        if (!(await passesLoginCheck())) return;
         await routeByRole(normalized);
         return;
       }
 
       const result = await signIn(email, password);
       if (result.error) {
-        setError(result.error);
+        // Only a wrong password counts towards the lockout, not a network fault.
+        if (/invalid login credentials/i.test(result.error)) {
+          await recordFailedLogin(normalized);
+          setError("Wrong email or password. After 5 wrong tries in a row the account locks for 30 minutes.");
+        } else {
+          setError(result.error);
+        }
         return;
       }
+      if (!(await passesLoginCheck())) return;
       await routeByRole(normalized);
     } catch {
       setError("Something went wrong. Please try again.");

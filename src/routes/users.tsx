@@ -28,7 +28,7 @@ export const Route = createFileRoute("/users")({
 });
 
 function Users() {
-  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<Awaited<ReturnType<typeof getUsers>>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -70,14 +70,14 @@ function Users() {
                     key={u.email}
                     className={cn("border-t border-border", i % 2 === 1 && "bg-surface-subtle/60")}
                   >
-                    <td className="px-4 py-2.5 font-medium">{u.fullName}</td>
+                    <td className="px-4 py-2.5 font-medium">{u.name}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{u.email}</td>
                     <td className="px-4 py-2.5">{u.role}</td>
-                    <td className="px-4 py-2.5 tabular">—</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{u.branchCode || "—"}</td>
+                    <td className="px-4 py-2.5 tabular">{u.limit}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{u.branch || "—"}</td>
                     <td className="px-4 py-2.5">
-                      <Pill tone={u.isActive ? "success" : "destructive"}>
-                        {u.isActive ? "Active" : "Inactive"}
+                      <Pill tone={u.status === "Active" ? "success" : u.status === "Locked" ? "warning" : "destructive"}>
+                        {u.status}
                       </Pill>
                     </td>
                   </tr>

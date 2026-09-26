@@ -28,10 +28,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
-import { currentUser } from "@/lib/mock-data";
+import { currentUser as sampleUser } from "@/lib/mock-data";
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { getPendingChanges } from "@/lib/policy-api";
-import { requireAuth, signOut } from "@/lib/auth";
+import { getCurrentUser, requireAuth, roleLabel, signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { NotificationDropdown } from "@/components/notification-dropdown";
 import type { NotificationItem } from "@/components/notification-dropdown";
@@ -138,12 +138,21 @@ export function AppShell({
   // database refuses the data either way, but the screen should not be there:
   // every staff screen sits inside this shell, so the check belongs here.
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [currentUser, setCurrentUser] = useState(sampleUser);
   useEffect(() => {
     let cancelled = false;
-    void requireAuth().then((ok) => {
+    void requireAuth().then(async (ok) => {
       if (cancelled) return;
       setAllowed(ok);
-      if (!ok) navigate({ to: "/login" });
+      if (!ok) {
+        navigate({ to: "/login" });
+        return;
+      }
+      const me = await getCurrentUser().catch(() => null);
+      if (!cancelled && me) {
+        const initials = me.fullName.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+        setCurrentUser({ name: me.fullName, role: roleLabel(me.role), initials });
+      }
     });
     return () => {
       cancelled = true;

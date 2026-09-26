@@ -1005,23 +1005,23 @@ export async function getUsers() {
 
   const { data, error } = await supabase
     .from("users")
-    .select("full_name, email, role, approval_limit, branch_code, is_active")
+    .select("full_name, email, role, max_sanction_amount, state_code, is_active, locked_until")
     .order("full_name");
 
   if (error || !data) return mockUsers;
 
   const { inr } = await import("./format");
+  const { roleLabel } = await import("./auth");
 
   return (data as any[]).map((u) => ({
     name: u.full_name ?? "",
     email: u.email ?? "",
-    role: u.role === "CREDIT_OFFICER" ? "Credit Officer"
-      : u.role === "STATE_HEAD" ? "State Credit Head"
-      : u.role === "ADMIN" ? "Admin"
-      : u.role,
-    limit: inr(u.approval_limit ?? 0),
-    branch: u.branch_code ?? "All branches",
-    status: u.is_active ? "Active" : "Inactive",
+    role: roleLabel(u.role ?? ""),
+    limit: u.max_sanction_amount == null ? "No lending limit" : inr(Number(u.max_sanction_amount)),
+    branch: u.state_code ?? "All branches",
+    status: !u.is_active ? "Inactive"
+      : u.locked_until && new Date(u.locked_until) > new Date() ? "Locked"
+      : "Active",
   }));
 }
 

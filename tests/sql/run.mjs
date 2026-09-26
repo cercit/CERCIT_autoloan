@@ -1049,6 +1049,104 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 17. Roles as data, conflicting rights, lockout and MFA (036)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("roles and login rules");
+  await asOperator();
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('adm@t.in', 'Admin', 'admin', $1)", [ADMIN]);
+
+  // Same rights as the CASE list in 018, role by role
+  const counts = Object.fromEntries((await db.query(
+    "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
+  t.equal("every role keeps its 018 rights", counts,
+    { admin: 12, compliance: 12, credit_head: 20, credit_manager: 9, credit_officer: 7, policy_manager: 11, reviewer: 5, viewer: 3 });
+  t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
+    ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
+  const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
+  t.equal("six current roles", six, ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "policy_manager"]);
+  const mfa = (await db.query("select code from roles where mfa_required order by code")).rows.map((r) => r.code);
+  t.equal("MFA marked for the four privileged roles", mfa, ["admin", "compliance", "credit_head", "policy_manager"]);
+  t.equal("admin idles out at 10 minutes", (await one("select idle_timeout_minutes as v from roles where code = 'admin'")).v, 10);
+
+  // Conflicting pairs
+  const conflicts = (await db.query("select role_code, waived from v_role_conflicts order by role_code")).rows;
+  t.equal("only waived conflicts exist", conflicts, [{ role_code: "admin", waived: true }, { role_code: "credit_head", waived: true }]);
+  await db.query("insert into roles (code, name, description) values ('test_role', 'Test', 'x')");
+  await db.query("insert into role_permissions (role_code, permission_code) values ('test_role', 'app.decide')");
+  await t.rejects("a role cannot get decide and author together",
+    () => db.query("insert into role_permissions (role_code, permission_code) values ('test_role', 'policy.author')"), /cannot hold both/);
+  await t.rejects("a user cannot hold a role that does not exist",
+    () => db.query("insert into users (email, full_name, role) values ('x@t.in', 'X', 'superuser')"), /fk_users_role/);
+  await db.query("update roles set is_active = false where code = 'test_role'");
+  t.equal("an inactive role has no rights", (await one("select cardinality(fn_role_permissions('test_role')) as n")).n, 0);
+  await db.query("delete from roles where code = 'test_role'");
+
+  // Nobody changes roles through the API yet
+  await db.query("set role authenticated");
+  await asApi("authenticated", ADMIN);
+  await t.ok("staff can read roles", () => db.query("select * from roles"));
+  await t.rejects("even an admin cannot edit roles directly",
+    () => db.query("insert into role_permissions (role_code, permission_code) values ('viewer', 'app.decide')"), /permission denied/);
+  await db.query("reset role");
+  await db.query("set role anon");
+  await asApi("anon");
+  await t.rejects("anon cannot read roles", () => db.query("select * from roles"), /permission denied/);
+  const rules = (await one("select fn_login_rules() as v")).v;
+  t.equal("anon can read the login rules", [rules.password_min_length, rules.lockout_threshold, rules.lockout_minutes], [12, 5, 30]);
+  await t.ok("wrong password on an unknown address says nothing", () => db.query("select fn_record_failed_login('nobody@example.com')"));
+
+  // Lockout after five wrong passwords
+  for (let i = 0; i < 4; i++) await db.query("select fn_record_failed_login('O@t.in ')");
+  await db.query("reset role");
+  await asOperator();
+  t.equal("four misses: not locked yet", (await one("select failed_login_count as n, locked_until from users where email = 'o@t.in'")),
+    { n: 4, locked_until: null });
+  await db.query("set role anon");
+  await db.query("select fn_record_failed_login('o@t.in')");
+  await db.query("reset role");
+  await asOperator();
+  const locked = await one("select locked_until > now() as locked, failed_login_count as n from users where email = 'o@t.in'");
+  t.equal("fifth miss locks the account", locked, { locked: true, n: 0 });
+  t.equal("the lock is audited", (await one("select count(*)::int as n from audit_events where event_type = 'ACCOUNT_LOCKED'")).n, 1);
+
+  await asApi("authenticated", OFFICER);
+  await t.rejects("a locked officer can do nothing", () => db.query("select fn_require_permission('app.view.own')"), /account locked/);
+  t.equal("sign-in check says locked", (await one("select fn_record_login() as v")).v.reason, "locked");
+  await db.query("set role authenticated");
+  t.equal("a locked officer sees no applicants", (await one("select count(*)::int as n from customers")).n, 0);
+  await db.query("reset role");
+
+  await asApi("authenticated", "11111111-1111-1111-1111-111111111111");
+  const oid = (await one("select id from users where email = 'o@t.in'")).id;
+  await t.rejects("a viewer cannot unlock", () => db.query("select fn_unlock_user($1)", [oid]), /permission denied: user.manage/);
+  await asApi("authenticated", ADMIN);
+  await t.ok("an admin unlocks", () => db.query("select fn_unlock_user($1)", [oid]));
+  await asApi("authenticated", OFFICER);
+  const ok = (await one("select fn_record_login() as v")).v;
+  t.equal("after unlock the officer signs in", [ok.allowed, ok.role, ok.idle_timeout_minutes], [true, "credit_officer", 15]);
+  await asOperator();
+  t.equal("unlock and sign-in are audited",
+    (await one("select count(*) filter (where event_type = 'ACCOUNT_UNLOCKED')::int as u, count(*) filter (where event_type = 'LOGIN')::int as l from audit_events")),
+    { u: 1, l: 1 });
+
+  // MFA, once switched on
+  await db.query("update security_settings set value = 1 where setting_key = 'mfa_enforced'");
+  await asApi("authenticated", ADMIN);
+  await t.rejects("admin without a second step is refused", () => db.query("select fn_require_permission('user.view')"), /second sign-in step/);
+  await db.query("select set_config('request.jwt.claims', '{\"aal\":\"aal2\"}', false)");
+  await t.ok("admin with a second step gets in", () => db.query("select fn_require_permission('user.view')"));
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await asApi("authenticated", OFFICER);
+  await t.ok("an officer does not need one", () => db.query("select fn_require_permission('app.view.own')"));
+  await asOperator();
+  await db.query("update security_settings set value = 0 where setting_key = 'mfa_enforced'");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

@@ -13,17 +13,79 @@ export interface AppUser {
   dailyCaseLimit: number | null;
 }
 
-export type UserRole = "admin" | "credit_officer" | "reviewer" | "viewer";
+// Six roles from the access policy, plus two older ones kept until their users
+// move. What each role may do lives in the database (role_permissions, 036);
+// the database checks it on every call, so the browser keeps only the names.
+export type UserRole =
+  | "credit_officer" | "credit_manager" | "credit_head" | "policy_manager" | "compliance" | "admin"
+  | "reviewer" | "viewer";
 
-export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ["view_assigned", "create", "evaluate", "override", "approve", "decline", "manage_users", "view_reports", "export", "audit"],
-  credit_officer: ["view_assigned", "create", "evaluate", "approve", "decline", "view_reports", "export"],
-  reviewer: ["view_assigned", "view_reports", "override", "export"],
-  viewer: ["view_assigned", "view_reports", "export"],
+export const ROLE_LABELS: Record<UserRole, string> = {
+  credit_officer: "Credit Officer",
+  credit_manager: "Credit Manager",
+  credit_head: "Credit Head",
+  policy_manager: "Policy Manager",
+  compliance: "Compliance",
+  admin: "Admin",
+  reviewer: "Reviewer (old role)",
+  viewer: "Viewer (old role)",
 };
 
-export function hasPermission(role: string, action: string): boolean {
-  return (ROLE_PERMISSIONS[role] || []).includes(action);
+export function roleLabel(role: string): string {
+  return ROLE_LABELS[role as UserRole] ?? role;
+}
+
+/** What the database said at sign-in: whether to let the person in, and their idle limit. */
+export interface LoginCheck {
+  allowed: boolean;
+  reason?: "locked" | "no_access" | undefined;
+  lockedUntil?: string | undefined;
+  idleTimeoutMinutes?: number | undefined;
+}
+
+const IDLE_KEY = "cercit_idle_minutes";
+
+export function getIdleTimeoutMinutes(): number {
+  try {
+    const n = Number(sessionStorage.getItem(IDLE_KEY));
+    return n >= 5 && n <= 60 ? n : 15;
+  } catch {
+    return 15;
+  }
+}
+
+/**
+ * Runs straight after a successful sign-in. A locked or unknown account is
+ * signed out again here; the database would refuse its data anyway (036).
+ */
+export async function checkLogin(): Promise<LoginCheck> {
+  const { data, error } = await supabase.rpc("fn_record_login");
+  // Older database without 036: let the sign-in stand, as before.
+  if (error || !data) return { allowed: true };
+  const r = data as { allowed: boolean; reason?: LoginCheck["reason"]; locked_until?: string; idle_timeout_minutes?: number };
+  // "no_access" is a customer, or staff not set up yet: both carry on as before,
+  // and the database gives them no staff data either way.
+  if (!r.allowed && r.reason === "locked") {
+    await supabase.auth.signOut();
+    return { allowed: false, reason: r.reason, lockedUntil: r.locked_until };
+  }
+  if (!r.allowed) return { allowed: true };
+  try { sessionStorage.setItem(IDLE_KEY, String(r.idle_timeout_minutes ?? 15)); } catch {}
+  return { allowed: true, idleTimeoutMinutes: r.idle_timeout_minutes };
+}
+
+/** Counts a wrong password towards the lockout. Silent by design: it never says whether the address exists. */
+export async function recordFailedLogin(email: string): Promise<void> {
+  try { await supabase.rpc("fn_record_failed_login", { p_email: email.trim().toLowerCase() }); } catch {}
+}
+
+export function lockedMessage(lockedUntil?: string): string {
+  const until = lockedUntil
+    ? new Date(lockedUntil).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+    : null;
+  return until
+    ? `This account is locked after too many wrong passwords. Try again after ${until}, or ask an admin to unlock it.`
+    : "This account is locked after too many wrong passwords. Ask an admin to unlock it.";
 }
 
 const EMPLOYEE_DOMAINS = ["cercit.in", "cercit.com"];
@@ -153,7 +215,7 @@ export async function verifyLoginCode(email: string, code: string): Promise<{ er
 
 export async function signOut(): Promise<{ error: string | null }> {
   disableDemoMode();
-  try { sessionStorage.removeItem("cercit_customer_email"); } catch {}
+  try { sessionStorage.removeItem("cercit_customer_email"); sessionStorage.removeItem(IDLE_KEY); } catch {}
 
   if (!isSupabaseConfigured) {
     return { error: null };
