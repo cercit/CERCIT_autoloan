@@ -166,6 +166,21 @@ export async function getCurrentUser(): Promise<AppUser | null> {
 }
 
 /**
+ * Whether the signed-in login belongs to active staff. Asks the database
+ * directly (fn_current_staff_id, 009/036), so row-level security and page
+ * timing cannot hide the answer. "unknown" means the question failed: the
+ * caller must not treat that as "customer".
+ */
+export async function staffStatus(): Promise<"staff" | "not_staff" | "unknown"> {
+  if (!isSupabaseConfigured || isDemoMode()) return "staff";
+  const session = await getSession();
+  if (!session) return "not_staff";
+  const { data, error } = await supabase.rpc("fn_current_staff_id");
+  if (error) return "unknown";
+  return data ? "staff" : "not_staff";
+}
+
+/**
  * Real credential check. Never falls back to demo mode — a failed sign-in is a
  * failed sign-in. Demo access goes through enableDemoMode() explicitly.
  */

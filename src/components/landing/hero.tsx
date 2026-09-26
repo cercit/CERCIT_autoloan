@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   Check,
+  ChevronDown,
   Clock,
   Menu,
   Percent,
@@ -15,6 +16,12 @@ import cockpitDark from "@/assets/cercit-cockpit-day-dark.webp";
 import cockpitLight from "@/assets/cercit-cockpit-day-light.webp";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -118,9 +125,27 @@ export function Hero() {
             <span className="nav-theme">
               <ThemeToggle />
             </span>
-            <Button asChild variant="ghost" className="nav-login">
-              <Link to="/login">Login</Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="nav-login">
+                  Login <ChevronDown className="size-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem asChild>
+                  <Link to="/login" search={{ as: "customer" }} className="login-choice">
+                    <span className="font-medium">Customer</span>
+                    <span className="text-xs text-muted-foreground">Track your loan application</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/login" search={{ as: "official" }} className="login-choice">
+                    <span className="font-medium">Official</span>
+                    <span className="text-xs text-muted-foreground">Credit officers, managers and admins</span>
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <Button
             type="button"
@@ -146,8 +171,11 @@ export function Hero() {
               ))}
             </nav>
             <div className="mobile-panel-actions">
-              <Link to="/login" className="mobile-login">
-                Employee login
+              <Link to="/login" search={{ as: "customer" }} className="mobile-login">
+                Customer login
+              </Link>
+              <Link to="/login" search={{ as: "official" }} className="mobile-login">
+                Official login
               </Link>
             </div>
           </div>

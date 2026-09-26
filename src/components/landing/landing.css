@@ -394,3 +394,6 @@ html:not(.dark) .landing-footer .footer-link-btn:hover { color: oklch(0.52 0.2 2
 .deck-close:hover { background: #2F5FD0; }
 .deck-close:focus-visible { outline: 2px solid #8FB0FF; outline-offset: 2px; }
 .deck-dialog > button.absolute { color: #F4F6FA; opacity: .85; z-index: 2; }
+
+/* Login chooser in the header: two lines per choice */
+.login-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-block: 8px; cursor: pointer; }

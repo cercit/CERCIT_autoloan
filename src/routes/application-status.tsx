@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   CheckCircle2,
@@ -9,7 +10,7 @@ import {
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { getCustomerEmail, isDemoMode, signOut } from "@/lib/auth";
+import { getCustomerEmail, isDemoMode, signOut, staffStatus } from "@/lib/auth";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -113,6 +114,17 @@ function StageTimeline({ stages }: { stages: ApplicationStage[] }) {
 function ApplicationStatus() {
   const navigate = useNavigate();
   const customerEmail = getCustomerEmail();
+
+  // This page is for customers. A staff login that lands here goes to its console.
+  useEffect(() => {
+    if (isDemoMode()) return;
+    void staffStatus().then((s) => {
+      if (s === "staff") {
+        try { sessionStorage.removeItem("cercit_customer_email"); } catch {}
+        navigate({ to: "/dashboard" });
+      }
+    });
+  }, [navigate]);
   const demo = isDemoMode();
   const app = DEMO_APPLICATION;
 

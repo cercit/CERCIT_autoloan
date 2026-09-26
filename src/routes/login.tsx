@@ -15,7 +15,7 @@ import {
   sendLoginCode,
   verifyLoginCode,
   getSession,
-  getCurrentUser,
+  staffStatus,
   isSupabaseConfigured,
   enableDemoMode,
   isEmployeeEmail,
@@ -23,7 +23,31 @@ import {
   DEMO_EMAIL,
 } from "@/lib/auth";
 
+type LoginAs = "customer" | "official";
+
+// Which door the person came through. It only changes the wording: where they
+// land after signing in is decided by the database (staff or not), never by this.
+const COPY: Record<LoginAs | "any", { title: string; lead: string; placeholder: string }> = {
+  customer: {
+    title: "Customer sign in",
+    lead: "Track your car loan application and upload documents.",
+    placeholder: "you@example.com",
+  },
+  official: {
+    title: "Official sign in",
+    lead: "For credit officers, managers and admins.",
+    placeholder: "name@company.com",
+  },
+  any: {
+    title: "Welcome back",
+    lead: "Sign in with your email or employee code.",
+    placeholder: "name@company.com",
+  },
+};
+
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>): { as?: LoginAs } =>
+    search["as"] === "customer" || search["as"] === "official" ? { as: search["as"] } : {},
   head: () => ({
     meta: [
       { title: "Sign in -- cercit" },
@@ -44,6 +68,8 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const navigate = useNavigate();
+  const { as } = Route.useSearch();
+  const copy = COPY[as ?? "any"];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,9 +89,14 @@ function Login() {
 
   /** Staff go to the dashboard, customers to their application. */
   async function routeByRole(userEmail: string) {
-    const staff = isSupabaseConfigured ? await getCurrentUser().catch(() => null) : null;
-    if (staff || isEmployeeEmail(userEmail)) {
+    const status = isSupabaseConfigured ? await staffStatus() : "not_staff";
+    if (status === "staff" || isEmployeeEmail(userEmail)) {
+      try { sessionStorage.removeItem("cercit_customer_email"); } catch {}
       navigate({ to: "/dashboard" });
+      return;
+    }
+    if (status === "unknown") {
+      setError("Signed in, but we could not check your access. Refresh the page to try again.");
       return;
     }
     setCustomerEmail(userEmail);
@@ -148,10 +179,8 @@ function Login() {
       <div className="flex flex-1 items-center justify-center">
         <div className="w-full max-w-sm">
           <div className="mb-6 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Sign in with your email or employee code.
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight">{copy.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{copy.lead}</p>
           </div>
 
           <form onSubmit={onSubmit} className="panel space-y-4 p-6">
@@ -161,7 +190,7 @@ function Login() {
                 id="email"
                 type="email"
                 autoComplete="username"
-                placeholder="name@company.com"
+                placeholder={copy.placeholder}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -238,10 +267,29 @@ function Login() {
           </form>
 
           <p className="mt-5 text-center text-sm text-muted-foreground">
-            Need a car loan?{" "}
-            <Link to="/apply" className="font-medium text-primary hover:underline">
-              Apply now
-            </Link>
+            {as === "official" ? (
+              <>
+                Customer?{" "}
+                <Link to="/login" search={{ as: "customer" }} className="font-medium text-primary hover:underline">
+                  Customer sign in
+                </Link>
+              </>
+            ) : (
+              <>
+                Need a car loan?{" "}
+                <Link to="/apply" className="font-medium text-primary hover:underline">
+                  Apply now
+                </Link>
+                {as === "customer" && (
+                  <>
+                    {" · "}
+                    <Link to="/login" search={{ as: "official" }} className="font-medium text-primary hover:underline">
+                      Official sign in
+                    </Link>
+                  </>
+                )}
+              </>
+            )}
           </p>
 
           <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
