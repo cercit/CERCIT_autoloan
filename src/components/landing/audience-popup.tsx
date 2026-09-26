@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   LineChart,
   type LucideIcon,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -23,7 +24,13 @@ export function openAudiencePopup(audience?: Audience) {
   window.dispatchEvent(new CustomEvent<Audience | undefined>(OPEN_EVENT, { detail: audience }));
 }
 
-type Cta = { label: string; to?: string; href?: string; download?: boolean };
+type Cta = { label: string; to?: string; href?: string; deck?: DeckKey };
+type DeckKey = "investor" | "lender";
+
+const DECK_PAGES: Record<DeckKey, { title: string; src: string }> = {
+  investor: { title: "cercit investor deck", src: `${DECKS}investor.html` },
+  lender: { title: "cercit for banks and NBFCs", src: `${DECKS}bank-nbfc.html` },
+};
 
 type Panel = {
   icon: LucideIcon;
@@ -64,7 +71,7 @@ const PANELS: Record<Audience, Panel> = {
       "Customer journey and lender console built on one stack",
       "Starts with salaried new-car loans, then CV, 3W and co-applicants",
     ],
-    primary: { label: "Download the deck (PDF)", href: `${DECKS}cercit-investor-deck.pdf`, download: true },
+    primary: { label: "View the deck", deck: "investor" },
     secondary: { label: "See the lender console", to: "/login" },
   },
   lender: {
@@ -79,15 +86,31 @@ const PANELS: Record<Audience, Panel> = {
       "Full audit trail; PAN and mobile encrypted at rest",
       "Built around RBI Digital Lending Guidelines and the DPDP Act",
     ],
-    primary: { label: "Download the deck (PDF)", href: `${DECKS}cercit-bank-nbfc-deck.pdf`, download: true },
+    primary: { label: "View the deck", deck: "lender" },
     secondary: { label: "Open demo console", to: "/login" },
   },
 };
 
 const ORDER: Audience[] = ["customer", "investor", "lender"];
 
-function CtaButton({ cta, variant }: { cta: Cta; variant: "default" | "outline" }) {
+function CtaButton({
+  cta,
+  variant,
+  onDeck,
+}: {
+  cta: Cta;
+  variant: "default" | "outline";
+  onDeck: (d: DeckKey) => void;
+}) {
   const cls = variant === "default" ? "audience-cta" : "audience-cta-secondary";
+  if (cta.deck) {
+    const deck = cta.deck;
+    return (
+      <Button size="lg" variant={variant} className={cls} onClick={() => onDeck(deck)}>
+        {cta.label} {variant === "default" && <ArrowRight className="size-4" />}
+      </Button>
+    );
+  }
   return (
     <Button asChild size="lg" variant={variant} className={cls}>
       {cta.to ? (
@@ -95,7 +118,7 @@ function CtaButton({ cta, variant }: { cta: Cta; variant: "default" | "outline" 
           {cta.label} {variant === "default" && <ArrowRight className="size-4" />}
         </Link>
       ) : (
-        <a href={cta.href} download={cta.download || undefined}>
+        <a href={cta.href}>
           {cta.label} {variant === "default" && <ArrowRight className="size-4" />}
         </a>
       )}
@@ -107,6 +130,25 @@ export function AudiencePopup() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<Audience | null>(null);
   const resetTimer = useRef<number | undefined>(undefined);
+  const [deck, setDeck] = useState<DeckKey | null>(null);
+
+  // The chooser steps aside while a deck plays, and comes back on close.
+  const openDeck = (d: DeckKey) => {
+    setOpen(false);
+    setDeck(d);
+  };
+  const closeDeck = () => {
+    setDeck(null);
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.origin === window.location.origin && e.data?.type === "cercit-deck-close") closeDeck();
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
 
   // Shown on every page load, a moment after the hero has painted.
   useEffect(() => {
@@ -137,6 +179,26 @@ export function AudiencePopup() {
   const panel = active ? PANELS[active] : null;
 
   return (
+    <>
+    <Dialog open={deck !== null} onOpenChange={(next) => !next && closeDeck()}>
+      <DialogContent className="deck-dialog block h-[88vh] w-[96vw] max-w-[1600px] overflow-hidden border-0 bg-[#0B1320] p-0 sm:rounded-2xl">
+        <DialogTitle className="sr-only">{deck ? DECK_PAGES[deck].title : "Deck"}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Use the arrow buttons or keys to move between slides.
+        </DialogDescription>
+        <button type="button" className="deck-close" onClick={closeDeck}>
+          <X className="size-4" aria-hidden="true" /> Close
+        </button>
+        {deck && (
+          <iframe
+            key={deck}
+            src={DECK_PAGES[deck].src}
+            title={DECK_PAGES[deck].title}
+            className="deck-frame"
+          />
+        )}
+      </DialogContent>
+    </Dialog>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="audience-dialog max-w-2xl gap-0 overflow-hidden p-0">
         {!panel ? (
@@ -201,8 +263,8 @@ export function AudiencePopup() {
                 ))}
               </ul>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <CtaButton cta={panel.primary} variant="default" />
-                <CtaButton cta={panel.secondary} variant="outline" />
+                <CtaButton cta={panel.primary} variant="default" onDeck={openDeck} />
+                <CtaButton cta={panel.secondary} variant="outline" onDeck={openDeck} />
               </div>
               <p className="mt-5 text-xs text-muted-foreground">
                 cercit is a product demo, not a licensed lender.
@@ -212,5 +274,6 @@ export function AudiencePopup() {
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

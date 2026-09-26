@@ -1,0 +1,265 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>cercit investor deck</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&display=swap">
+<style>
+* { box-sizing: border-box; margin: 0 }
+a { color: inherit }
+ul, ol { padding-left: 1.2em }
+table { border-collapse: collapse; width: 100% }
+th, td { padding: 0.35em 0.6em; border-bottom: 1px solid #DCE2EC; text-align: left }
+section { position: relative; width: 1920px; height: 1080px; overflow: hidden }
+html, body { height: 100%; margin: 0; background: #0B1320; overflow: hidden; font-family: 'Public Sans', Arial, sans-serif }
+#stage { position: absolute; left: 50%; top: calc(50% - 26px); width: 1920px; height: 1080px; transform-origin: center center; box-shadow: 0 20px 60px rgba(0,0,0,.45) }
+#stage section { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .35s ease }
+#stage section.active { opacity: 1; visibility: visible }
+.nav { position: absolute; top: calc(50% - 26px); transform: translateY(-50%); width: 48px; height: 48px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: rgba(16,27,46,.7); color: #F4F6FA; font-size: 22px; cursor: pointer; display: grid; place-items: center }
+.nav:hover { background: rgba(47,95,208,.9) }
+.nav:disabled { opacity: .3; cursor: default }
+#prev { left: 14px } #next { right: 14px }
+#bar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; display: flex; align-items: center; justify-content: center; gap: 18px; color: #C9D3E3; font-size: 14px }
+#bar a { color: #8FB0FF; text-decoration: none } #bar a:hover { text-decoration: underline }
+#progress { position: absolute; left: 0; bottom: 0; height: 3px; background: #2F5FD0; transition: width .35s ease }
+button:focus-visible, a:focus-visible { outline: 2px solid #8FB0FF; outline-offset: 2px }
+@media (prefers-reduced-motion: reduce) { #stage section { transition: none } }</style></head><body tabindex="-1">
+<div id="stage"><section id="cover" data-transition="fade" style="background:#101B2E; color:#F4F6FA; font-family:'Public Sans', Arial, sans-serif; padding:128px; display:flex; flex-direction:column; justify-content:space-between">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#8FB0FF">cercit · Investor brief</p>
+<div style="display:flex; flex-direction:column; gap:32px">
+<h1 style="font-family:'Manrope', Arial, sans-serif; font-size:112px; font-weight:800; line-height:1.05; letter-spacing:-2px; color:#F4F6FA">Credit appraisal that writes itself.</h1>
+<p style="font-size:40px; line-height:1.35; color:#C9D3E3; max-width:1300px">AI drafts the credit appraisal memo for new vehicle loans. The lender's own policy makes the decision.</p>
+</div>
+<p style="font-size:24px; color:#9AA8BF">Early-stage product · Demo on synthetic data · September 2026</p>
+
+</section>
+
+<section id="problem" data-transition="fade" style="background:#F4F6FA; color:#101B2E; font-family:'Public Sans', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F5FD0">The problem</p>
+<h2 style="font-family:'Manrope', Arial, sans-serif; font-size:72px; font-weight:800; line-height:1.1; letter-spacing:-1px; color:#101B2E">Underwriting is the slow step</h2>
+</div>
+<div style="display:flex; gap:48px">
+<div style="width:600px; display:flex; flex-direction:column; gap:16px; background:#101B2E; border-radius:24px; padding:48px">
+<p style="font-family:'Manrope', Arial, sans-serif; font-size:112px; font-weight:800; line-height:1.05; color:#8FB0FF">25–40</p>
+<p style="font-size:30px; line-height:1.45; color:#C9D3E3">credit appraisal memos an officer builds by hand, every working day</p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:24px">
+<div style="display:flex; flex-direction:column; gap:8px; border-top:1px solid #DCE2EC; padding:24px 0 0 0">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Re-keying</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Bureau reports, bank statements and salary slips typed into the memo by hand</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:8px; border-top:1px solid #DCE2EC; padding:24px 0 0 0">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Inconsistency</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Two officers can read the same file two different ways</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:8px; border-top:1px solid #DCE2EC; padding:24px 0 0 0">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Audit load</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Reasons and deviations are pieced together after the fact</p>
+</div>
+</div>
+</div>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#5F6B7E">cercit · Investor brief · 02 · Workload figure from the founder's years in vehicle finance</p>
+
+</section>
+
+<section id="product" data-transition="fade" style="background:#F4F6FA; color:#101B2E; font-family:'Public Sans', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F5FD0">What cercit is</p>
+<h2 style="font-family:'Manrope', Arial, sans-serif; font-size:72px; font-weight:800; line-height:1.1; letter-spacing:-1px; color:#101B2E">An AI co-pilot that drafts the memo, not the decision</h2>
+</div>
+<div style="display:flex; gap:24px">
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Document AI</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Reads PAN, salary slips, Form 16 and bank statements, and cross-checks them</p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Data engine</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Turns bureau and bank data into income, FOIR and repayment behaviour</p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Risk model</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Scores default risk from past patterns and shows the reasons</p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; background:#101B2E; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2; color:#F4F6FA">Policy engine</h3>
+<p style="font-size:30px; line-height:1.45; color:#C9D3E3">Runs the lender's own versioned rules. The decision is made here.</p>
+</div>
+</div>
+<p style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; color:#2F5FD0">AI assists. Policy decides. People handle the exceptions.</p>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#5F6B7E">cercit · Investor brief · 03</p>
+
+</section>
+
+<section id="how" data-transition="fade" style="background:#EAEFF6; color:#101B2E; font-family:'Public Sans', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F5FD0">How it decides</p>
+<h2 style="font-family:'Manrope', Arial, sans-serif; font-size:72px; font-weight:800; line-height:1.1; letter-spacing:-1px; color:#101B2E">Six checks for every file</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px">
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px">
+<p style="font-size:24px; font-weight:600; color:#2F5FD0">01</p>
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Hard filters</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">KYC, age, negative list</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px">
+<p style="font-size:24px; font-weight:600; color:#2F5FD0">02</p>
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Bureau</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">CIBIL band, DPD, enquiries</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px">
+<p style="font-size:24px; font-weight:600; color:#2F5FD0">03</p>
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Income</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">FOIR, surplus, salary pattern</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px">
+<p style="font-size:24px; font-weight:600; color:#2F5FD0">04</p>
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Collateral</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">LTV on a known car price</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px">
+<p style="font-size:24px; font-weight:600; color:#2F5FD0">05</p>
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Risk model</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Default probability, explained</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#101B2E; border-radius:20px; padding:32px">
+<p style="font-size:24px; font-weight:600; color:#8FB0FF">06</p>
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2; color:#F4F6FA">Policy verdict</h3>
+<p style="font-size:30px; line-height:1.45; color:#C9D3E3">Approve, review or decline</p>
+</div>
+</div>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#5F6B7E">cercit · Investor brief · 04</p>
+
+</section>
+
+<section id="built" data-transition="fade" style="background:#F4F6FA; color:#101B2E; font-family:'Public Sans', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F5FD0">Where we are</p>
+<h2 style="font-family:'Manrope', Arial, sans-serif; font-size:72px; font-weight:800; line-height:1.1; letter-spacing:-1px; color:#101B2E">Built, and tested on synthetic data</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:24px">
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px 40px">
+<p style="font-family:'Manrope', Arial, sans-serif; font-size:112px; font-weight:800; line-height:1.05; color:#2F5FD0">18</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">live screens for customers and credit officers</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px 40px">
+<p style="font-family:'Manrope', Arial, sans-serif; font-size:112px; font-weight:800; line-height:1.05; color:#2F5FD0">22</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">database tables, with versioned policy and an audit trail</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px 40px">
+<p style="font-family:'Manrope', Arial, sans-serif; font-size:112px; font-weight:800; line-height:1.05; color:#2F5FD0">0.91</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">risk model AUC on 10,000 synthetic borrower profiles</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:12px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:32px 40px">
+<p style="font-family:'Manrope', Arial, sans-serif; font-size:112px; font-weight:800; line-height:1.05; color:#2F5FD0">40/40</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">policy test scenarios passing, from clean files to hard declines</p>
+</div>
+</div>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#5F6B7E">cercit · Investor brief · 05 · No live lender data yet. All figures are from the demo build.</p>
+
+</section>
+
+<section id="whynow" data-transition="fade" style="background:#EAEFF6; color:#101B2E; font-family:'Public Sans', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F5FD0">Why now</p>
+<h2 style="font-family:'Manrope', Arial, sans-serif; font-size:72px; font-weight:800; line-height:1.1; letter-spacing:-1px; color:#101B2E">The rails for digital credit are in place</h2>
+</div>
+<div style="display:flex; gap:24px">
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Account Aggregator</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Consent-based bank data in minutes, instead of PDFs sent by email</p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">RBI digital lending</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Lenders must explain decisions and keep a trail. cercit is built around both.</p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Bureau and KYC APIs</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">CIBIL, PAN and Aadhaar checks available on demand</p>
+</div>
+</div>
+<p style="font-size:30px; line-height:1.45; color:#4A5568">Retail loans in India stand at <b>₹68.5 lakh crore, growing 14.4% a year</b>, with vehicle loans among the steady growers.</p>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#5F6B7E">cercit · Investor brief · 06 · Source: RBI sectoral credit data to December 2025, via Business Standard, 30 January 2026</p>
+
+</section>
+
+<section id="model" data-transition="fade" style="background:#F4F6FA; color:#101B2E; font-family:'Public Sans', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F5FD0">Business model</p>
+<h2 style="font-family:'Manrope', Arial, sans-serif; font-size:72px; font-weight:800; line-height:1.1; letter-spacing:-1px; color:#101B2E">A platform fee, plus a fee per memo</h2>
+</div>
+<div style="display:flex; gap:24px">
+<div style="flex:1; display:flex; flex-direction:column; gap:20px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:40px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">How we charge</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568"><b>Platform fee</b> · ₹50,000 per lender a month</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568"><b>Per memo</b> · ₹150 per credit appraisal</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568"><b>Onboarding</b> · ₹3 lakh one-time, policy setup</p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:20px; background:#FBFCFE; border:1px solid #DCE2EC; border-radius:20px; padding:40px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Where we grow</h3>
+<p style="font-size:30px; line-height:1.45; color:#4A5568"><b>Now</b> · New cars, salaried borrowers</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568"><b>Next</b> · CV, 3W, self-employed, co-applicants</p>
+<p style="font-size:30px; line-height:1.45; color:#4A5568"><b>Later</b> · Used vehicles, full auto-decisions</p>
+</div>
+</div>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#5F6B7E">cercit · Investor brief · 07 · Indicative pricing, to be validated with pilot lenders</p>
+
+</section>
+
+<section id="ask" data-transition="fade" style="background:#1E4DB7; color:#F4F6FA; font-family:'Public Sans', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#C9D8FF">Let's talk</p>
+<h2 style="font-family:'Manrope', Arial, sans-serif; font-size:72px; font-weight:800; line-height:1.1; letter-spacing:-1px; color:#F4F6FA">If you see a business here, get in touch</h2>
+</div>
+<p style="font-size:30px; line-height:1.45; color:#DCE6FF">cercit is a project by <b>Sameer Shreenivas Mittimani</b>, built from years of hands-on work in vehicle finance.</p>
+<div style="display:flex; gap:24px">
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; border:1px solid #7C9CE8; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">LinkedIn</h3>
+<p style="font-size:30px; line-height:1.45; color:#DCE6FF"><a href="https://www.linkedin.com/in/sameersm">linkedin.com/in/sameersm</a></p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; border:1px solid #7C9CE8; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Email</h3>
+<p style="font-size:30px; line-height:1.45; color:#DCE6FF"><a href="mailto:samsm@outlook.in">samsm@outlook.in</a></p>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:16px; border:1px solid #7C9CE8; border-radius:20px; padding:36px">
+<h3 style="font-family:'Manrope', Arial, sans-serif; font-size:40px; font-weight:700; line-height:1.2">Live demo</h3>
+<p style="font-size:30px; line-height:1.45; color:#DCE6FF"><a href="https://cercit.github.io/CERCIT_autoloan/">cercit.github.io/CERCIT_autoloan</a></p>
+</div>
+</div>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#C9D8FF">cercit · Investor brief · 08</p>
+
+</section>
+</div>
+<button id="prev" class="nav" type="button" aria-label="Previous slide">&#8249;</button>
+<button id="next" class="nav" type="button" aria-label="Next slide">&#8250;</button>
+<div id="bar"><span id="counter" aria-live="polite"></span><span aria-hidden="true">·</span><span>Arrow keys or swipe</span><span aria-hidden="true">·</span><a href="cercit-investor-deck.pdf" download>Download PDF</a></div>
+<div id="progress"></div>
+<script>
+const slides = [...document.querySelectorAll('#stage section')];
+const stage = document.getElementById('stage');
+const counter = document.getElementById('counter');
+const progress = document.getElementById('progress');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let i = 0;
+function fit() {
+  const side = innerWidth < 700 ? 16 : 120;
+  const s = Math.min((innerWidth - side) / 1920, (innerHeight - 64) / 1080);
+  stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+}
+function show(n) {
+  i = Math.max(0, Math.min(slides.length - 1, n));
+  slides.forEach((el, k) => el.classList.toggle('active', k === i));
+  counter.textContent = (i + 1) + ' / ' + slides.length;
+  progress.style.width = ((i + 1) / slides.length * 100) + '%';
+  prev.disabled = i === 0; next.disabled = i === slides.length - 1;
+}
+prev.onclick = () => show(i - 1);
+next.onclick = () => show(i + 1);
+addEventListener('keydown', (e) => {
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); show(i + 1); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+  else if (e.key === 'Home') show(0);
+  else if (e.key === 'End') show(slides.length - 1);
+  else if (e.key === 'Escape') parent.postMessage({ type: 'cercit-deck-close' }, '*');
+});
+let sx = null;
+addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+addEventListener('touchend', (e) => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); sx = null; });
+addEventListener('resize', fit);
+fit(); show(0); document.body.focus();</script></body></html>

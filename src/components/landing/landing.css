@@ -387,3 +387,10 @@ html:not(.dark) .rate-note { color: oklch(0.45 0.03 256); }
 .landing-footer .footer-link-btn:focus-visible { outline: 2px solid oklch(0.7 0.2 246); outline-offset: 2px; border-radius: 3px; }
 html:not(.dark) .landing-footer .footer-link-btn { color: oklch(0.36 0.03 256); }
 html:not(.dark) .landing-footer .footer-link-btn:hover { color: oklch(0.52 0.2 256); }
+
+/* ---------- deck viewer inside the audience popup ---------- */
+.deck-dialog .deck-frame { display: block; width: 100%; height: 100%; border: 0; }
+.deck-close { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: rgba(16,27,46,.85); color: #F4F6FA; font-size: 14px; font-weight: 600; cursor: pointer; }
+.deck-close:hover { background: #2F5FD0; }
+.deck-close:focus-visible { outline: 2px solid #8FB0FF; outline-offset: 2px; }
+.deck-dialog > button.absolute { color: #F4F6FA; opacity: .85; z-index: 2; }
