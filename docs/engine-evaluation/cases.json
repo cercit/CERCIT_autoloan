@@ -1,0 +1,1290 @@
+[
+  {
+    "id": "TC-01",
+    "title": "Clean private salaried, tier-4 employer",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-02",
+    "title": "Govt employee, 3.5 yrs service",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 745,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": true,
+      "employmentYears": 3.5,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-03",
+    "title": "Govt employee, 10yr tenure on hatchback",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 46,
+      "bureauScore": 760,
+      "foir": 30,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": true,
+      "employmentYears": 9,
+      "freeIncomeRatio": 70,
+      "ccServicingPattern": 1,
+      "tenureMonths": 120,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-04",
+    "title": "High salary, short tenure, 20% down",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 40,
+      "bureauScore": 805,
+      "foir": 25,
+      "ltvOnExShowroom": 89.60000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 75,
+      "ccServicingPattern": 1,
+      "tenureMonths": 48,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 80,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-05",
+    "title": "Bureau exactly 750",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 750,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-06",
+    "title": "Bureau exactly 700",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 700,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-07",
+    "title": "LTV 100% on-road, verified salary, FOIR 42",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 42,
+      "ltvOnExShowroom": 112.00000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 58,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 100,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-08",
+    "title": "Free income exactly 15%",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 50,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 15,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-09",
+    "title": "Age 25, 2 yrs employment",
+    "input": {
+      "age": 25,
+      "ageAtMaturity": 30,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 2,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-10",
+    "title": "Age 55, 60-month tenure",
+    "input": {
+      "age": 55,
+      "ageAtMaturity": 60,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-11",
+    "title": "Home loan EMI inside FOIR",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 45,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 55,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-12",
+    "title": "Card paid partially each month",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 2,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-13",
+    "title": "Bureau 690, otherwise clean",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 690,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "BUREAU_GOOD",
+        "BUREAU_RECALIBRATED"
+      ],
+      "score": 80
+    }
+  },
+  {
+    "id": "TC-14",
+    "title": "Card serviced at minimum due only",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 3,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "CC_SERVICING"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-15",
+    "title": "One bounced EMI in statement",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 1,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "LOW_BOUNCES"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-16",
+    "title": "Salary credited 4 of 6 months",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 4,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "SALARY_REGULAR"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-17",
+    "title": "FOIR 45 (over optimal 40)",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 45,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 55,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-18",
+    "title": "One 30 DPD in last 6 months",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": true,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "NO_RECENT_DPD"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-19",
+    "title": "8 enquiries in 90 days",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 45,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 55,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-20",
+    "title": "Bureau 705 + card min due",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 705,
+      "foir": 42,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 58,
+      "ccServicingPattern": 3,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "CC_SERVICING",
+        "FOIR_OPTIMAL"
+      ],
+      "score": 80
+    }
+  },
+  {
+    "id": "TC-21",
+    "title": "Bureau 680 + bounce + FOIR 47",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 680,
+      "foir": 47,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 1,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 53,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "BUREAU_GOOD",
+        "BUREAU_RECALIBRATED",
+        "FOIR_OPTIMAL",
+        "LOW_BOUNCES"
+      ],
+      "score": 60
+    }
+  },
+  {
+    "id": "TC-22",
+    "title": "Age 59, 84-month tenure",
+    "input": {
+      "age": 59,
+      "ageAtMaturity": 66,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 84,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "AGE_MAX"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-23",
+    "title": "Bureau 640",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 640,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "BUREAU_FLOOR"
+      ],
+      "soft": [
+        "BUREAU_GOOD",
+        "BUREAU_RECALIBRATED"
+      ],
+      "score": 55
+    }
+  },
+  {
+    "id": "TC-24",
+    "title": "Bureau 600",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 600,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "BUREAU_FLOOR"
+      ],
+      "soft": [
+        "BUREAU_GOOD",
+        "BUREAU_RECALIBRATED"
+      ],
+      "score": 55
+    }
+  },
+  {
+    "id": "TC-25",
+    "title": "FOIR 55",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 55,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 45,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "FOIR_LIMIT"
+      ],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 65
+    }
+  },
+  {
+    "id": "TC-26",
+    "title": "FOIR 48 but free income 10%",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 48,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 10,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "FREE_INCOME_FLOOR"
+      ],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 65
+    }
+  },
+  {
+    "id": "TC-27",
+    "title": "Govt (contract-like), 1 yr service",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": true,
+      "employmentYears": 1,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "GOVT_EMPLOYEE_CHECK"
+      ],
+      "soft": [],
+      "score": 75
+    }
+  },
+  {
+    "id": "TC-28",
+    "title": "Govt, 2.9 yrs service",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": true,
+      "employmentYears": 2.9,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "GOVT_EMPLOYEE_CHECK"
+      ],
+      "soft": [],
+      "score": 75
+    }
+  },
+  {
+    "id": "TC-29",
+    "title": "Private salaried, 96-month tenure",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 44,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 96,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "TENURE_CAP"
+      ],
+      "soft": [],
+      "score": 75
+    }
+  },
+  {
+    "id": "TC-30",
+    "title": "Govt, 120 months on 17L SUV",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 46,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": true,
+      "employmentYears": 8,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 120,
+      "onRoadPrice": 1700000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "TENURE_CAP"
+      ],
+      "soft": [],
+      "score": 75
+    }
+  },
+  {
+    "id": "TC-31",
+    "title": "LTV 105% on-road (accessories top-load)",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 117.60000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 105,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "LTV_100_SALARIED"
+      ],
+      "soft": [],
+      "score": 75
+    }
+  },
+  {
+    "id": "TC-32",
+    "title": "LTV 98% with FOIR 52",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 52,
+      "ltvOnExShowroom": 109.76,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 48,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 98,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "FOIR_LIMIT",
+        "LTV_100_SALARIED"
+      ],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 40
+    }
+  },
+  {
+    "id": "TC-33",
+    "title": "One 90+ DPD account",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 700,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": true,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "NO_SEVERE_DPD"
+      ],
+      "soft": [],
+      "score": 75
+    }
+  },
+  {
+    "id": "TC-34",
+    "title": "Write-off on bureau",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 680,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": true,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "NO_SEVERE_DPD"
+      ],
+      "soft": [
+        "BUREAU_GOOD",
+        "BUREAU_RECALIBRATED"
+      ],
+      "score": 55
+    }
+  },
+  {
+    "id": "TC-35",
+    "title": "Age 20",
+    "input": {
+      "age": 20,
+      "ageAtMaturity": 25,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 0.5,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "AGE_MIN"
+      ],
+      "soft": [],
+      "score": 75
+    }
+  },
+  {
+    "id": "TC-36",
+    "title": "Bureau 630, 2x DPD30, 2 bounces, min-due card, FOIR 58",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 630,
+      "foir": 58,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": true,
+      "bounces": 2,
+      "salaryMonthsRegular": 3,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 42,
+      "ccServicingPattern": 3,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "decline",
+      "hard": [
+        "BUREAU_FLOOR",
+        "FOIR_LIMIT"
+      ],
+      "soft": [
+        "BUREAU_GOOD",
+        "BUREAU_RECALIBRATED",
+        "CC_SERVICING",
+        "FOIR_OPTIMAL",
+        "LOW_BOUNCES",
+        "NO_RECENT_DPD",
+        "SALARY_REGULAR"
+      ],
+      "score": 0
+    }
+  },
+  {
+    "id": "TC-37",
+    "title": "No hard fails, model uneasy",
+    "input": {
+      "age": 26,
+      "ageAtMaturity": 31,
+      "bureauScore": 702,
+      "foir": 49,
+      "ltvOnExShowroom": 112.00000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 1.6,
+      "freeIncomeRatio": 51,
+      "ccServicingPattern": 2,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 100,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "FOIR_OPTIMAL"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-38",
+    "title": "Fails one soft rule, model very safe",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 810,
+      "foir": 28,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": true,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": true,
+      "employmentYears": 12,
+      "freeIncomeRatio": 72,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "review",
+      "hard": [],
+      "soft": [
+        "NO_RECENT_DPD"
+      ],
+      "score": 90
+    }
+  },
+  {
+    "id": "TC-39",
+    "title": "Thin file: 1 enquiry, no cards, 700 score",
+    "input": {
+      "age": 27,
+      "ageAtMaturity": 32,
+      "bureauScore": 700,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 1.2,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 0,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  },
+  {
+    "id": "TC-40",
+    "title": "Cash withdrawal ratio 55%",
+    "input": {
+      "age": 36,
+      "ageAtMaturity": 41,
+      "bureauScore": 760,
+      "foir": 38,
+      "ltvOnExShowroom": 100.80000000000001,
+      "hasSevereDPD": false,
+      "hasRecentDPD": false,
+      "bounces": 0,
+      "salaryMonthsRegular": 6,
+      "employerVerified": true,
+      "govtEmployee": false,
+      "employmentYears": 6,
+      "freeIncomeRatio": 62,
+      "ccServicingPattern": 1,
+      "tenureMonths": 60,
+      "onRoadPrice": 900000,
+      "ltvOnRoad": 90,
+      "incomeVerified": true
+    },
+    "expected": {
+      "decision": "approve",
+      "hard": [],
+      "soft": [],
+      "score": 100
+    }
+  }
+]
