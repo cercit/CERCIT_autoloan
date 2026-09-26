@@ -278,7 +278,11 @@ function UserDialog({
 }) {
   const [fullName, setFullName] = useState(user?.fullName ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
-  const [role, setRole] = useState(user?.role ?? "credit_officer");
+  // Old roles in capitals from the first seed (e.g. ADMIN) carry no rights and
+  // cannot be saved again, so the form starts with no role and asks for one.
+  const keepsOldRole = !!user?.roleIsLegacy;
+  const deadRole = !!user && !keepsOldRole && roles.length > 0 && !roles.some((r) => r.code === user.role);
+  const [role, setRole] = useState(deadRole ? "" : (user?.role ?? "credit_officer"));
   const [stateCode, setStateCode] = useState(user?.stateCode ?? ALL_STATES);
   const [limit, setLimit] = useState(user?.maxSanctionAmount?.toString() ?? "");
   const [daily, setDaily] = useState(user?.dailyCaseLimit?.toString() ?? "");
@@ -288,7 +292,7 @@ function UserDialog({
 
   // An older role stays selectable for the person who already has it.
   const roleChoices = useMemo(() => {
-    if (user && !roles.some((r) => r.code === user.role)) {
+    if (user && keepsOldRole && !roles.some((r) => r.code === user.role)) {
       return [...roles, { code: user.role, name: `${user.roleName} (old role)`, description: "", decides: false }];
     }
     return roles;
@@ -299,6 +303,10 @@ function UserDialog({
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!role) {
+      setError("Choose a role.");
+      return;
+    }
     setSaving(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
@@ -393,6 +401,11 @@ function UserDialog({
                 </SelectContent>
               </Select>
             </div>
+            {deadRole && !role && (
+              <p className="-mt-2 text-xs text-warning-foreground dark:text-warning sm:col-span-2">
+                Their old role ({user?.role}) gives no rights. Choose a current role to save, or close this and suspend them instead.
+              </p>
+            )}
             {chosen?.description && <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">{chosen.description}</p>}
             <div className="space-y-1.5">
               <Label htmlFor="u-limit">Sanction limit (₹)</Label>
