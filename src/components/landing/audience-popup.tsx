@@ -15,15 +15,15 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 
 export type Audience = "customer" | "investor" | "lender";
 
-const STORAGE_KEY = "cercit_audience";
 const OPEN_EVENT = "cercit:audience";
+const DECKS = `${import.meta.env.BASE_URL}decks/`;
 
 /** Open the popup from anywhere (footer links etc.), optionally straight to one audience. */
 export function openAudiencePopup(audience?: Audience) {
   window.dispatchEvent(new CustomEvent<Audience | undefined>(OPEN_EVENT, { detail: audience }));
 }
 
-type Cta = { label: string; to?: string; href?: string };
+type Cta = { label: string; to?: string; href?: string; download?: boolean };
 
 type Panel = {
   icon: LucideIcon;
@@ -64,7 +64,7 @@ const PANELS: Record<Audience, Panel> = {
       "Customer journey and lender console built on one stack",
       "Starts with salaried new-car loans, then CV, 3W and co-applicants",
     ],
-    primary: { label: "Request the deck", href: "mailto:support@cercit.in?subject=cercit%20investor%20deck" },
+    primary: { label: "Download the deck (PDF)", href: `${DECKS}cercit-investor-deck.pdf`, download: true },
     secondary: { label: "See the lender console", to: "/login" },
   },
   lender: {
@@ -79,28 +79,12 @@ const PANELS: Record<Audience, Panel> = {
       "Full audit trail; PAN and mobile encrypted at rest",
       "Built around RBI Digital Lending Guidelines and the DPDP Act",
     ],
-    primary: { label: "Book a demo", href: "mailto:support@cercit.in?subject=cercit%20lender%20demo" },
+    primary: { label: "Download the deck (PDF)", href: `${DECKS}cercit-bank-nbfc-deck.pdf`, download: true },
     secondary: { label: "Open demo console", to: "/login" },
   },
 };
 
 const ORDER: Audience[] = ["customer", "investor", "lender"];
-
-function readStored(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function store(value: string) {
-  try {
-    localStorage.setItem(STORAGE_KEY, value);
-  } catch {
-    /* private mode: popup simply shows again next visit */
-  }
-}
 
 function CtaButton({ cta, variant }: { cta: Cta; variant: "default" | "outline" }) {
   const cls = variant === "default" ? "audience-cta" : "audience-cta-secondary";
@@ -111,7 +95,7 @@ function CtaButton({ cta, variant }: { cta: Cta; variant: "default" | "outline" 
           {cta.label} {variant === "default" && <ArrowRight className="size-4" />}
         </Link>
       ) : (
-        <a href={cta.href}>
+        <a href={cta.href} download={cta.download || undefined}>
           {cta.label} {variant === "default" && <ArrowRight className="size-4" />}
         </a>
       )}
@@ -124,9 +108,8 @@ export function AudiencePopup() {
   const [active, setActive] = useState<Audience | null>(null);
   const resetTimer = useRef<number | undefined>(undefined);
 
-  // First visit only: ask once, a moment after the hero has painted.
+  // Shown on every page load, a moment after the hero has painted.
   useEffect(() => {
-    if (readStored()) return;
     const t = window.setTimeout(() => setOpen(true), 1500);
     return () => window.clearTimeout(t);
   }, []);
@@ -141,15 +124,11 @@ export function AudiencePopup() {
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
 
-  const choose = (a: Audience) => {
-    setActive(a);
-    store(a);
-  };
+  const choose = (a: Audience) => setActive(a);
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
-      if (!readStored()) store("dismissed");
       // reset after the close animation so the panel does not flash back to the chooser
       resetTimer.current = window.setTimeout(() => setActive(null), 200);
     }
