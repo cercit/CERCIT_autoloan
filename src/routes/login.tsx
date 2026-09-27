@@ -24,6 +24,13 @@ import {
 
 type LoginAs = "customer" | "official";
 
+const LIVE_DEMO_EMAIL = (import.meta.env["VITE_DEMO_EMAIL"] as string | undefined)?.trim();
+const LIVE_DEMO_PASSWORD = (import.meta.env["VITE_DEMO_PASSWORD"] as string | undefined)?.trim();
+const LIVE_DEMO = isSupabaseConfigured && !!LIVE_DEMO_EMAIL && !!LIVE_DEMO_PASSWORD;
+const DEMO_LOGIN = LIVE_DEMO
+  ? { email: LIVE_DEMO_EMAIL!, password: LIVE_DEMO_PASSWORD! }
+  : { email: DEMO_EMAIL, password: "demo" };
+
 // Which door the person came through. It only changes the wording: where they
 // land after signing in is decided by the database (staff or not), never by this.
 const COPY: Record<LoginAs | "any", { title: string; lead: string; placeholder: string }> = {
@@ -266,17 +273,22 @@ function Login() {
           </form>
 
           {as !== "customer" && (
-            // The demo account runs on sample data in the browser and never reaches the
-            // database (enableDemoMode), so showing it publicly opens nothing real.
+            // Live demo: a read-only account on the real database (042). Its email and
+            // password come from the build (GitHub secrets), never from this file.
+            // Without them, the sample-data demo that stays in the browser.
             <div className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm">
-              <p className="font-medium">Try the demo</p>
+              <p className="font-medium">{LIVE_DEMO ? "Try the live demo" : "Try the demo"}</p>
               <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground">
                 <dt>Email</dt>
-                <dd className="font-mono text-foreground">{DEMO_EMAIL}</dd>
+                <dd className="break-all font-mono text-foreground">{DEMO_LOGIN.email}</dd>
                 <dt>Password</dt>
-                <dd className="font-mono text-foreground">demo</dd>
+                <dd className="break-all font-mono text-foreground">{DEMO_LOGIN.password}</dd>
               </dl>
-              <p className="mt-1.5 text-xs text-muted-foreground">Sample data only. Nothing you do is saved.</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {LIVE_DEMO
+                  ? "Read-only: look around real cases, rules and rates. Nothing can be changed. All data is synthetic."
+                  : "Sample data only. Nothing you do is saved."}
+              </p>
               <Button
                 type="button"
                 variant="outline"
@@ -286,8 +298,8 @@ function Login() {
                   setByCode(false);
                   setCodeSent(false);
                   setError(null);
-                  setEmail(DEMO_EMAIL);
-                  setPassword("demo");
+                  setEmail(DEMO_LOGIN.email);
+                  setPassword(DEMO_LOGIN.password);
                 }}
               >
                 Fill in the demo login

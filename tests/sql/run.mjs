@@ -1064,11 +1064,11 @@ const asOperator = () => asApi("", "");
     "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
   // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041
   t.equal("every role keeps its 018 rights", counts,
-    { admin: 13, compliance: 13, credit_head: 20, credit_manager: 9, credit_officer: 7, policy_manager: 11, reviewer: 5, viewer: 3 });
+    { admin: 13, compliance: 13, credit_head: 20, credit_manager: 9, credit_officer: 7, demo_viewer: 5, policy_manager: 11, reviewer: 5, viewer: 3 });
   t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
     ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
   const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
-  t.equal("six current roles", six, ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "policy_manager"]);
+  t.equal("six current roles, plus the public demo role (042)", six, ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "demo_viewer", "policy_manager"]);
   const mfa = (await db.query("select code from roles where mfa_required order by code")).rows.map((r) => r.code);
   t.equal("MFA marked for the four privileged roles", mfa, ["admin", "compliance", "credit_head", "policy_manager"]);
   t.equal("admin idles out at 10 minutes", (await one("select idle_timeout_minutes as v from roles where code = 'admin'")).v, 10);
@@ -1348,6 +1348,35 @@ const asOperator = () => asApi("", "");
   await db.query("set role authenticated");
   await t.rejects("nobody edits the settings table directly", () => db.query("update organisation_settings set company_name = 'x'"), /permission denied/);
   await db.query("reset role");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 22. Public read-only demo account (042)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("public demo account");
+  await asOperator();
+  const DEMO = "de0de0de-0000-0000-0000-0000000000de";
+  await db.query("insert into auth.users (id, email) values ($1, 'cercit+demo@gmail.com')", [DEMO]);
+  t.equal("the demo login links to its read-only row", (await one("select role from users where auth_user_id = $1", [DEMO])).role, "demo_viewer");
+  await asApi("authenticated", DEMO);
+  await t.ok("the demo account lists cases", () => db.query("select * from fn_list_applications()"));
+  const appId = (await one("select application_id from applications order by created_at limit 1")).application_id;
+  await t.rejects("it cannot decide a case", () => db.query("select fn_officer_decision($1, 'APPROVE')", [appId]), /permission denied: app.decide/);
+  const cid = (await one("select id from customers limit 1")).id;
+  await t.rejects("it cannot reveal PAN or mobile", () => db.query("select * from fn_customer_pii($1, 'x')", [cid]), /permission denied: pii.reveal/);
+  await t.rejects("it cannot see the staff list", () => db.query("select * from fn_admin_list_users()"), /permission denied: user.view/);
+  const sub = await one("select fn_submit_full_application(p_full_name => 'X', p_email => 'd1@t.in', p_mobile => '9000000099') as v");
+  t.equal("it cannot submit an application", sub.v.summary, "permission denied: app.create");
+
+  await asOperator();
+  await t.rejects("no write right can be added to the demo role", () => db.query("insert into role_permissions (role_code, permission_code) values ('demo_viewer', 'app.decide')"), /may only look/);
+  await t.rejects("the demo login cannot be promoted", () => db.query("update users set role = 'admin' where email = 'cercit+demo@gmail.com'"), /keeps its demo role/);
+  await db.query("set role anon");
+  for (let i = 0; i < 6; i++) await db.query("select fn_record_failed_login('cercit+demo@gmail.com')");
+  await db.query("reset role");
+  t.equal("wrong passwords never lock the demo account", (await one("select locked_until, failed_login_count as n from users where email = 'cercit+demo@gmail.com'")), { locked_until: null, n: 0 });
   failures += t.report();
 }
 
