@@ -32,6 +32,15 @@ Resources:
       BucketName: !Sub "cercit-docs-${AWS::AccountId}"
       VersioningConfiguration:
         Status: Enabled
+      # Customer uploads wait in incoming/ until POST /finalize moves them; anything
+      # left there (abandoned, wrong password never retried) is gone within a day.
+      LifecycleConfiguration:
+        Rules:
+          - Id: incoming-cleanup
+            Status: Enabled
+            Prefix: incoming/
+            ExpirationInDays: 1
+            NoncurrentVersionExpirationInDays: 1
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -74,6 +83,34 @@ Resources:
           Properties:
             RestApiId: !Ref CercitApi
             Path: /upload
+            Method: post
+
+  DocumentFinalizeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-document-finalize
+      CodeUri: lambdas/document_finalize/
+      Handler: handler.handler
+      Timeout: 60
+      MemorySize: 1024
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+        - TextractPolicy: {}
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: [s3:ListBucketVersions]
+              Resource: !Sub "arn:aws:s3:::cercit-docs-${AWS::AccountId}"
+            - Effect: Allow
+              Action: [s3:DeleteObjectVersion]
+              Resource: !Sub "arn:aws:s3:::cercit-docs-${AWS::AccountId}/*"
+      Events:
+        Finalize:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /finalize
             Method: post
 
   GetExtractionsFunction:

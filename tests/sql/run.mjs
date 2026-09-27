@@ -1399,7 +1399,7 @@ const asOperator = () => asApi("", "");
     source: "MANUAL", make: "Hyundai", model: "Creta", variant: "SX", fuel_type: "PETROL",
     ex_showroom: 1500000, road_tax: 150000, insurance: 60000, loan_amount: 1200000, tenure_months: 60, ...extra })]);
 
-  t.equal("nine document types from the map", (await one("select count(*)::int as n from document_types")).n, 9);
+  t.equal("ten document types from the map (ITR added in 045)", (await one("select count(*)::int as n from document_types")).n, 10);
   await db.query("set role anon");
   await asApi("anon");
   t.equal("anyone can read the consent wording", version, "2026-09-v1");
@@ -1416,9 +1416,9 @@ const asOperator = () => asApi("", "");
   const again = (await start()).rows[0].v;
   t.equal("starting again resumes the same draft", again.application_id, first.application_id);
   const cur = (await one("select fn_customer_current() as v")).v;
-  t.equal("current draft shows name, masked mobile and the checklist",
+  t.equal("current draft shows name, masked mobile and the checklist (live photo from 045)",
     [cur.customer.first_name, cur.customer.last_name, cur.customer.mobile_last4, cur.customer.mobile_check, cur.draft.documents.length],
-    ["Asha", "R", "3210", "SIMULATED", 7]);
+    ["Asha", "R", "3210", "SIMULATED", 8]);
 
   // Step 2
   await t.rejects("loan above the on-road price is refused", () => vehicle(first.application_id, { loan_amount: 2000000 }), /more than the on-road price/);
@@ -1475,18 +1475,18 @@ const asOperator = () => asApi("", "");
   await t.rejects("a key outside this application is refused", () => reg("PAN", "front", `uploads/kyc/APP-OTHER/x.pdf`), /does not belong/);
   await t.rejects("a key in the wrong folder is refused", () => reg("PAN", "front", `uploads/form16/${app}/x.pdf`), /does not belong/);
   await t.rejects("a path trick is refused", () => reg("PAN", "front", `uploads/kyc/${app}/../other/x.pdf`), /does not belong/);
-  await t.rejects("two-sided documents need a side", () => reg("PAN", "single", `uploads/kyc/${app}/a.pdf`), /wrong side/);
+  await t.rejects("one-sided documents take no front or back", () => reg("FORM16_B", "front", `uploads/form16/${app}/a.pdf`), /wrong side/);
   await t.rejects("a spreadsheet is refused", () => reg("PAN", "front", `uploads/kyc/${app}/a.xls`, { mime: "application/vnd.ms-excel" }), /PDF, JPG or PNG/);
   await t.rejects("a file over the limit is refused", () => reg("PAN", "front", `uploads/kyc/${app}/a.pdf`, { size: 50 * 1024 * 1024 }), /under 10 MB/);
 
-  const front = (await reg("PAN", "front", `uploads/kyc/${app}/1-front.jpg`, { mime: "image/jpeg" })).rows[0].v;
-  t.equal("one side of PAN is not enough", front.status, "MISSING");
-  const back = (await reg("PAN", "back", `uploads/kyc/${app}/2-back.jpg`, { mime: "image/jpeg" })).rows[0].v;
-  t.equal("both sides mark PAN received", back.status, "RECEIVED");
-  await reg("PAN", "front", `uploads/kyc/${app}/3-front.jpg`, { mime: "image/jpeg" });
+  const front = (await reg("AADHAAR", "front", `uploads/kyc/${app}/1-front.jpg`, { mime: "image/jpeg" })).rows[0].v;
+  t.equal("one side of Aadhaar is not enough", front.status, "MISSING");
+  const back = (await reg("AADHAAR", "back", `uploads/kyc/${app}/2-back.jpg`, { mime: "image/jpeg" })).rows[0].v;
+  t.equal("both sides mark Aadhaar received", back.status, "RECEIVED");
+  await reg("AADHAAR", "front", `uploads/kyc/${app}/3-front.jpg`, { mime: "image/jpeg" });
   const cur = (await one("select fn_customer_current() as v")).v;
-  const pan = cur.draft.documents.find((d) => d.doc_type === "PAN");
-  t.equal("a new front replaces the old one", pan.files.map((f) => f.side).sort(), ["back", "front"]);
+  const aad = cur.draft.documents.find((d) => d.doc_type === "AADHAAR");
+  t.equal("a new front replaces the old one", aad.files.map((f) => f.side).sort(), ["back", "front"]);
 
   await reg("SALARY_SLIP", "single", `uploads/salary-slips/${app}/jun.pdf`, { locked: true });
   await reg("SALARY_SLIP", "single", `uploads/salary-slips/${app}/jul.pdf`);
@@ -1499,9 +1499,50 @@ const asOperator = () => asApi("", "");
   await db.query("reset role");
   await asOperator();
   await db.query("select set_config('request.jwt.claims', '', false)");
-  t.equal("replaced files are kept, marked superseded", (await one("select count(*) filter (where superseded_at is not null)::int as n from documents where doc_type = 'PAN'")).n, 1);
+  t.equal("replaced files are kept, marked superseded", (await one("select count(*) filter (where superseded_at is not null)::int as n from documents where doc_type = 'AADHAAR'")).n, 1);
   t.equal("locked PDFs are flagged, the password never stored", (await one("select count(*) filter (where was_password_protected)::int as n from documents")).n, 1);
   t.equal("every upload is audited", (await one("select count(*)::int as n from audit_events where event_type = 'DOCUMENT_UPLOADED'")).n, 5);
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 25. How documents are captured (045)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("document capture");
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  await db.query("set role authenticated");
+  await asApi("authenticated", CUST);
+  await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub: CUST, email: "asha.r@example.com", role: "authenticated" })]);
+  const app = (await one("select fn_customer_current()->'draft'->>'application_id' as v")).v;
+  const reg = (type, side, key, extra = {}) => db.query(
+    "select fn_customer_register_document($1, $2, $3, $4, $5, $6, $7, $8, 's3', $9, $10, $11) as v",
+    [app, type, side, key, "file", extra.mime ?? "application/pdf", 90000, "b".repeat(64), extra.locked ?? false, extra.unlocked ?? false, extra.masked ?? false]);
+  const docOf = async (code) => (await one("select fn_customer_current() as v")).v.draft.documents.find((d) => d.doc_type === code);
+
+  const types = (await one("select fn_document_upload_types() as v")).v;
+  t.equal("password asked only where files come locked", Object.keys(types).filter((k) => types[k].ask_password).sort(), ["AADHAAR", "BANK_STMT", "ITR", "SALARY_SLIP"]);
+  t.equal("ITR is optional and takes several files", [types.ITR.required, types.ITR.multi_file, types.ITR.folder], ["OPTIONAL", true, "uploads/other/itr"]);
+  t.equal("open drafts get the live photo on the checklist", (await docOf("LIVE_PHOTO"))?.required, "ALWAYS");
+
+  await t.rejects("the live photo must come from the camera", () => reg("LIVE_PHOTO", "single", `uploads/other/live-photo/${app}/s.png`, { mime: "image/png" }), /camera/);
+  t.equal("a live photo is received", (await reg("LIVE_PHOTO", "single", `uploads/other/live-photo/${app}/s.jpg`, { mime: "image/jpeg" })).rows[0].v.status, "RECEIVED");
+
+  t.equal("PAN front alone is enough", (await reg("PAN", "front", `uploads/kyc/${app}/p-front.jpg`, { mime: "image/jpeg" })).rows[0].v.status, "RECEIVED");
+  await reg("PAN", "single", `uploads/kyc/${app}/p-digilocker.pdf`);
+  t.equal("a DigiLocker PDF replaces the card photos", (await docOf("PAN")).files.map((f) => f.side), ["single"]);
+  await reg("AADHAAR", "single", `uploads/kyc/${app}/e-aadhaar.pdf`, { locked: true, unlocked: true, masked: true });
+  const aad = await docOf("AADHAAR");
+  t.equal("e-Aadhaar as one PDF, opened and masked", [aad.status, aad.files.length, aad.files[0].unlocked, aad.files[0].masked], ["RECEIVED", 1, true, true]);
+
+  const locked = (await reg("BANK_STMT", "single", `uploads/bank-statements/${app}/b.pdf`, { locked: true })).rows[0].v;
+  t.equal("a locked file we could not open is not received", [locked.status, (await docOf("BANK_STMT")).note.startsWith("We could not open")], ["MISSING", true]);
+  await reg("ITR", "single", `uploads/other/itr/${app}/ay2025.pdf`, { locked: true, unlocked: true });
+  await reg("ITR", "single", `uploads/other/itr/${app}/ay2026.pdf`);
+  t.equal("ITR keeps both years", (await docOf("ITR")).files.length, 2);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
   failures += t.report();
 }
 

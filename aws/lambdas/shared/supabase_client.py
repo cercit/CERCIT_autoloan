@@ -66,6 +66,31 @@ def customer_can_upload(event: dict, application_id: str) -> bool:
         return False
 
 
+def customer_register_document(event: dict, params: dict) -> tuple[bool, Any]:
+    """Registers a finalised upload as the customer themself (sql/045), so the database's
+    ownership and folder checks run exactly as they would from the browser."""
+    auth = _bearer(event)
+    if not auth:
+        return False, "sign-in required"
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/rpc/fn_customer_register_document",
+        data=json.dumps(params).encode(),
+        method="POST",
+        headers={"apikey": SUPABASE_KEY, "Authorization": auth, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return True, json.loads(resp.read() or "null")
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read() or b"{}").get("message") or "The file could not be saved."
+        except ValueError:
+            msg = "The file could not be saved."
+        return False, msg[:1].upper() + msg[1:]
+    except (urllib.error.URLError, ValueError):
+        return False, "The file could not be saved. Try again."
+
+
 def _headers() -> dict[str, str]:
     return {
         "apikey": SUPABASE_KEY,

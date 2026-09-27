@@ -29,7 +29,8 @@ export type DocType =
   | "quote"
   | "eb_bill"
   | "company_id"
-  | "live_photo";
+  | "live_photo"
+  | "itr";
 
 export interface ExtractionField {
   value: string | number;
@@ -68,7 +69,7 @@ export async function getPresignedUrl(
   applicationId: string,
   docType: DocType,
   fileName: string,
-  contentType: string = "application/pdf"
+  contentType: string = "application/pdf",
 ): Promise<PresignedResponse> {
   const res = await fetch(`${API_BASE}/upload`, {
     method: "POST",
@@ -84,10 +85,34 @@ export async function getPresignedUrl(
   return res.json();
 }
 
-export async function uploadToS3(
-  presignedUrl: string,
-  file: File
-): Promise<void> {
+export type FinalizeResult =
+  | { status: "OK"; key: string; wasLocked: boolean; unlocked: boolean; masked: boolean }
+  | { status: "PASSWORD_NEEDED" | "WRONG_PASSWORD" };
+
+/**
+ * Customer uploads land in incoming/; this opens a locked PDF with the password
+ * (used once, never stored), masks an Aadhaar number, moves the file into its
+ * folder and registers it (aws/lambdas/document_finalize, sql/045).
+ */
+export async function finalizeUpload(body: {
+  applicationId: string;
+  docType: string;
+  side: "front" | "back" | "single";
+  key: string;
+  fileName: string;
+  password?: string | undefined;
+}): Promise<FinalizeResult> {
+  const res = await fetch(`${API_BASE}/finalize`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "The upload didn't go through. Try again.");
+  return data as FinalizeResult;
+}
+
+export async function uploadToS3(presignedUrl: string, file: File): Promise<void> {
   const res = await fetch(presignedUrl, {
     method: "PUT",
     headers: { "Content-Type": file.type },
@@ -102,21 +127,14 @@ export async function uploadToS3(
 export async function uploadDocument(
   applicationId: string,
   docType: DocType,
-  file: File
+  file: File,
 ): Promise<string> {
-  const { uploadUrl, key } = await getPresignedUrl(
-    applicationId,
-    docType,
-    file.name,
-    file.type
-  );
+  const { uploadUrl, key } = await getPresignedUrl(applicationId, docType, file.name, file.type);
   await uploadToS3(uploadUrl, file);
   return key;
 }
 
-export async function getExtractions(
-  applicationId: string
-): Promise<ExtractionResult> {
+export async function getExtractions(applicationId: string): Promise<ExtractionResult> {
   const res = await fetch(`${API_BASE}/extraction/${encodeURIComponent(applicationId)}`, {
     headers: await authHeaders(),
   });
@@ -128,7 +146,7 @@ export async function pollForExtraction(
   applicationId: string,
   docType: DocType,
   maxWaitMs: number = 30000,
-  intervalMs: number = 3000
+  intervalMs: number = 3000,
 ): Promise<Record<string, ExtractionField> | null> {
   const start = Date.now();
 
@@ -144,9 +162,7 @@ export async function pollForExtraction(
   return null;
 }
 
-export async function runCrossValidation(
-  applicationId: string
-): Promise<ValidationCheck[]> {
+export async function runCrossValidation(applicationId: string): Promise<ValidationCheck[]> {
   const res = await fetch(`${API_BASE}/validate/${encodeURIComponent(applicationId)}`, {
     method: "POST",
     headers: await authHeaders(),
@@ -158,17 +174,13 @@ export async function runCrossValidation(
   return data.checks ?? [];
 }
 
-export function confidenceLevel(
-  score: number
-): "high" | "medium" | "low" {
+export function confidenceLevel(score: number): "high" | "medium" | "low" {
   if (score >= 0.9) return "high";
   if (score >= 0.7) return "medium";
   return "low";
 }
 
-export function mapExtractionToFields(
-  extraction: Record<string, ExtractionField>
-): Array<{
+export function mapExtractionToFields(extraction: Record<string, ExtractionField>): Array<{
   label: string;
   value: string;
   confidence: "high" | "medium" | "low";

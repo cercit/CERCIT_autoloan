@@ -16,7 +16,17 @@ export interface DraftDocument {
   status: "MISSING" | "RECEIVED" | "ACCEPTED" | "REUPLOAD" | "WAIVED" | "NOT_NEEDED";
   note: string | null;
   sides: number;
-  files?: { side: "front" | "back" | "single"; file_name: string; size: number; uploaded_at: string }[];
+  back_required?: boolean;
+  multi_file?: boolean;
+  ask_password?: boolean;
+  files?: {
+    side: "front" | "back" | "single";
+    file_name: string;
+    size: number;
+    uploaded_at: string;
+    unlocked?: boolean;
+    masked?: boolean;
+  }[];
 }
 
 export interface DraftVehicle {
@@ -81,7 +91,9 @@ function message(error: { message?: string } | null): string {
   return m.charAt(0).toUpperCase() + m.slice(1);
 }
 
-export async function getConsentText(purpose = "APPLICATION_PROCESSING"): Promise<ConsentText | null> {
+export async function getConsentText(
+  purpose = "APPLICATION_PROCESSING",
+): Promise<ConsentText | null> {
   if (!isSupabaseConfigured) return null;
   const { data } = await supabase.rpc("fn_consent_text", { p_purpose: purpose });
   return (data as ConsentText) ?? null;
@@ -91,13 +103,20 @@ export async function getConsentText(purpose = "APPLICATION_PROCESSING"): Promis
 export async function sendCustomerEmailCode(email: string): Promise<void> {
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
-    options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login?as=customer` },
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login?as=customer`,
+    },
   });
   if (error) throw new Error(message(error));
 }
 
 export async function verifyCustomerEmailCode(email: string, code: string): Promise<void> {
-  const { error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: "email" });
+  const { error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: code.trim(),
+    type: "email",
+  });
   if (error) throw new Error(message(error));
 }
 
@@ -128,8 +147,14 @@ export async function getCustomerState(): Promise<CustomerState> {
   return data as CustomerState;
 }
 
-export async function saveVehicle(applicationId: string, v: VehicleInput): Promise<{ step: number; quote_pending: boolean }> {
-  const { data, error } = await supabase.rpc("fn_customer_save_vehicle", { p_application_id: applicationId, p: v });
+export async function saveVehicle(
+  applicationId: string,
+  v: VehicleInput,
+): Promise<{ step: number; quote_pending: boolean }> {
+  const { data, error } = await supabase.rpc("fn_customer_save_vehicle", {
+    p_application_id: applicationId,
+    p: v,
+  });
   if (error) throw new Error(message(error));
   return data as { step: number; quote_pending: boolean };
 }
@@ -149,6 +174,14 @@ export interface UploadType {
   folder: string;
   allowed_mime: string[];
   max_mb: number;
+  name: string;
+  required: DraftDocument["required"];
+  note: string | null;
+  sides: number;
+  sort: number;
+  back_required: boolean;
+  multi_file: boolean;
+  ask_password: boolean;
 }
 
 export async function getUploadTypes(): Promise<Record<string, UploadType>> {

@@ -8,6 +8,7 @@ documents directly to S3 without going through API Gateway
 
 import json
 import os
+import re
 import uuid
 import boto3
 from botocore.config import Config
@@ -34,6 +35,7 @@ DOC_TYPE_FOLDERS = {
     "eb_bill": "uploads/other/eb-bill",
     "company_id": "uploads/other/company-id",
     "live_photo": "uploads/other/live-photo",
+    "itr": "uploads/other/itr",
 }
 
 ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/tiff"}
@@ -61,15 +63,18 @@ def handler(event, context):
     if not valid_application_id(application_id):
         return _response(400, {"error": "valid applicationId required"})
     # Staff for any application; a customer only for their own draft (sql/044).
-    if not (is_staff_request(event) or customer_can_upload(event, application_id)):
+    staff = is_staff_request(event)
+    if not (staff or customer_can_upload(event, application_id)):
         return _response(401, {"error": "sign-in required"})
     if doc_type not in DOC_TYPE_FOLDERS:
         return _response(400, {"error": f"Invalid docType. Must be one of: {list(DOC_TYPE_FOLDERS.keys())}"})
     if content_type not in ALLOWED_TYPES:
         return _response(400, {"error": f"Invalid file type. Allowed: {list(ALLOWED_TYPES)}"})
 
-    folder = DOC_TYPE_FOLDERS[doc_type]
-    safe_name = file_name.replace("/", "_").replace("\\", "_")
+    # Customers upload into incoming/ only. POST /finalize (document_finalize) then
+    # unlocks, masks Aadhaar and moves the file into its folder (sql/045).
+    folder = DOC_TYPE_FOLDERS[doc_type] if staff else "incoming"
+    safe_name = re.sub(r"[^\w.-]+", "_", file_name)[-100:] or "document"
     key = f"{folder}/{application_id}/{uuid.uuid4().hex[:8]}-{safe_name}"
 
     presigned_url = s3.generate_presigned_url(

@@ -184,8 +184,11 @@ def _token_similarity(a: str, b: str) -> float:
 
 
 def _detect_kyc_type(key: str) -> str:
-    lower = key.lower()
-    if "pan" in lower:
+    lower = key.rsplit("/", 1)[-1].lower()
+    # Files from POST /finalize are named <random>-pan_card-<side> or -aadhaar_card-<side>.
+    if "-aadhaar_card-" in lower:
+        return "aadhaar_card"
+    if "-pan_card-" in lower or "pan" in lower:
         return "pan_card"
     return "aadhaar_card"
 
