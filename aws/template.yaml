@@ -62,7 +62,9 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: cercit-shared
-      ContentUri: lambdas/shared/
+      # The folder whose contents become python/ in the layer, so handlers can
+      # `from shared.supabase_client import ...` (lambdas/shared/ itself nested it one level too deep).
+      ContentUri: lambdas/shared/python/
       CompatibleRuntimes:
         - python3.12
     Metadata:
