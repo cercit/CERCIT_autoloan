@@ -65,6 +65,8 @@ After approval (Sanction module, later): signed KFS, loan agreement, e-mandate (
 - **Same image reused:** the file hash, and a near-duplicate image hash, compared across all applications.
 - **Front and back belong together:** same card size, wear and lighting.
 
+**Decided 27 Sep 2026:** the genuineness checks and the face match (D9) are **built and tested, then kept switched off** (feature switch) — a capability to show, not part of the demo flow.
+
 Outcome of these checks: `clean` / `needs review` / `suspected manipulation`. Anything but clean goes to an officer; suspected manipulation opens a fraud review (PRD §12). A flag never rejects a customer on its own.
 
 **How:** Textract OCR + regex for PAN; QR decode in code; metadata read from the file; pixel and AI-image checks from a forgery-detection service (to be chosen — the cost goes on the reconcile list). Confidence below the threshold → an officer confirms the field.
@@ -258,7 +260,7 @@ A real employer payslip (a large NBFC's "Form T" pay slip / leave card) carries 
 
 ---
 
-## D6 — Credit bureau report (pulled by API, not uploaded)  ✅ reviewed with Sameer, 27 Sep 2026 — two open questions
+## D6 — Credit bureau report (pulled by API, not uploaded)  ✅ reviewed with Sameer, 27 Sep 2026
 
 **Why:** repayment history — the strongest single risk signal.
 
@@ -324,9 +326,11 @@ A real employer payslip (a large NBFC's "Form T" pay slip / leave card) carries 
 - Addresses and phones on file vs the application; **many different addresses or phones = identity flag**.
 - A car-loan enquiry from another lender in the last 30 days = shopping around, or a second loan on the same car.
 
-**Open questions**
-1. Card and overdraft obligation for FOIR: 5% of the outstanding (industry norm) — confirm or give the office figure.
-2. A customer with **no bureau record** (new to credit) — reject, refer to an officer, or allow with a lower LTV? Until decided: **refer** (the existing "missing reports refer" rule, decision D6 of 17 Sep).
+**Decided 27 Sep 2026**
+1. Card and overdraft obligation for FOIR: **5% of the outstanding**.
+2. A customer with **no bureau record on both bureaus → reject** (changes the 17 Sep "missing reports refer" rule for bureau no-hit — goes through policy change; reconcile R11).
+
+~~Earlier open question:~~ a customer with **no bureau record** (new to credit) — reject, refer to an officer, or allow with a lower LTV? Until decided: **refer** (the existing "missing reports refer" rule, decision D6 of 17 Sep).
 
 **Feeds:** bureau layer of the decision, FOIR (bureau EMIs), fraud.
 
@@ -364,7 +368,7 @@ A real employer payslip (a large NBFC's "Form T" pay slip / leave card) carries 
 
 **Feeds:** collateral layer (LTV), final loan amount, dealer risk, and later the payment to the dealer and the contact for delivery follow-up.
 
-**Open question:** quotation required **at application**, or only **after approval, before payment**?
+**Decided 27 Sep 2026 — two stages.** Most customers apply after a test drive and already have the quote: they upload it with the application. If they do not, the application goes ahead without it and gets an **in-principle approval** (LTV on the price they typed); the officer asks for the quote, and **final approval needs it**. The quote's figures then replace the typed ones and the rules run again.
 
 ---
 
