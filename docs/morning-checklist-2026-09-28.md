@@ -13,7 +13,7 @@
    - Check: `SELECT count(*) FILTER (WHERE mobile_hash IS NULL) FROM customers;` should return 0.
 
 1b. **Supabase: run migration 047** (right after 046)
-   - File: `Lov_cercit\sql'_staff_customer_cases.sql`. It adds the officer's queue and case view, the officer's actions, and customer re-uploads after submitting.
+   - File: `Lov_cercit\sql\047_staff_customer_cases.sql`. It adds the officer's queue and case view, the officer's actions, and customer re-uploads after submitting.
    - Check: `SELECT origin, status, count(*) FROM applications GROUP BY 1, 2;` shows your test applications with origin CUSTOMER.
 
 2. **Supabase: the "Magic Link" email template** (Authentication → Emails → Magic Link)
