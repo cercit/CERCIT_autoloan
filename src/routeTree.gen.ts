@@ -26,6 +26,9 @@ import { Route as RolesRouteImport } from './routes/roles'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as ApplicationsIndexRouteImport } from './routes/applications/index'
 import { Route as ApplicationsNewRouteImport } from './routes/applications/new'
+import { Route as OnboardingCarRouteImport } from './routes/onboarding.car'
+import { Route as OnboardingDetailsRouteImport } from './routes/onboarding.details'
+import { Route as OnboardingDocumentsRouteImport } from './routes/onboarding.documents'
 import { Route as ApplicationsIdIndexRouteImport } from './routes/applications/$id/index'
 import { Route as ApplicationsIdApprovalRouteImport } from './routes/applications/$id/approval'
 import { Route as ApplicationsIdManagerReviewRouteImport } from './routes/applications/$id/manager-review'
@@ -116,6 +119,21 @@ const ApplicationsNewRoute = ApplicationsNewRouteImport.update({
   path: '/applications/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingCarRoute = OnboardingCarRouteImport.update({
+  id: '/onboarding/car',
+  path: '/onboarding/car',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingDetailsRoute = OnboardingDetailsRouteImport.update({
+  id: '/onboarding/details',
+  path: '/onboarding/details',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingDocumentsRoute = OnboardingDocumentsRouteImport.update({
+  id: '/onboarding/documents',
+  path: '/onboarding/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApplicationsIdIndexRoute = ApplicationsIdIndexRouteImport.update({
   id: '/applications/$id/',
   path: '/applications/$id/',
@@ -155,6 +173,9 @@ export interface FileRoutesByFullPath {
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
+  '/onboarding/car': typeof OnboardingCarRoute
+  '/onboarding/details': typeof OnboardingDetailsRoute
+  '/onboarding/documents': typeof OnboardingDocumentsRoute
   '/applications/': typeof ApplicationsIndexRoute
   '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
@@ -178,6 +199,9 @@ export interface FileRoutesByTo {
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
+  '/onboarding/car': typeof OnboardingCarRoute
+  '/onboarding/details': typeof OnboardingDetailsRoute
+  '/onboarding/documents': typeof OnboardingDocumentsRoute
   '/applications': typeof ApplicationsIndexRoute
   '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
@@ -202,6 +226,9 @@ export interface FileRoutesById {
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
+  '/onboarding/car': typeof OnboardingCarRoute
+  '/onboarding/details': typeof OnboardingDetailsRoute
+  '/onboarding/documents': typeof OnboardingDocumentsRoute
   '/applications/': typeof ApplicationsIndexRoute
   '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
@@ -227,6 +254,9 @@ export interface FileRouteTypes {
     | '/roles'
     | '/users'
     | '/applications/new'
+    | '/onboarding/car'
+    | '/onboarding/details'
+    | '/onboarding/documents'
     | '/applications/'
     | '/applications/$id/approval'
     | '/applications/$id/manager-review'
@@ -250,6 +280,9 @@ export interface FileRouteTypes {
     | '/roles'
     | '/users'
     | '/applications/new'
+    | '/onboarding/car'
+    | '/onboarding/details'
+    | '/onboarding/documents'
     | '/applications'
     | '/applications/$id/approval'
     | '/applications/$id/manager-review'
@@ -273,6 +306,9 @@ export interface FileRouteTypes {
     | '/roles'
     | '/users'
     | '/applications/new'
+    | '/onboarding/car'
+    | '/onboarding/details'
+    | '/onboarding/documents'
     | '/applications/'
     | '/applications/$id/approval'
     | '/applications/$id/manager-review'
@@ -297,6 +333,9 @@ export interface RootRouteChildren {
   RolesRoute: typeof RolesRoute
   UsersRoute: typeof UsersRoute
   ApplicationsNewRoute: typeof ApplicationsNewRoute
+  OnboardingCarRoute: typeof OnboardingCarRoute
+  OnboardingDetailsRoute: typeof OnboardingDetailsRoute
+  OnboardingDocumentsRoute: typeof OnboardingDocumentsRoute
   ApplicationsIndexRoute: typeof ApplicationsIndexRoute
   ApplicationsIdApprovalRoute: typeof ApplicationsIdApprovalRoute
   ApplicationsIdManagerReviewRoute: typeof ApplicationsIdManagerReviewRoute
@@ -425,6 +464,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplicationsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/car': {
+      id: '/onboarding/car'
+      path: '/onboarding/car'
+      fullPath: '/onboarding/car'
+      preLoaderRoute: typeof OnboardingCarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/details': {
+      id: '/onboarding/details'
+      path: '/onboarding/details'
+      fullPath: '/onboarding/details'
+      preLoaderRoute: typeof OnboardingDetailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/documents': {
+      id: '/onboarding/documents'
+      path: '/onboarding/documents'
+      fullPath: '/onboarding/documents'
+      preLoaderRoute: typeof OnboardingDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/applications/$id/': {
       id: '/applications/$id/'
       path: '/applications/$id'
@@ -473,6 +533,9 @@ const rootRouteChildren: RootRouteChildren = {
   RolesRoute: RolesRoute,
   UsersRoute: UsersRoute,
   ApplicationsNewRoute: ApplicationsNewRoute,
+  OnboardingCarRoute: OnboardingCarRoute,
+  OnboardingDetailsRoute: OnboardingDetailsRoute,
+  OnboardingDocumentsRoute: OnboardingDocumentsRoute,
   ApplicationsIndexRoute: ApplicationsIndexRoute,
   ApplicationsIdApprovalRoute: ApplicationsIdApprovalRoute,
   ApplicationsIdManagerReviewRoute: ApplicationsIdManagerReviewRoute,

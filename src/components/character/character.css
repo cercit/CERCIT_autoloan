@@ -1,0 +1,112 @@
+/* cercit car character — from the Lovable prototype (27 Sep 2026), scoped so it cannot restyle the site. */
+/* Colours follow the cercit design brief; dark values switch with the site's html.dark class. */
+.car-character, .corner-companion {
+  --stage: oklch(0.13 0.02 255);
+  --stage-foreground: oklch(0.98 0.006 255);
+  --stage-muted: oklch(0.78 0.03 253);
+  --car-metal-light: oklch(0.96 0.009 240);
+  --car-metal-mid: oklch(0.82 0.016 252);
+  --car-metal-dark: oklch(0.68 0.022 257);
+  --car-metal-edge: oklch(0.78 0.02 253);
+  --car-glass-top: oklch(0.28 0.032 246);
+  --car-glass-bottom: oklch(0.15 0.024 253);
+  --car-lamp: oklch(0.94 0.035 232);
+  --car-lamp-glow: oklch(0.85 0.09 233 / 0.55);
+}
+.dark .car-character, .dark .corner-companion {
+  --car-lamp: oklch(0.77 0.16 242);
+  --car-lamp-glow: oklch(0.67 0.19 249 / 0.7);
+}
+.car-character { width: min(100%, 490px); display: flex; flex-direction: column; align-items: center; color: var(--stage-foreground); }
+.corner-companion { position: fixed; bottom: 16px; right: 16px; z-index: 30; width: 164px; max-width: calc(100vw - 32px); filter: drop-shadow(0 9px 16px color-mix(in oklch, var(--foreground), transparent 72%)); }
+.corner-companion--left { right: auto; left: 16px; }
+.corner-companion .car-character { width: 100%; margin: 0; }
+.corner-companion .car-caption { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.car-interaction { width: 100%; user-select: none; touch-action: pan-y; cursor: pointer; }
+.car-svg { display: block; width: 100%; height: auto; overflow: visible; transform: translateY(calc(var(--drive, 0) * -8px)) scale(calc(1 + var(--drive, 0) * .065)); transform-origin: 50% 75%; }
+.car-caption { position: relative; z-index: 2; margin: -7px 0 0; min-height: 30px; padding: 5px 14px; border: 1px solid color-mix(in oklch, var(--stage-foreground), transparent 85%); border-radius: 99px; background: color-mix(in oklch, var(--stage), var(--stage-foreground) 8%); color: var(--stage-foreground); font-size: 11px; font-weight: 600; text-align: center; }
+.car-shadow { fill: oklch(0 0 0 / 28%); }
+.car-speed-lines { fill: none; stroke: var(--car-lamp); stroke-width: 4; stroke-linecap: round; opacity: calc(var(--drive, 0) * .8); animation: car-road-streak .55s linear infinite; }
+.car-speed-lines path:last-child { stroke-width: 2; opacity: .65; }
+.car-character .car-shadow { opacity: calc(1 - var(--drive, 0) * .5); }
+.car-character.is-driving .car-wheel-shine { stroke-dasharray: 10 9; animation: car-tyre-motion .25s linear infinite; }
+.car-body-motion { transform-origin: 242px 270px; animation: car-idle 5.7s ease-in-out infinite; transition: transform .4s ease; }
+.car-wheel { fill: oklch(0.14 0.011 250); stroke: oklch(0.35 0.016 250); stroke-width: 4; }
+.car-wheel-shine { fill: none; stroke: oklch(0.42 0.02 255); stroke-width: 3; stroke-linecap: round; }
+.car-side { stroke: oklch(0.53 0.02 253); stroke-width: 2.5; }
+.car-roof-edge { fill: none; stroke: oklch(0.98 0.007 250 / 68%); stroke-width: 5; stroke-linecap: round; }
+.car-windshield { stroke: oklch(0.5 0.02 250); stroke-width: 3; }
+.car-glass-highlight { fill: oklch(0.8 0.05 240 / 10%); }
+.car-glass-highlight-two { fill: oklch(0.8 0.05 240 / 7%); }
+.car-windshield-bottom { fill: none; stroke: oklch(0.38 0.025 250); stroke-width: 3; }
+.car-hood { stroke: oklch(0.62 0.022 255); stroke-width: 2; }
+.car-hood-line { fill: none; stroke: oklch(1 0 0 / 48%); stroke-width: 2.5; }
+.car-hood-sheen { fill: none; stroke: oklch(1 0 0 / 20%); stroke-width: 3; }
+.car-bumper { stroke: oklch(0.61 0.019 251); stroke-width: 2; }
+.car-bumper-edge { fill: none; stroke: oklch(1 0 0 / 50%); stroke-width: 2; }
+.car-lamp-housing { fill: oklch(0.3 0.02 254); }
+.car-headlight { filter: drop-shadow(0 0 9px var(--car-lamp-glow)); }
+.car-headlight-core { fill: none; stroke: oklch(1 0 0 / 90%); stroke-width: 3; stroke-linecap: round; }
+.car-grille { fill: oklch(0.2 0.013 252); stroke: oklch(0.58 0.02 250); stroke-width: 2; }
+.car-grille-line { fill: none; stroke: oklch(0.52 0.018 255); stroke-width: 1.5; }
+.car-lower-trim { fill: none; stroke: oklch(0.85 0.012 250); stroke-width: 2.5; }
+.car-brow { fill: none; stroke: oklch(0.9 0.015 240); stroke-width: 7; stroke-linecap: round; transition: transform .35s ease; }
+.car-eye { fill: oklch(0.96 0.007 230); stroke: oklch(0.46 0.025 250); stroke-width: 2; transition: ry .32s ease, rx .32s ease; }
+.car-iris { fill: oklch(0.29 0.038 240); }
+.car-pupil-core { fill: oklch(0.12 0.014 250); }
+.car-catchlight { fill: var(--car-lamp); }
+.car-catchlight-small { fill: oklch(1 0 0 / 50%); }
+.car-pupil { transition: transform .22s ease-out; }
+.car-eyelid { fill: oklch(0.24 0.027 251); transition: opacity .08s; }
+.car-lid-line { fill: none; stroke: oklch(0.8 0.016 243); stroke-width: 2; }
+.car-mouth { fill: none; stroke: oklch(0.13 0.018 253); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; transition: d .3s ease; }
+.car-mouth--wide, .car-mouth--open, .car-mouth--shock { fill: oklch(0.16 0.018 260); }
+.car-tongue { fill: none; stroke: oklch(0.67 0.15 18); stroke-width: 4; stroke-linecap: round; }
+.car-happy-eye, .car-sleepy-lid { fill: none; stroke: var(--car-glass-top); stroke-width: 8; stroke-linecap: round; }
+.car-happy-eye { stroke: var(--car-lamp); stroke-width: 4; }
+.car-cheeks, .car-frustration, .car-shock-lines, .car-wow-stars { fill: none; stroke: var(--car-lamp); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.car-frustration { stroke: var(--destructive); }
+.car-tears { fill: var(--car-lamp); stroke: var(--car-glass-top); stroke-width: 2; }
+.car-confusion, .car-snooze { fill: none; stroke: var(--car-lamp); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.car-thought { fill: var(--car-lamp); }
+.car-expression--wow .car-body-motion, .car-expression--shocked .car-body-motion { animation: car-react .6s ease-out both; }
+.car-expression--happy .car-body-motion { animation: car-bounce .9s ease-in-out infinite alternate; }
+.car-expression--irritated .car-body-motion { animation: car-huff .3s ease-in-out infinite alternate; }
+.car-expression--sleepy .car-body-motion { animation: car-drowse 2.8s ease-in-out infinite alternate; }
+.car-metal-light { stop-color: var(--car-metal-light); }
+.car-metal-mid { stop-color: var(--car-metal-mid); }
+.car-metal-dark { stop-color: var(--car-metal-dark); }
+.car-metal-edge { stop-color: var(--car-metal-edge); }
+.car-hood-light { stop-color: oklch(0.92 0.012 245); }
+.car-hood-dark { stop-color: oklch(0.66 0.025 255); }
+.car-glass-top { stop-color: var(--car-glass-top); }
+.car-glass-bottom { stop-color: var(--car-glass-bottom); }
+.car-lamp-start { stop-color: var(--car-lamp); }
+.car-lamp-end { stop-color: oklch(0.82 0.13 237); }
+@keyframes car-idle { 0%, 100% { translate: 0 0; } 42% { translate: 0 -3px; } 75% { translate: 0 1px; } }
+@keyframes car-react { 0% { translate: 0 5px; } 38% { translate: 0 -12px; } 70% { translate: 0 2px; } 100% { translate: 0 0; } }
+@keyframes car-bounce { from { translate: 0 0; } to { translate: 0 -8px; } }
+@keyframes car-huff { from { translate: -2px 0; } to { translate: 2px 0; } }
+@keyframes car-drowse { from { translate: 0 0; } to { translate: 0 4px; } }
+@keyframes car-road-streak { from { transform: translateX(10px); } to { transform: translateX(-12px); } }
+@keyframes car-tyre-motion { to { stroke-dashoffset: -19; } }
+@media (prefers-reduced-motion: reduce) {
+  .car-character *, .corner-companion * { animation: none !important; transition-duration: .01ms !important; }
+  .car-svg { transform: none; }
+  .car-speed-lines { opacity: 0; }
+}
+@media (max-width: 640px) {
+  .car-character { width: min(100%, 360px); }
+  .corner-companion { width: 104px; bottom: 12px; right: 12px; }
+  .corner-companion--left { right: auto; left: 12px; }
+}
+
+/* cercit additions */
+.car-character--3d { width: 100%; }
+.car-character--3d .car-canvas { width: 100%; aspect-ratio: 4 / 3; }
+.corner-companion { width: 190px; pointer-events: none; }
+.corner-companion .car-character { pointer-events: auto; }
+/* Pages with the companion keep the bottom-right corner clear. */
+.companion-safe { padding-bottom: 150px; }
+@media (min-width: 1024px) { .companion-safe { padding-bottom: 48px; padding-right: 210px; } }
+@media (max-width: 640px) { .corner-companion { width: 112px; } .companion-safe { padding-bottom: 120px; } }

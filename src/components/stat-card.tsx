@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export type StatCardProps = {
   label: string;
   value: string | number;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   trend?: {
     value: number;
     label: string;

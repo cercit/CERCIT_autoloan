@@ -1380,6 +1380,75 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 23. Customer onboarding, steps 1 and 2 (043)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("customer onboarding");
+  await asOperator();
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  const OTHER = "c2c2c2c2-0000-0000-0000-0000000000c2";
+  const asCustomer = async (sub, email) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, email, role: "authenticated" })]);
+  };
+  const version = (await one("select fn_consent_text('APPLICATION_PROCESSING')->>'version' as v")).v;
+  const start = (mobile = "9876543210", method = "SIMULATED", first = "asha", last = "R") =>
+    db.query("select fn_customer_start($1, $2, $3, $4, $5, $6, 'test-agent') as v", [first, "", last, mobile, method, version]);
+  const vehicle = (app, extra = {}) => db.query("select fn_customer_save_vehicle($1, $2::jsonb) as v", [app, JSON.stringify({
+    source: "MANUAL", make: "Hyundai", model: "Creta", variant: "SX", fuel_type: "PETROL",
+    ex_showroom: 1500000, road_tax: 150000, insurance: 60000, loan_amount: 1200000, tenure_months: 60, ...extra })]);
+
+  t.equal("nine document types from the map", (await one("select count(*)::int as n from document_types")).n, 9);
+  await db.query("set role anon");
+  await asApi("anon");
+  t.equal("anyone can read the consent wording", version, "2026-09-v1");
+  await t.rejects("anon cannot start an application", () => start(), /permission denied for function/);
+  await db.query("reset role");
+
+  await db.query("set role authenticated");
+  await asCustomer(CUST, "asha.r@example.com");
+  await t.rejects("a bad mobile is refused", () => start("12345"), /10-digit Indian mobile/);
+  await t.rejects("mobile must be verified", () => start("9876543210", "NONE"), /verify your mobile/);
+  await t.rejects("an old consent version is refused", () => db.query("select fn_customer_start('Asha', '', 'R', '9876543210', 'SIMULATED', 'old', null)"), /current consent/);
+  const first = (await start()).rows[0].v;
+  t.equal("step 1 creates a draft and moves to step 2", [/^APP-/.test(first.application_id) || first.application_id.length > 5, first.step], [true, 2]);
+  const again = (await start()).rows[0].v;
+  t.equal("starting again resumes the same draft", again.application_id, first.application_id);
+  const cur = (await one("select fn_customer_current() as v")).v;
+  t.equal("current draft shows name, masked mobile and the checklist",
+    [cur.customer.first_name, cur.customer.last_name, cur.customer.mobile_last4, cur.customer.mobile_check, cur.draft.documents.length],
+    ["Asha", "R", "3210", "SIMULATED", 7]);
+
+  // Step 2
+  await t.rejects("loan above the on-road price is refused", () => vehicle(first.application_id, { loan_amount: 2000000 }), /more than the on-road price/);
+  await t.rejects("an odd tenure is refused", () => vehicle(first.application_id, { tenure_months: 50 }), /tenure/);
+  await t.rejects("a quotation needs its date", () => vehicle(first.application_id, { source: "QUOTATION" }), /quotation date/);
+  await t.rejects("an expired quotation is refused", () => vehicle(first.application_id, { source: "QUOTATION", quote_date: "2026-01-01", valid_until: "2026-01-31" }), /expired/);
+  const saved = (await vehicle(first.application_id)).rows[0].v;
+  t.equal("typed-in car details leave the quote owed", [saved.step, saved.quote_pending], [3, true]);
+  await t.ok("switching to the quotation clears it", () => vehicle(first.application_id, { source: "QUOTATION", quote_date: new Date().toISOString().slice(0, 10), dealer_name: "Any Dealer", sales_officer_name: "Ravi", sales_officer_mobile: "9812345678", colour: "White" }));
+  const cur2 = (await one("select fn_customer_current() as v")).v;
+  t.equal("draft shows the car; the quote file is still owed",
+    [cur2.draft.quote_pending, cur2.draft.vehicle.model, Number(cur2.draft.vehicle.on_road), cur2.draft.documents.find((d) => d.doc_type === "QUOTE").status],
+    [false, "Creta", 1710000, "MISSING"]);
+
+  // Someone else's draft
+  await asCustomer(OTHER, "other@example.com");
+  await t.rejects("another customer cannot touch this draft", () => vehicle(first.application_id), /application not found/);
+  // Staff cannot apply
+  await asCustomer("22222222-2222-2222-2222-222222222222", "o@t.in");
+  await t.rejects("a staff login cannot apply as a customer", () => start(), /staff accounts cannot apply/);
+  await asCustomer(OTHER, "other@example.com");
+  t.equal("customers read nothing from the tables directly", (await one("select count(*)::int as n from vehicle_quotations")).n, 0);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("consent is recorded with its wording hash", (await one("select count(*)::int as n, min(length(body_sha256))::int as l from customer_consents")), { n: 2, l: 64 });
+  t.equal("mobile is stored encrypted, not in plain text", (await one("select mobile, mobile_last4 from customers where email = 'asha.r@example.com'")), { mobile: null, mobile_last4: "3210" });
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

@@ -22,6 +22,7 @@ import {
   DEMO_EMAIL,
 } from "@/lib/auth";
 import { BrandLogo } from "@/components/brand";
+import { CustomerStart } from "@/components/onboarding/start-step";
 
 type LoginAs = "customer" | "official";
 
@@ -74,6 +75,12 @@ export const Route = createFileRoute("/login")({
 });
 
 function Login() {
+  const { as } = Route.useSearch();
+  // Customers start (or continue) their application here (onboarding step 1).
+  return as === "customer" ? <CustomerStart /> : <StaffLogin />;
+}
+
+function StaffLogin() {
   const navigate = useNavigate();
   const { as } = Route.useSearch();
   const copy = COPY[as ?? "any"];
