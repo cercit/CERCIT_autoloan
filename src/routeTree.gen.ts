@@ -26,6 +26,8 @@ import { Route as RolesRouteImport } from './routes/roles'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as ApplicationsIndexRouteImport } from './routes/applications/index'
 import { Route as ApplicationsNewRouteImport } from './routes/applications/new'
+import { Route as CustomerApplicationsIndexRouteImport } from './routes/customer-applications/index'
+import { Route as CustomerApplicationsIdRouteImport } from './routes/customer-applications/$id'
 import { Route as OnboardingCarRouteImport } from './routes/onboarding.car'
 import { Route as OnboardingDetailsRouteImport } from './routes/onboarding.details'
 import { Route as OnboardingDocumentsRouteImport } from './routes/onboarding.documents'
@@ -119,6 +121,17 @@ const ApplicationsNewRoute = ApplicationsNewRouteImport.update({
   path: '/applications/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomerApplicationsIndexRoute =
+  CustomerApplicationsIndexRouteImport.update({
+    id: '/customer-applications/',
+    path: '/customer-applications/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CustomerApplicationsIdRoute = CustomerApplicationsIdRouteImport.update({
+  id: '/customer-applications/$id',
+  path: '/customer-applications/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingCarRoute = OnboardingCarRouteImport.update({
   id: '/onboarding/car',
   path: '/onboarding/car',
@@ -173,10 +186,12 @@ export interface FileRoutesByFullPath {
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
+  '/customer-applications/$id': typeof CustomerApplicationsIdRoute
   '/onboarding/car': typeof OnboardingCarRoute
   '/onboarding/details': typeof OnboardingDetailsRoute
   '/onboarding/documents': typeof OnboardingDocumentsRoute
   '/applications/': typeof ApplicationsIndexRoute
+  '/customer-applications/': typeof CustomerApplicationsIndexRoute
   '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
   '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
@@ -199,10 +214,12 @@ export interface FileRoutesByTo {
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
+  '/customer-applications/$id': typeof CustomerApplicationsIdRoute
   '/onboarding/car': typeof OnboardingCarRoute
   '/onboarding/details': typeof OnboardingDetailsRoute
   '/onboarding/documents': typeof OnboardingDocumentsRoute
   '/applications': typeof ApplicationsIndexRoute
+  '/customer-applications': typeof CustomerApplicationsIndexRoute
   '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
   '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
@@ -226,10 +243,12 @@ export interface FileRoutesById {
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
   '/applications/new': typeof ApplicationsNewRoute
+  '/customer-applications/$id': typeof CustomerApplicationsIdRoute
   '/onboarding/car': typeof OnboardingCarRoute
   '/onboarding/details': typeof OnboardingDetailsRoute
   '/onboarding/documents': typeof OnboardingDocumentsRoute
   '/applications/': typeof ApplicationsIndexRoute
+  '/customer-applications/': typeof CustomerApplicationsIndexRoute
   '/applications/$id/approval': typeof ApplicationsIdApprovalRoute
   '/applications/$id/manager-review': typeof ApplicationsIdManagerReviewRoute
   '/applications/$id/sanction': typeof ApplicationsIdSanctionRoute
@@ -254,10 +273,12 @@ export interface FileRouteTypes {
     | '/roles'
     | '/users'
     | '/applications/new'
+    | '/customer-applications/$id'
     | '/onboarding/car'
     | '/onboarding/details'
     | '/onboarding/documents'
     | '/applications/'
+    | '/customer-applications/'
     | '/applications/$id/approval'
     | '/applications/$id/manager-review'
     | '/applications/$id/sanction'
@@ -280,10 +301,12 @@ export interface FileRouteTypes {
     | '/roles'
     | '/users'
     | '/applications/new'
+    | '/customer-applications/$id'
     | '/onboarding/car'
     | '/onboarding/details'
     | '/onboarding/documents'
     | '/applications'
+    | '/customer-applications'
     | '/applications/$id/approval'
     | '/applications/$id/manager-review'
     | '/applications/$id/sanction'
@@ -306,10 +329,12 @@ export interface FileRouteTypes {
     | '/roles'
     | '/users'
     | '/applications/new'
+    | '/customer-applications/$id'
     | '/onboarding/car'
     | '/onboarding/details'
     | '/onboarding/documents'
     | '/applications/'
+    | '/customer-applications/'
     | '/applications/$id/approval'
     | '/applications/$id/manager-review'
     | '/applications/$id/sanction'
@@ -333,10 +358,12 @@ export interface RootRouteChildren {
   RolesRoute: typeof RolesRoute
   UsersRoute: typeof UsersRoute
   ApplicationsNewRoute: typeof ApplicationsNewRoute
+  CustomerApplicationsIdRoute: typeof CustomerApplicationsIdRoute
   OnboardingCarRoute: typeof OnboardingCarRoute
   OnboardingDetailsRoute: typeof OnboardingDetailsRoute
   OnboardingDocumentsRoute: typeof OnboardingDocumentsRoute
   ApplicationsIndexRoute: typeof ApplicationsIndexRoute
+  CustomerApplicationsIndexRoute: typeof CustomerApplicationsIndexRoute
   ApplicationsIdApprovalRoute: typeof ApplicationsIdApprovalRoute
   ApplicationsIdManagerReviewRoute: typeof ApplicationsIdManagerReviewRoute
   ApplicationsIdSanctionRoute: typeof ApplicationsIdSanctionRoute
@@ -464,6 +491,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplicationsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customer-applications/': {
+      id: '/customer-applications/'
+      path: '/customer-applications'
+      fullPath: '/customer-applications/'
+      preLoaderRoute: typeof CustomerApplicationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customer-applications/$id': {
+      id: '/customer-applications/$id'
+      path: '/customer-applications/$id'
+      fullPath: '/customer-applications/$id'
+      preLoaderRoute: typeof CustomerApplicationsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding/car': {
       id: '/onboarding/car'
       path: '/onboarding/car'
@@ -533,10 +574,12 @@ const rootRouteChildren: RootRouteChildren = {
   RolesRoute: RolesRoute,
   UsersRoute: UsersRoute,
   ApplicationsNewRoute: ApplicationsNewRoute,
+  CustomerApplicationsIdRoute: CustomerApplicationsIdRoute,
   OnboardingCarRoute: OnboardingCarRoute,
   OnboardingDetailsRoute: OnboardingDetailsRoute,
   OnboardingDocumentsRoute: OnboardingDocumentsRoute,
   ApplicationsIndexRoute: ApplicationsIndexRoute,
+  CustomerApplicationsIndexRoute: CustomerApplicationsIndexRoute,
   ApplicationsIdApprovalRoute: ApplicationsIdApprovalRoute,
   ApplicationsIdManagerReviewRoute: ApplicationsIdManagerReviewRoute,
   ApplicationsIdSanctionRoute: ApplicationsIdSanctionRoute,

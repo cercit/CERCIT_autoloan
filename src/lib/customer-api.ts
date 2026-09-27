@@ -282,8 +282,9 @@ export interface TrackedApplication {
   loan_amount: number | null;
   tenure_months: number | null;
   vehicle: string | null;
-  events: { stage: string; at: string }[];
-  attention: { name: string; note: string | null }[];
+  events: { stage: string; at: string; note?: string | null }[];
+  // Documents waiting on the customer: asked for again by the officer, or the quotation (sql/047).
+  attention: DraftDocument[];
 }
 
 export interface TrackingState {

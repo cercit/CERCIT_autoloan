@@ -14,6 +14,7 @@ import {
   Table2,
   Users2,
   X,
+  Inbox,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -40,9 +41,16 @@ import { NotificationDropdown } from "@/components/notification-dropdown";
 import type { NotificationItem } from "@/components/notification-dropdown";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ShortcutOverlay } from "@/components/shortcut-overlay";
-const nav: { to: string; label: string; icon: typeof LayoutDashboard; badge?: number; creditControl?: boolean }[] = [
+const nav: {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  badge?: number;
+  creditControl?: boolean;
+}[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/applications", label: "Applications", icon: ClipboardList, badge: 12 },
+  { to: "/customer-applications", label: "Customer applications", icon: Inbox },
   { to: "/approvals", label: "Approvals", icon: ClipboardCheck, creditControl: true },
   { to: "/policy-rules", label: "Policy Rules", icon: Settings2 },
   { to: "/employers", label: "Employer Master", icon: Building2 },
@@ -81,40 +89,70 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav className="flex flex-col gap-1">
-      {nav.filter((item) => !item.creditControl || creditControl).map((item) => {
-        const active = pathname.startsWith(item.to);
-        const badge = item.to === "/approvals" ? waiting : item.badge;
-        return (
-          <Link
-            key={item.to}
-            to={item.to}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-            )}
-          >
-            <item.icon className="size-4 shrink-0" />
-            <span className="flex-1">{item.label}</span>
-            {badge ? (
-              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                {badge}
-              </span>
-            ) : null}
-          </Link>
-        );
-      })}
+      {nav
+        .filter((item) => !item.creditControl || creditControl)
+        .map((item) => {
+          const active = pathname.startsWith(item.to);
+          const badge = item.to === "/approvals" ? waiting : item.badge;
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                active
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <item.icon className="size-4 shrink-0" />
+              <span className="flex-1">{item.label}</span>
+              {badge ? (
+                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                  {badge}
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
     </nav>
   );
 }
 
 const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
-  { id: "1", type: "success", title: "APP-2026-00847 approved", message: "Auto-approved by policy engine — CIBIL 782, FOIR 53.3%", timestamp: new Date(Date.now() - 12 * 60000).toISOString(), read: false },
-  { id: "2", type: "warning", title: "APP-2026-00845 flagged", message: "FOIR 48.9% near threshold — manual review required", timestamp: new Date(Date.now() - 45 * 60000).toISOString(), read: false },
-  { id: "3", type: "info", title: "Rate grid updated", message: "New rate card effective from 01 Sep 2026 — Band A now 8.75%", timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), read: false },
-  { id: "4", type: "error", title: "Bureau fetch failed", message: "CIBIL API timeout for APP-2026-00843 — retry in progress", timestamp: new Date(Date.now() - 5 * 3600000).toISOString(), read: false },
+  {
+    id: "1",
+    type: "success",
+    title: "APP-2026-00847 approved",
+    message: "Auto-approved by policy engine — CIBIL 782, FOIR 53.3%",
+    timestamp: new Date(Date.now() - 12 * 60000).toISOString(),
+    read: false,
+  },
+  {
+    id: "2",
+    type: "warning",
+    title: "APP-2026-00845 flagged",
+    message: "FOIR 48.9% near threshold — manual review required",
+    timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
+    read: false,
+  },
+  {
+    id: "3",
+    type: "info",
+    title: "Rate grid updated",
+    message: "New rate card effective from 01 Sep 2026 — Band A now 8.75%",
+    timestamp: new Date(Date.now() - 3 * 3600000).toISOString(),
+    read: false,
+  },
+  {
+    id: "4",
+    type: "error",
+    title: "Bureau fetch failed",
+    message: "CIBIL API timeout for APP-2026-00843 — retry in progress",
+    timestamp: new Date(Date.now() - 5 * 3600000).toISOString(),
+    read: false,
+  },
 ];
 
 /**
@@ -148,7 +186,9 @@ export function AppShell({
   const [allowed, setAllowed] = useState<boolean | null>(null);
   // Sample name only in demo mode; a real login shows its own name, or nothing
   // until it has loaded, never someone else's.
-  const [currentUser, setCurrentUser] = useState(isDemoMode() ? sampleUser : { name: "", role: "", initials: "" });
+  const [currentUser, setCurrentUser] = useState(
+    isDemoMode() ? sampleUser : { name: "", role: "", initials: "" },
+  );
   useEffect(() => {
     let cancelled = false;
     void requireAuth().then(async (ok) => {
@@ -160,7 +200,12 @@ export function AppShell({
       }
       const me = await getCurrentUser().catch(() => null);
       if (!cancelled && me) {
-        const initials = me.fullName.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+        const initials = me.fullName
+          .split(/\s+/)
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
         setCurrentUser({ name: me.fullName, role: roleLabel(me.role), initials });
       }
     });
@@ -173,7 +218,10 @@ export function AppShell({
 
   useKeyboardShortcuts({
     "?": () => setShortcutsOpen((o) => !o),
-    "escape": () => { setShortcutsOpen(false); setSidebarOpen(false); },
+    escape: () => {
+      setShortcutsOpen(false);
+      setSidebarOpen(false);
+    },
   });
 
   // Nothing of the staff screens is drawn until the check has answered.
@@ -190,7 +238,10 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop sidebar: fixed visible on lg+ */}
-      <aside data-sidebar className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 lg:flex">
+      <aside
+        data-sidebar
+        className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 lg:flex"
+      >
         <Logo />
         <div className="mt-6 flex-1">
           <NavItems />
@@ -259,7 +310,10 @@ export function AppShell({
       </aside>
 
       <div data-main-wrapper className="lg:pl-60">
-        <header data-topbar className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-card/90 px-3 backdrop-blur sm:px-5">
+        <header
+          data-topbar
+          className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-card/90 px-3 backdrop-blur sm:px-5"
+        >
           {/* Mobile hamburger button: visible only on mobile */}
           <button
             className="md:hidden rounded-md p-2 text-foreground hover:bg-muted"
@@ -290,7 +344,10 @@ export function AppShell({
 
           <div className="flex items-center justify-end gap-1 sm:flex-none">
             <ThemeToggle />
-            <NotificationDropdown notifications={SAMPLE_NOTIFICATIONS} unreadCount={SAMPLE_NOTIFICATIONS.filter(n => !n.read).length} />
+            <NotificationDropdown
+              notifications={SAMPLE_NOTIFICATIONS}
+              unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.read).length}
+            />
             <div className="ml-1 hidden items-center gap-2 md:flex">
               <span className="flex size-8 items-center justify-center rounded-full bg-primary/12 text-xs font-semibold text-primary">
                 {currentUser.initials}
@@ -300,7 +357,12 @@ export function AppShell({
                 <p className="text-xs text-muted-foreground">{currentUser.role}</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" aria-label="Sign out" onClick={() => void signOutToLogin()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Sign out"
+              onClick={() => void signOutToLogin()}
+            >
               <LogOut className="size-4" />
             </Button>
           </div>
@@ -318,7 +380,12 @@ export function AppShell({
         </main>
       </div>
       <ShortcutOverlay visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <Dialog open={showWarning} onOpenChange={(open) => { if (!open) dismissWarning(); }}>
+      <Dialog
+        open={showWarning}
+        onOpenChange={(open) => {
+          if (!open) dismissWarning();
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Session expiring</DialogTitle>

@@ -118,6 +118,24 @@ Resources:
             Path: /finalize
             Method: post
 
+  DocumentUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-document-url
+      CodeUri: lambdas/presigned_url/
+      Handler: handler.document_url_handler
+      Timeout: 15
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "cercit-docs-${AWS::AccountId}"
+      Events:
+        DocumentUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /document-url
+            Method: post
+
   CustomerResumeFunction:
     Type: AWS::Serverless::Function
     Properties:

@@ -5,7 +5,15 @@ import { CheckCircle2, Clock, FileText, LogOut, ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { getCustomerEmail, isDemoMode, signOut, staffStatus } from "@/lib/auth";
-import { getTracking, type TrackedApplication, type TrackingState } from "@/lib/customer-api";
+import { DocumentRow } from "@/components/onboarding/document-upload";
+import {
+  getTracking,
+  getUploadTypes,
+  type DraftDocument,
+  type TrackedApplication,
+  type TrackingState,
+  type UploadType,
+} from "@/lib/customer-api";
 import { inr } from "@/lib/format";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -180,7 +188,7 @@ interface View {
   tenure: number;
   stages: ApplicationStage[];
   appliedOn: string;
-  attention: { name: string; note: string | null }[];
+  attention: DraftDocument[];
   inPrinciple: boolean;
 }
 
@@ -223,6 +231,19 @@ function ApplicationStatus() {
         .then(setTracking)
         .catch(() => setFailed(true));
   }, [demo, navigate]);
+
+  // Upload boxes for anything the officer asked for again, and the quotation.
+  const [types, setTypes] = useState<Record<string, UploadType>>({});
+  const waiting = (tracking?.applications ?? []).some((a) => a.attention.length > 0);
+  useEffect(() => {
+    if (waiting)
+      void getUploadTypes()
+        .then(setTypes)
+        .catch(() => setTypes({}));
+  }, [waiting]);
+  const reload = async () => {
+    setTracking(await getTracking());
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -367,14 +388,18 @@ function ApplicationStatus() {
               </p>
             )}
             {view.attention.length > 0 && (
-              <div className="mt-4 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
-                <p className="font-medium">We still need</p>
-                <ul className="mt-1 list-inside list-disc text-muted-foreground">
-                  {view.attention.map((x) => (
-                    <li key={x.name}>
-                      {x.name}
-                      {x.note ? `: ${x.note}` : ""}
-                    </li>
+              <div className="mt-4 space-y-3">
+                <p className="text-sm font-medium">We need from you</p>
+                <ul className="space-y-3">
+                  {view.attention.map((d) => (
+                    <DocumentRow
+                      key={d.doc_type}
+                      app={view.id}
+                      doc={d}
+                      type={types[d.doc_type]}
+                      locked={false}
+                      onDone={reload}
+                    />
                   ))}
                 </ul>
               </div>

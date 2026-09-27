@@ -149,6 +149,36 @@ CONTINUE_URL = os.environ.get("CUSTOMER_LOGIN_URL", "https://cercit.github.io/CE
 _MOBILE_RE = re.compile(r"^[6-9]\d{9}$")
 
 
+def document_url_handler(event, context):
+    """
+    POST /document-url  {"applicationId": "APP-...", "key": "uploads/kyc/APP-.../abcd1234-pan_card-front.jpg"}
+
+    Staff only: a link that opens one customer file for 5 minutes (sql/047 case view).
+    The key must sit in this application's folder under uploads/.
+    """
+    if event.get("httpMethod") == "OPTIONS":
+        return _response(200, {})
+    if not is_staff_request(event):
+        return _response(401, {"error": "sign-in required"})
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return _response(400, {"error": "Invalid JSON body"})
+    application_id = body.get("applicationId")
+    key = str(body.get("key") or "")
+    if not valid_application_id(application_id):
+        return _response(400, {"error": "valid applicationId required"})
+    folders = "|".join(re.escape(f) for f in sorted(set(DOC_TYPE_FOLDERS.values())))
+    if ".." in key or not re.fullmatch(rf"(?:{folders})/{re.escape(application_id)}/[0-9a-f]{{8}}-[\w.-]{{1,120}}", key):
+        return _response(400, {"error": "that file is not on this application"})
+    url = s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": BUCKET, "Key": key, "ResponseContentDisposition": "inline"},
+        ExpiresIn=300,
+    )
+    return _response(200, {"url": url, "expiresIn": 300})
+
+
 def resume_handler(event, context):
     """
     POST /resume  {"mobile": "98xxxxxxxx"}   (no sign-in: the customer is on the start screen)

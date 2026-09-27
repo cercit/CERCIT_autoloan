@@ -1616,6 +1616,80 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 27. The staff side of customer applications (047)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("staff customer cases");
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  const OFFICER = "22222222-2222-2222-2222-222222222222"; // credit_officer, section 3
+  const VIEWER = "11111111-1111-1111-1111-111111111111"; // viewer, section 3
+  const as = async (sub, email) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, email, role: "authenticated" })]);
+  };
+  await db.query("set role authenticated");
+  await as(OFFICER, "o@t.in");
+  const q = (await one("select fn_staff_customer_queue('OPEN') as v")).v;
+  const row = q.rows[0];
+  const app = row?.application_id;
+  t.equal("the submitted customer application is in the officer's queue",
+    [q.rows.length, row?.status, row?.face, row?.docs_to_check > 0], [1, "SUBMITTED", "MATCH", true]);
+  const act = (action, p = {}) => db.query("select fn_staff_customer_action($1, $2, $3) as v", [app, action, JSON.stringify(p)]);
+  const c = (await one("select fn_staff_customer_case($1) as v", [app])).v;
+  t.equal("the case has details, files with their keys, and masked PII",
+    [Object.keys(c.groups).sort(), c.documents.find((d) => d.doc_type === "PAN").files[0].key.startsWith("uploads/kyc/"), /^X+/.test(c.customer.pan)],
+    [["ADDRESS", "EMPLOYMENT", "PERSONAL"], true, true]);
+
+  await t.rejects("documents must be accepted before the credit check", () => act("DOCS_VERIFIED"), /accept these first/);
+  await t.rejects("asking again needs a reason for the customer", () => act("REQUEST_DOC", { doc_type: "BANK_STMT", reason: "x" }), /tell the customer/);
+  await act("REQUEST_DOC", { doc_type: "BANK_STMT", reason: "The last page is missing. Upload the full 6 months." });
+
+  await as(CUST, "asha.r@example.com");
+  const tr = (await one("select fn_customer_track() as v")).v.applications[0];
+  t.equal("the customer sees what to upload again, and why",
+    [tr.attention.map((a) => a.doc_type), tr.attention.find((a) => a.doc_type === "BANK_STMT").note],
+    [["QUOTE", "BANK_STMT"], "The last page is missing. Upload the full 6 months."]);
+  const reg = (type, key) => db.query("select fn_customer_register_document($1, $2, 'single', $3, 'f.pdf', 'application/pdf', 9000, $4) as v", [app, type, key, "d".repeat(64)]);
+  t.equal("the customer can upload the document asked for", (await reg("BANK_STMT", `uploads/bank-statements/${app}/full.pdf`)).rows[0].v.status, "RECEIVED");
+  await t.rejects("but nothing else after submitting", () => reg("FORM16_B", `uploads/form16/${app}/again.pdf`), /application not found/);
+
+  await as(OFFICER, "o@t.in");
+  await act("ASSIGN_TO_ME");
+  for (const d of (await one("select fn_staff_customer_case($1) as v", [app])).v.documents) {
+    if (d.status === "RECEIVED") await act("ACCEPT_DOC", { doc_type: d.doc_type });
+  }
+  t.equal("documents checked: on to the credit check", (await act("DOCS_VERIFIED")).rows[0].v.status, "UNDER_ASSESSMENT");
+
+  await as(VIEWER, "v@t.in");
+  await t.rejects("a viewer cannot decide", () => act("DECIDE", { decision: "APPROVE" }), /permission denied/);
+  await as(OFFICER, "o@t.in");
+  await t.rejects("a rejection needs a reason", () => act("DECIDE", { decision: "REJECT", note: "no" }), /reason/);
+  const ok = (await act("DECIDE", { decision: "APPROVE" })).rows[0].v;
+  t.equal("approved in principle (no quotation yet)", [ok.status, ok.approval_stage], ["APPROVED", "IN_PRINCIPLE"]);
+  await t.rejects("final needs the quotation first", () => act("MOVE_TO_FINAL"), /quotation/);
+
+  await as(CUST, "asha.r@example.com");
+  await reg("QUOTE", `uploads/other/quote/${app}/quote.pdf`);
+  const stages = (await one("select fn_customer_track() as v")).v.applications[0].events.map((e) => e.stage);
+  t.equal("the customer's tracking shows each step", stages, ["RECEIVED", "DOCS_VERIFIED", "CREDIT_CHECK", "DECISION"]);
+
+  await as(OFFICER, "o@t.in");
+  await act("MOVE_TO_FINAL");
+  await t.rejects("moving to final happens once", () => act("MOVE_TO_FINAL"), /only an in-principle approval/);
+  const fin = (await act("DECIDE", { decision: "APPROVE" })).rows[0].v;
+  t.equal("final approval", [fin.status, fin.approval_stage], ["APPROVED", "FINAL"]);
+  t.equal("closed cases leave the open queue", (await one("select fn_staff_customer_queue('OPEN') as v")).v.rows.length, 0);
+
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("each decision is audited with its outcome", (await one("select count(*)::int as n from audit_events where event_type = 'OFFICER_DECIDE' and event_detail->>'decision' = 'APPROVE'")).n, 2);
+  t.equal("every officer step is audited with who did it",
+    (await one("select count(*) filter (where actor_id is null)::int as anon, count(*)::int as n from audit_events where event_type like 'OFFICER\\_%' and event_type <> 'OFFICER_DECISION'")).anon, 0);
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
