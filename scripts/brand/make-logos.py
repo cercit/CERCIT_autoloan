@@ -10,6 +10,7 @@ light = for light backgrounds (navy wordmark); dark = for dark backgrounds
 (white wordmark, car lifted a little so the deep blue still reads on navy).
 Run: python scripts/brand/make-logos.py
 """
+import math
 from pathlib import Path
 
 import numpy as np
@@ -141,11 +142,47 @@ def tile_icon(mark, size, fill=0.66, radius=0.22):
     return tile.resize((size, size), Image.LANCZOS)
 
 
+# Tab / app icon: the wordmark's "c" enclosing the blue dot of the i (asked for by Sameer, 27 Sep 2026).
+# Geometry shared by the SVG and the PNG/ICO fallbacks, on a 64-unit square.
+NAVY, WHITE, DOT = "#102A54", "#F0F4F7", "#0268EA"
+R, STROKE, GAP_DEG, DOT_R = 23.25, 9.5, 40, 8.5
+
+
+def c_icon_svg():
+    x = 32 + R * math.cos(math.radians(GAP_DEG))
+    y1 = 32 - R * math.sin(math.radians(GAP_DEG))
+    y2 = 32 + R * math.sin(math.radians(GAP_DEG))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<style>.c{{stroke:{NAVY}}}@media (prefers-color-scheme:dark){{.c{{stroke:{WHITE}}}}}</style>
+<path class="c" d="M{x:.2f} {y1:.2f}A{R} {R} 0 1 0 {x:.2f} {y2:.2f}" fill="none" stroke-width="{STROKE}"/>
+<circle cx="32" cy="32" r="{DOT_R}" fill="{DOT}"/>
+</svg>
+"""
+
+
+def c_icon_png(size, background=None, colour=NAVY, fill=1.0, radius=0.22):
+    from PIL import ImageDraw
+    k = 8
+    big = size * k
+    img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    if background:
+        d.rounded_rectangle((0, 0, big - 1, big - 1), radius=int(big * radius), fill=background)
+    u = big / 64 * fill
+    o = (big - 64 * u) / 2
+    box = (o + (32 - R - STROKE / 2) * u, o + (32 - R - STROKE / 2) * u,
+           o + (32 + R + STROKE / 2) * u, o + (32 + R + STROKE / 2) * u)
+    d.arc(box, start=GAP_DEG, end=360 - GAP_DEG, fill=colour, width=round(STROKE * u))
+    d.ellipse((o + (32 - DOT_R) * u, o + (32 - DOT_R) * u, o + (32 + DOT_R) * u, o + (32 + DOT_R) * u), fill=DOT)
+    return img.resize((size, size), Image.LANCZOS)
+
+
 PUBLIC.mkdir(exist_ok=True)
-tile_icon(mono_light, 32).save(PUBLIC / "favicon-32.png", optimize=True)
-tile_icon(mono_light, 180, radius=0).convert("RGB").save(PUBLIC / "apple-touch-icon.png", optimize=True)
-tile_icon(mono_light, 192).save(PUBLIC / "icon-192.png", optimize=True)
-tile_icon(mono_light, 512).save(PUBLIC / "icon-512.png", optimize=True)
-tile_icon(mono_light, 256).save(PUBLIC / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
-save(tile_icon(mono_light, 512), "app-icon", 512, folders=(DOCS,))
+(PUBLIC / "favicon.svg").write_text(c_icon_svg(), encoding="utf-8")
+c_icon_png(32).save(PUBLIC / "favicon-32.png", optimize=True)
+c_icon_png(256).save(PUBLIC / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+c_icon_png(180, (255, 255, 255, 255), fill=0.72, radius=0).convert("RGB").save(PUBLIC / "apple-touch-icon.png", optimize=True)
+c_icon_png(192, (255, 255, 255, 255), fill=0.72).save(PUBLIC / "icon-192.png", optimize=True)
+c_icon_png(512, (255, 255, 255, 255), fill=0.72).save(PUBLIC / "icon-512.png", optimize=True)
+save(c_icon_png(512, (255, 255, 255, 255), fill=0.72), "app-icon", 512, folders=(DOCS,))
 print("done")

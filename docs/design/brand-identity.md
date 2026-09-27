@@ -11,7 +11,8 @@ A car drawn as a **circuit board with a chip at its heart** — vehicle finance 
 | **Horizontal** | car left, name right | site headers, footer, staff console, letters, deck title slides |
 | **Stacked** | car above name | centred screens, square social images, the cover of documents |
 | **Mark** | the car alone | where the name is already next to it, or space is short |
-| **Monogram "c."** | the c of the wordmark + the blue dot | favicon, app icon, anything under ~24 px tall |
+| **Monogram "c."** | the c of the wordmark + the blue dot beside it | in-page use under ~24 px tall |
+| **Tab / app icon** | the c **enclosing** the blue dot in its centre (Sameer, 27 Sep 2026) | browser tab, home-screen and app icons — nothing else around it |
 
 Each comes in two tones:
 - **light** — for light backgrounds: navy wordmark, blue car.
@@ -24,7 +25,7 @@ Each comes in two tones:
 | `docs/brand/source/` | the original artwork (do not edit) |
 | `scripts/brand/make-logos.py` | builds every file below from the source — re-run it if the source changes |
 | `src/assets/brand/` | website files: `logo-horizontal-{light,dark}`, `logo-stacked-{light,dark}`, `mark-{light,dark}`, `monogram-{light,dark}` as `.webp` (used) and `.png` |
-| `public/` | `favicon.ico` (16/32/48), `favicon-32.png`, `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png` |
+| `public/` | `favicon.svg` (vector; navy c in light tabs, white c in dark tabs), fallbacks `favicon.ico` (16/32/48) and `favicon-32.png` (navy c, transparent), `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png` (white tile) |
 | `docs/brand/` | large PNGs (1,200–1,600 px wide) for decks, PDFs, Lovable and social posts; `app-icon.png` 512 px |
 
 ## 3. In the code
@@ -58,7 +59,8 @@ import { BrandLogo, Logo } from "@/components/brand";
 |---|---|---|
 | Wordmark navy | `#102A54` | wordmark (light version); good for headings on white |
 | Car cyan (tail) | `#5FDCFD` | start of the car gradient |
-| Car blue (nose) | `#004FE2` | end of the car gradient, the dot on the i |
+| Car blue (nose) | `#004FE2` | end of the car gradient |
+| Dot blue | `#0268EA` | the dot on the i, the centre of the tab icon |
 | Brand blue (site primary) | `#2563EB` light / `#4D85FB` dark | buttons, links (see the design brief for the full palette) |
 
 The full interface palette, fonts and spacing are in `docs/design/car-character-cercit-design.md` (sections 2–4); the logo sits on top of that system.
