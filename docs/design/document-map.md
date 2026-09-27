@@ -16,20 +16,24 @@ The database design follows from this page, not the other way round. Each docume
 | D2 | Aadhaar (masked copy, or offline e-KYC) | Customer upload / DigiLocker | Apply | Yes |
 | D3 | Salary slips — last 3 months | Customer upload | Apply | Yes |
 | D4 | Form 16 — latest year (Part A + B) | Customer upload | Apply | Yes |
-| D5 | Bank statement — salary account, last 6 months | Upload PDF, later Account Aggregator | Apply | Yes |
+| D5 | Bank statement — **salary account only, last 6 months** | Upload PDF, later Account Aggregator | Apply | Yes |
 | D6 | Credit bureau report (CIBIL) | Pulled by us, with consent | After consent | Yes (not uploaded) |
 | D7 | Vehicle quotation / proforma invoice | Dealer or customer | Apply | Yes — **missing from today's apply form** |
 | D8 | Address proof, if current address ≠ Aadhaar address | Customer upload | Apply | Only if different |
-| D9 | Photo / selfie | Customer (camera) | KYC step | Later (with V-CIP) |
+| D9 | Live photo + face match | Customer (camera) | Right after PAN and Aadhaar; again at signing | Yes |
 | D10 | Employment proof (ID card or appointment letter) | Customer upload | On request | Only if employer not verified |
 
 After approval (Sanction module, later): signed KFS, loan agreement, e-mandate (NACH), insurance policy, final invoice, RC copy after registration. They are listed at the end; they do not shape the Phase 1 tables.
 
 ---
 
-## D1 — PAN card
+## D1 — PAN card  ✅ reviewed with Sameer, 27 Sep 2026
 
 **Why:** identity, and the key that ties bureau, Form 16 and tax records together.
+
+**Two ways in**
+- **DigiLocker** (preferred): the PAN comes as a document issued and signed by the Income Tax Department. No tamper check is needed; the signature proves it.
+- **Upload** of the physical card: **front and back both required**. The back carries little data but is needed to judge whether the card is genuine.
 
 | Capture | Type | Today |
 |---|---|---|
@@ -37,148 +41,249 @@ After approval (Sanction module, later): signed KFS, loan agreement, e-mandate (
 | Name as on PAN | text | ✅ `name` |
 | Father's name | text | ✅ `father_name` |
 | Date of birth | date | ❌ add |
+| Photo (cropped from the card) | image | ❌ add — kept for a later face match with the selfie (D9) |
+| Signature (cropped from the card) | image | ❌ add — compared with the signature on the loan agreement at sanction |
+| Date of issue | date | ❌ add |
+| Back side | image | ❌ add — authenticity only, no fields |
+| Source | DigiLocker / upload | ❌ add |
 
-**Analyse**
+**Analyse — data**
 - Format check; 4th character must be `P` (individual).
 - Name matches the application name (fuzzy, ≥ 85% similar) — today's `kyc_extractor` compares PAN vs Aadhaar name.
 - DOB matches the application and Aadhaar.
 - PAN is not already on another customer (duplicate-PAN check already exists: `uk_customers_pan_hash`).
 - Later: NSDL/Protean PAN verification API (status active, name match) — backlog KY4.5.
 
-**How:** OCR (Textract) → regex for PAN → fuzzy name match. Confidence below threshold → officer confirms the field.
+**Analyse — is the upload genuine (AI-made or edited)?** Upload only; DigiLocker skips this.
+- **QR code** (cards from 2018 on carry one): read it and compare its PAN, name, DOB with the printed text. A mismatch is the strongest sign of an edit.
+- **File traces:** editing software in the file's metadata (Photoshop, Canva, AI generators), creation vs modified time, a PDF saved from an editor instead of a camera or scanner.
+- **Pixel checks:** error-level analysis and noise patterns — a region pasted in (name, DOB, photo) compresses differently from the rest.
+- **Font and layout:** characters in the PAN/name/DOB fields match the official card font, spacing and positions; the card template matches a known design for its issue date.
+- **Photo region:** edges and lighting of the photo consistent with the card; no signs of a face swap.
+- **Screen photo / screenshot:** moiré lines or screen borders mean a photo of a screen, not of the card.
+- **AI-generated image:** a detector score for synthetic images.
+- **Same image reused:** the file hash, and a near-duplicate image hash, compared across all applications.
+- **Front and back belong together:** same card size, wear and lighting.
 
-**Feeds:** identity status, bureau pull (PAN is the bureau key), Form 16 cross-check, fraud (same PAN on many applications).
+Outcome of these checks: `clean` / `needs review` / `suspected manipulation`. Anything but clean goes to an officer; suspected manipulation opens a fraud review (PRD §12). A flag never rejects a customer on its own.
 
-**Privacy:** PAN stored encrypted, shown masked (`XXXXXX234Y`) except to people with `pii.reveal` (already built, 012/018).
+**How:** Textract OCR + regex for PAN; QR decode in code; metadata read from the file; pixel and AI-image checks from a forgery-detection service (to be chosen — the cost goes on the reconcile list). Confidence below the threshold → an officer confirms the field.
+
+**Feeds:** identity status, bureau pull (PAN is the bureau key), Form 16 cross-check, face and signature matching later, fraud (same PAN or same image on many applications).
+
+**Privacy:** PAN stored encrypted, shown masked (`XXXXXX234Y`) except to people with `pii.reveal` (already built, 012/018). Card images, photo and signature crops live in S3 only, never in the database.
 
 ---
 
-## D2 — Aadhaar
+## D2 — Aadhaar  ✅ reviewed with Sameer, 27 Sep 2026
 
-**Why:** address and a second identity proof.
+**Why:** address, a second identity proof, and the best reference photo for the face match (D9).
+
+**Three ways in**
+1. **DigiLocker / offline e-KYC XML** (preferred): signed by UIDAI; carries name, DOB, gender, address and a photo. No OCR, no tamper check.
+2. **Aadhaar OTP e-KYC** through a licensed provider.
+3. **Upload** of the masked card, front and back.
 
 | Capture | Type | Today |
 |---|---|---|
-| Last 4 digits only | 4 digits | ⚠ extractor reads the full `aadhaar_number` — must be cut to last 4 before storing |
+| Last 4 digits only | 4 digits | ⚠ extractor reads the full `aadhaar_number` — must be cut to last 4 before storing (reconcile R5) |
 | Name | text | ✅ |
 | Date of birth / year of birth | date | ❌ add |
 | Gender | text | ✅ |
-| Address (line, city, state, PIN) | text | ✅ `address` (one block — split it) |
+| Address: house, street, locality, city, district, state, PIN | text, split | ✅ one block — split it |
+| Photo | image | ❌ add — reference for the face match |
+| Source | DigiLocker / OTP e-KYC / upload | ❌ add |
+
+**Must not do:** store the full 12-digit number anywhere — files, database or logs. Under the Aadhaar Act only licensed agencies may keep it. On upload, the first 8 digits are blacked out before the file is saved.
 
 **Analyse**
-- Name and DOB match PAN and application.
-- Address state/PIN is in an operating state (hard filter: geography).
-- The uploaded image must be the **masked** Aadhaar (first 8 digits hidden). If a full number is visible, mask it before storing the file.
+- Name and DOB match PAN and the application.
+- Address state is an operating state (hard filter: geography); PIN is valid.
+- Secure QR (newer cards) matches the printed details.
+- Uploads get the same genuineness checks as PAN (D1).
 
-**How:** Preferred later: offline e-KYC XML / DigiLocker (signed by UIDAI, no OCR needed). Now: OCR of the masked card.
+**Limit:** Aadhaar OTP e-KYC alone caps the loan at ₹60,000 without full KYC (backlog KY4.3). For car loans the real routes are DigiLocker / offline e-KYC or video KYC.
 
-**Feeds:** address for the case, geography rule, cross-checks.
-
-**Privacy (hard rule):** under the Aadhaar Act a lender that is not a licensed KUA must not store the full Aadhaar number. Store last 4 digits only (`customers.aadhaar_last_four` already exists). Aadhaar OTP e-KYC has the ₹60,000 limit noted in backlog KY4.3.
+**Feeds:** address for the case, geography rule, face match (D9), cross-checks.
 
 ---
 
-## D3 — Salary slips (3 months)
+## D3 — Salary slips (3 months)  ✅ reviewed with Sameer, 27 Sep 2026 (checked against a real payslip layout, labels only)
 
-**Why:** current take-home pay and deductions; the main income proof.
+**Why:** current take-home pay, deductions, and a lot of employment facts the application otherwise asks the customer to type.
 
-| Capture (per slip) | Type | Today |
+**Sources:** upload (PDF, often password-protected — ask for the password, never store it; photo accepted). Later: payroll/HRMS link for large employers.
+
+A real employer payslip (a large NBFC's "Form T" pay slip / leave card) carries more than the first draft listed. Fields now in three blocks:
+
+**Header — who and where**
+
+| Capture | Type | Today | Use |
+|---|---|---|---|
+| Employer name and address | text | ✅ name | employer match, category |
+| Statutory form (e.g. "Form T" wage slip) | text | ❌ | genuineness: expected template for the employer's state |
+| Pay month | month | ✅ | recency, 3 consecutive months |
+| Employee name | text | ✅ | name match |
+| Employee ID | text | ❌ | same on all 3 slips |
+| Date of joining | date | ❌ | **employment vintage** directly — no need to ask |
+| Date of birth | date | ❌ | cross-check with PAN / Aadhaar |
+| PAN | text | ❌ | cross-check with D1 |
+| UAN and PF account number | text | ❌ | formal employment; later EPFO check |
+| ESI number (if any) | text | ❌ | ESI applies to lower wages — a consistency check |
+| Designation, department, location | text | ❌ | profile; location vs address |
+
+**Earnings and deductions — per line, with rate, current month, arrears/adjustments, total**
+
+| Capture | Type | Today | Use |
+|---|---|---|---|
+| Earnings lines (basic, HRA, allowances…) with monthly rate and amount paid | ₹ rows | partial (basic, gross) | fixed pay vs one-offs |
+| Arrears / adjustments column | ₹ | ❌ | **excluded** from regular income |
+| Deduction lines (PF, professional tax, TDS, ESI…) | ₹ rows | ✅ main ones | formal employment, tax |
+| **Employer loan recoveries** (principal and interest lines, e.g. staff car/consumer loans) | ₹ | ❌ | **existing EMI** → FOIR, even if not on the bureau |
+| Total earnings, total deductions | ₹ | ✅ gross | arithmetic check |
+| Net pay in figures **and in words** | ₹, text | ✅ figure | words must equal the figure (edit check) |
+| Bank name and account (partly shown) | text | ❌ | same account as the bank statement (D5) |
+
+**Tax projection block (when printed)**
+
+| Capture | Type | Use |
 |---|---|---|
-| Pay month | month | ✅ `pay_period` |
-| Employer name | text | ✅ |
-| Employee name | text | ✅ |
-| Employee ID, designation | text | ❌ add |
-| Gross salary | ₹ | ✅ |
-| Basic salary | ₹ | ✅ |
-| Deductions: PF, professional tax, TDS, ESI | ₹ each | ✅ |
-| Other deductions (loan recovery, advance) | ₹ | ❌ add — a salary-loan EMI hides here |
-| Net pay | ₹ | ✅ |
-| Bank account last 4 (if printed) | 4 digits | ❌ add |
+| Projected gross salary, exemptions, taxable salary for the year | ₹ | annual income cross-check with Form 16 |
+| Chapter VI-A deductions (80C, 80D…), housing-loan principal/interest | ₹ | a housing-loan line means an existing home loan → check it is in the bureau and FOIR |
+| Total tax, tax recovered so far, tax to pay | ₹ | TDS consistency |
 
 **Analyse**
-- Three consecutive, recent months (latest ≤ 45 days old).
-- Net pay stable: month-to-month change ≤ 10%, else flag (bonus or cut).
-- Arithmetic: gross − deductions ≈ net (± ₹10) — a mismatch suggests an edited slip.
-- Employer name matches application and Form 16; employer category (A/B/C) from the employer master.
-- Loan recovery on the slip → an obligation that must be in FOIR.
-- **Eligible monthly income** = the lower of (average net of 3 slips, bank salary credit average).
+- 3 consecutive months, latest within 45 days; employee ID and template identical on all three.
+- Net pay steady: month-to-month change within 10%.
+- **Flag, not explain:** any loss-of-pay or arrears in the 90-day sample is raised as a flag for the officer. Day counts are not captured — the sample is recent and short, so the officer looks at it directly.
+- Arithmetic: sum of earnings = total earnings; total earnings − total deductions = net pay (± ₹10); net in words = net in figures.
+- Employer matches the application, Form 16 and the bank salary narration; employer category (A/B/C) from the employer master.
+- Employer loan recoveries and a housing-loan line in the tax block → obligations; reconciled with the bureau and bank EMIs.
+- PAN and DOB on the slip match D1 / D2; date of joining gives vintage.
+- **Eligible monthly income** = the lower of (average regular net pay of 3 slips, bank salary credit average).
 
-**How:** Textract forms/tables → field mapping per employer layout; totals re-added in code, not trusted from OCR.
+**Genuineness:** same checks as PAN (D1) — metadata, pasted areas, fonts, AI-image score — plus: same template across all three months, words-vs-figures match, and the statutory form expected for the employer. "Computer generated, no signature" is normal and not a flag.
 
-**Feeds:** income assessment (FOIR), employer category (rate loading, LTV cap), cross-checks with D4 and D5.
+**How:** Textract tables → map earnings and deductions lines by label (a dictionary of common line names per employer, grown over time) → all totals re-added in code, never trusted from OCR.
+
+**Feeds:** income assessment (FOIR), vintage and employer category (rate loading, LTV cap), obligations, cross-checks with D1, D2, D4 and D5.
 
 ---
 
-## D4 — Form 16 (Part A and B)
+## D4 — Form 16 Part B (latest year)  ✅ reviewed with Sameer, 27 Sep 2026 (checked against a real Part B layout, labels only)
 
-**Why:** annual income confirmed by the employer and tax department; hard to fake alongside TRACES.
+**Why:** a full year of salary certified by the employer, with the tax worked out — hard to fake because it is digitally signed.
 
-| Capture | Type | Today |
+**Decided:** ask for **Part B only**. Part A (quarterly TDS deposits from TRACES) is not requested.
+
+**Source:** upload of the employer's PDF (sometimes password-protected — ask, never store). Later: the income tax return (ITR) or the Annual Information Statement as an alternative.
+
+| Capture | Type | Use |
 |---|---|---|
-| Assessment year | text | ✅ |
-| Employer name, employer TAN | text | ✅ |
-| Employee name, employee PAN | text | ✅ name; ❌ PAN — add |
-| Gross total income | ₹ | ✅ |
-| Total deductions | ₹ | ✅ |
-| TDS deducted | ₹ | ✅ |
-| Employment period (from–to) | dates | ❌ add |
+| Certificate number (printed on every page) | text | same on all pages; the key for a later TRACES check |
+| Last updated date | date | recency |
+| Employer name and address, employer PAN, **TAN** | text | employer match with slips and bank narration |
+| Employee name and address, **employee PAN** | text | PAN = D1 exactly; address vs D2 |
+| Assessment year; **period with the employer** from–to | text, dates | a partial year means joined mid-year → vintage |
+| Opted out of the new tax regime (section 115BAC) | yes/no | explains the deduction pattern |
+| Gross salary: salary, perquisites, profits in lieu of salary, total | ₹ | annual income |
+| **Salary received from other employers** in the same year | ₹ | non-zero = changed jobs during the year → vintage flag |
+| Exemptions (HRA, travel, leave encashment, gratuity, other) | ₹ | net vs gross understanding |
+| Standard deduction, professional tax | ₹ | |
+| Income under "Salaries" | ₹ | **annual salary for the cross-check** |
+| Income from house property reported | ₹ | **a loss here = home-loan interest → an existing home loan** |
+| Other income reported | ₹ | |
+| Gross total income; Chapter VI-A deductions (80C, 80CCD, 80D, **80E education-loan interest**, 80G, 80TTA…) | ₹ | 80E → an existing education loan |
+| Taxable income, tax, rebate, surcharge, cess, relief, **net tax payable** | ₹ | tax consistency with the slips' tax block |
+| Verification: signatory name, designation, place, date | text, date | authorised person (usually HR / finance head) |
+| **Digital signature** | signed PDF | the strongest genuineness check |
 
 **Analyse**
-- Employee PAN = D1 PAN (exact).
-- Employer TAN/name matches the salary slips' employer.
-- Annual gross ÷ 12 vs slip gross: within ±15% (increments explain small gaps) — today's `cross_validator` checks this ratio.
-- Employment period shows ≥ 12 months with this employer (vintage rule), or combined with total experience.
+- Employee PAN = D1 PAN (exact). Employer and TAN match the salary slips.
+- Income under "Salaries" ÷ months in the employment period, compared with slip gross: within ±15% (raises and bonuses explain small gaps).
+- Period with employer + salary from other employers → vintage: at least 12 months with this employer, or flag a recent job change.
+- House-property loss (home-loan interest) and 80E (education-loan interest) → loans that must appear in the bureau and in FOIR; missing from the bureau = flag.
+- Net tax payable consistent with the tax projection on the latest slip.
 
-**How:** OCR; TAN by regex `AAAA99999A`. Later: TRACES verification of the certificate number.
+**Genuineness**
+- **Digital signature valid** and made by the employer's signing certificate; any edit after signing breaks it. Valid signature = no pixel or font checks needed.
+- Certificate number identical on every page; layout matches the standard Form 16 Part B template.
+- Unsigned or broken signature → the same edit checks as PAN (D1), and the officer is told.
 
-**Feeds:** income cross-check, employment vintage, fraud (PAN mismatch).
+**How:** read the PDF text directly (it is a generated PDF, not a scan — no OCR needed); verify the signature in code; map lines by their section numbers, which are fixed by the form.
+
+**Feeds:** income cross-check, vintage, hidden obligations (home and education loans), fraud (PAN mismatch, broken signature).
 
 ---
 
-## D5 — Bank statement (6 months, salary account)
+## D5 — Bank statement  ✅ reviewed with Sameer, 27 Sep 2026
 
-**Why:** what actually reaches the account, what already goes out, and how the customer runs money.
+**Decided:** **6 months, salary account only.**
 
-| Capture | Type | Today |
+**Sources**
+1. **Account Aggregator** (Perfios / Finvu / OneMoney) — the customer approves in their bank app; data arrives directly, cannot be edited (later, backlog UW4.1).
+2. **Upload** of the bank's e-statement PDF (usually password-protected — ask, never store).
+3. Netbanking-login fetch — **not used**: it means handling the customer's bank password.
+
+**Not accepted as proof:** a spreadsheet export (.xls / .csv) from netbanking. It is easy to edit and carries no bank signature. Accept the bank's PDF e-statement or Account Aggregator data. (Checked against a real netbanking export, structure only, 27 Sep 2026.)
+
+**Capture — header**
+
+| Field | Type | Today |
 |---|---|---|
-| Bank name, account last 4, IFSC | text | partial (bank, last 4) |
-| Account holder name | text | ❌ add |
-| Period from–to | dates | ✅ `months` |
-| Every transaction: date, description, debit, credit, balance | rows | ✅ `transactions` → `bank_transactions` table exists |
+| Bank, branch, IFSC | text | partial (bank) |
+| Account number (last 4 kept), account type | text | ✅ last 4 |
+| **Account holder name**, address | text | ❌ add |
+| Statement period, opening and closing balance | dates, ₹ | partial (months) |
+| **Account open date** | date | ❌ add — an account opened in the last 6 months is a flag (new salary account, or opened for this application) |
+| **Account status** | text | ❌ add — must be active, not dormant or frozen |
+| **Joint holders** | text | ❌ add — applicant must be the primary holder; a joint holder's credits are not the applicant's income |
+| Customer ID, nomination | text | ❌ add (profile only) |
+| Phone and email on the account | text | ❌ add — match the application |
+| Statement generated on | date | ❌ add — within 7 days of upload |
 
-**Analyse (per month and for the 6 months)**
-- Salary credits: count, amount, day of month, employer name in narration → regularity.
-- EMI / NACH / ECS debits: count and amount → **existing obligations**, reconciled with the bureau (undeclared loans — already built in the engine).
-- Bounces: ECS/NACH returns, cheque returns (inward/outward), bounce charges.
-- Balances: average monthly balance; balance on the 5th/10th/15th/20th/25th (the table already has `amb_on_5th`…); minimum-balance breaches.
-- Cash deposits: share of credits; large one-off credits just before applying (fraud signal).
-- Circular transfers (money in and straight out to the same party).
-- Name on the statement = applicant.
+**Capture — every transaction:** date, **value date**, narration, cheque/reference number, debit (withdrawal), credit (deposit), running (closing) balance (`bank_transactions` table exists; add value date).
 
-**How:** today PDF → Textract → rows → rules in code. Later: Account Aggregator (Perfios / Finbit) gives the same rows as data, with no OCR — backlog UW4.1. Categorising a transaction (salary, EMI, rent, cash) is rule-based on narration keywords first; a model only where rules miss.
+**Narration formats to parse** (seen in a real statement): **UPI** is by far the most common line — its narration carries the other party's name, UPI ID, bank and a remark, and must be split into those parts to tell person-to-person transfers from merchant payments. Others: NEFT, IMPS, RTGS, **ACH** (NACH debits — EMIs, SIPs, insurance), **"EMI"** (a loan or card EMI from the **same bank**, which never shows as ACH), FT / IB (internal and internet-banking transfers — a salary from an employer banking with the same bank can arrive as FT), interest credits, depository / demat charges (investments), card and alert charges.
 
-**Feeds:** eligible income (bank salary), obligations (FOIR), banking behaviour score, bounce rules (1 bounce refer / 2+ decline — decision D3 of 17 Sep), fraud signals.
+**Sort each transaction:** salary · EMI / NACH / ECS · bounce or return · bounce charge · cash deposit · cash withdrawal · UPI in / out · credit card payment · rent · insurance · investment (SIP, RD) · loan disbursement received · transfer to own account · other. Rules on narration keywords first; a model only where rules miss.
+
+**Analyse**
+- **Income:** salary credits in 6 of 6 months; employer name in the narration; same day of month (± 3 days); amount steady. Average salary credit vs the slips' net pay.
+- **Obligations:** every regular EMI/NACH **and same-bank "EMI" debit** — lender, amount, day — matched with the bureau and declared loans (undeclared-loan detection already built).
+- **Behaviour:** bounces (1 → refer, 2+ → decline — rule of 17 Sep); balance on the 5th/10th/15th/20th/25th; average monthly balance; days below minimum balance; cash deposits as a share of credits; **large credits just before applying**; money in and straight back out (circular).
+- **Genuineness:** PDF e-statement or Account Aggregator only; account holder = applicant (primary); running balance adds up on every line (one edited amount breaks it); each month's opening balance = previous closing; bank's template and PDF metadata; salary account = the account printed on the salary slip.
+
+**Feeds:** eligible income (bank side), FOIR obligations, bounce rules, banking behaviour score, fraud signals.
 
 ---
 
-## D6 — Credit bureau report (pulled, not uploaded)
+## D6 — Credit bureau report (pulled, not uploaded)  ✅ reviewed with Sameer, 27 Sep 2026 — one open question
 
 **Why:** repayment history — the strongest single risk signal.
 
+**Sources:** **CIBIL** first; Experian or CRIF when CIBIL has no record. Pulled by us after consent; never uploaded by the customer. Until a bureau is connected: **simulated and labelled** (reconcile R7).
+
+**Consent:** explicit tick with wording version, time and IP, **before** the pull; kept for audit (backlog KY3.1).
+
 | Capture | Type | Today |
 |---|---|---|
-| Score, report date, bureau | number, date | ✅ |
-| Every trade line: lender, product, sanctioned, outstanding, EMI, open/close dates, DPD by month, asset classification, write-off / settled / suit flags | rows | partial — engine has `TradeLine`; database has summary columns only |
-| Enquiries (date, lender, purpose) | rows | ✅ count only |
+| Score, report date, bureau, control number | number, date, text | ✅ score, date |
+| Name, DOB, PAN, addresses and phones on file | text | ❌ add |
+| Every loan: lender, type, ownership (individual/joint), sanctioned or limit, outstanding, EMI, opened/closed, **DPD month by month for 36 months**, asset classification, written-off, settled, suit filed | rows | partial — engine has `TradeLine`; database has summary columns only |
+| Enquiries: date, lender, purpose, amount | rows | ✅ count only |
 | Credit card limits and balances | ₹ | ✅ utilisation |
 
-**Analyse:** the CIBIL red-flag matrix already built in the engine — DPD 30/60/90, SMA-0/1/2, SUB/DBT/LSS, write-off, settlement, suit, enquiries > 6 in 90 days, thin file, utilisation > 70%, plus reconciliation with declared loans and bank EMIs.
+**Analyse — already built in the engine:** DPD 30/60/90, SMA-0/1/2, SUB/DBT/LSS, write-off, settlement, suit, enquiries > 6 in 90 days, thin file (< 12 months), card utilisation > 70%, undeclared loans vs declared and bank EMIs.
 
-**How:** today a mock / uploaded PDF (`bureau_extractor`); later the bureau API (CIBIL/Experian) with the customer's consent recorded first.
+**Analyse — new**
+- PAN, DOB and name on the report match D1 and D2.
+- Addresses and phones on file vs the application; **many different addresses or phones = identity flag**.
+- A car-loan enquiry from another lender in the last 30 days = shopping around, or a second loan on the same car.
 
-**Feeds:** bureau layer of the decision, FOIR (bureau EMIs), fraud (undeclared loans).
+**Open question:** a customer with **no bureau record** (new to credit) — reject, refer to an officer, or allow with a lower LTV? Until decided: **refer** (the existing "missing reports refer" rule, decision D6 of 17 Sep).
 
-**Consent:** a bureau pull needs the customer's explicit consent, stored with time and wording version (consent step, backlog KY3.1).
+**Feeds:** bureau layer of the decision, FOIR (bureau EMIs), fraud.
 
 ---
 
@@ -212,9 +317,32 @@ After approval (Sanction module, later): signed KFS, loan agreement, e-mandate (
 
 Capture: document type (utility bill, rent agreement, passport), name, address, date. Analyse: name matches, address matches the declared current address, bill ≤ 60 days old. How: OCR. Feeds: address verification.
 
-## D9 — Photo / selfie (later, with V-CIP)
+## D9 — Live photo and face match  ✅ agreed with Sameer, 27 Sep 2026 — moved into Phase 1
 
-Capture: image, time, device. Analyse: face match with PAN/Aadhaar photo, liveness. How: provider API. Feeds: KYC status. Not in Phase 1.
+**Why:** proves the person applying is the person on the PAN and Aadhaar — stops someone applying with another person's documents.
+
+**When:** straight after PAN and Aadhaar are in (so the reference photos exist), in the same session. Taken again at signing (Sanction) to confirm the same person signs.
+
+| Capture | Type |
+|---|---|
+| Live photo from the phone or laptop camera (no gallery upload) | image, S3 only |
+| Liveness result (blink / head turn, or a passive liveness score) | pass / fail + score |
+| Time, device, IP, location (latitude/longitude, must be in India) | text / numbers |
+| Match score: live photo vs Aadhaar photo | 0–100 |
+| Match score: live photo vs PAN photo | 0–100 |
+| Consent to capture and compare the face | yes + time + wording version |
+
+**Analyse**
+- Liveness first: a photo of a photo, a screen or a mask fails.
+- Face match against **Aadhaar** (primary — DigiLocker photos are clear) and **PAN** (secondary — PAN photos are often small and years old, so a lower score is expected).
+- Outcome: both clear the threshold → match; one borderline → officer compares by eye; clear mismatch → fraud review. A mismatch never rejects on its own.
+- Same face on another applicant's documents → fraud signal.
+
+**How:** a face-match and liveness service (provider to be chosen — reconcile R10). The camera is opened by the page; gallery upload is not offered.
+
+**Privacy:** face images are personal data under the DPDP Act: explicit consent, used only for this check, kept for the retention period, then deleted. Store the images and scores — not face templates (embeddings).
+
+---
 
 ## D10 — Employment proof (on request)
 
