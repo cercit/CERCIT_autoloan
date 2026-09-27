@@ -258,30 +258,75 @@ A real employer payslip (a large NBFC's "Form T" pay slip / leave card) carries 
 
 ---
 
-## D6 — Credit bureau report (pulled, not uploaded)  ✅ reviewed with Sameer, 27 Sep 2026 — one open question
+## D6 — Credit bureau report (pulled by API, not uploaded)  ✅ reviewed with Sameer, 27 Sep 2026 — two open questions
 
 **Why:** repayment history — the strongest single risk signal.
 
-**Sources:** **CIBIL** first; Experian or CRIF when CIBIL has no record. Pulled by us after consent; never uploaded by the customer. Until a bureau is connected: **simulated and labelled** (reconcile R7).
+**Sources — decided 27 Sep 2026: at least two bureaus (industry practice).** **CIBIL** plus one of Experian, Equifax or CRIF High Mark. Pulled by us after consent; never uploaded by the customer. Until bureaus are connected: **simulated and labelled** (reconcile R7).
+
+**Combining two reports**
+- **Score band:** from CIBIL (the band table is set on CIBIL); the second score is shown and a gap of more than 50 points is flagged.
+- **Loans:** the union of both reports, with the same loan matched across bureaus (lender + type + opened date + sanctioned amount) so it is counted once.
+- **Bad marks** (DPD, SMA/SUB/DBT/LSS, write-off, settled, suit): **the worse of the two** applies. A bad mark on one bureau only is still a bad mark.
+- **Enquiries:** union, de-duplicated by lender and date.
+- A loan or bad mark found on one bureau and not the other is shown to the officer as a bureau difference.
 
 **Consent:** explicit tick with wording version, time and IP, **before** the pull; kept for audit (backlog KY3.1).
+
+**Source format:** structured data from each bureau's **API** (the lender's commercial report), never a PDF. The consumer reports were read only to learn the fields and how bureaus differ.
+
+**Not accepted:** a report the customer downloads and uploads (consumer "credit health" copies from bureau or app websites). They come in many layouts and are easy to alter. Only our own pull counts. A pull is valid for **30 days**; older → pull again.
+
+**What four real reports for one person showed (structure only, 27 Sep 2026)**
+- **The bureaus do not hold the same loans.** One bureau listed loans another did not; one bureau classed a personal loan as "microfinance personal loan". This is why two bureaus are pulled and combined.
+- **Lender names differ by bureau** (short name vs full legal name vs a bank's registered foreign name). Loans can only be matched across bureaus after **lender-name normalisation** (the engine already normalises lender names for reconciliation; extend it with a lender alias table).
+- **Product types differ by bureau** — overdraft, consumer loan, education loan, personal loan, credit card, corporate credit card, microfinance personal loan, others. Map every bureau's names to our own product list.
 
 | Capture | Type | Today |
 |---|---|---|
 | Score, report date, bureau, control number | number, date, text | ✅ score, date |
 | Name, DOB, PAN, addresses and phones on file | text | ❌ add |
-| Every loan: lender, type, ownership (individual/joint), sanctioned or limit, outstanding, EMI, opened/closed, **DPD month by month for 36 months**, asset classification, written-off, settled, suit filed | rows | partial — engine has `TradeLine`; database has summary columns only |
+| Report identifier (CIBIL ECN or the bureau's equivalent) | text | ❌ add — needed to raise a dispute |
+| Profile: name variants, gender, DOB, PAN, emails | text | ❌ add |
+| Phones with type (mobile / office / not classified) and addresses with category (permanent / residence / office) and date reported | rows | ❌ add |
+| Employment details on file | text | ❌ add |
+| Every loan: lender, product type, account number (masked), ownership (individual/joint), **account status**, sanctioned amount, **credit limit, cash limit**, current outstanding, **overdue amount**, EMI, **payment frequency** (monthly / bimonthly…), **rate of interest**, **repayment tenure**, **type and value of collateral**, opened / payment start / last payment / closed / last updated dates, **last payment amount**, **settled amount, principal write-off, total write-off**, **suit-filed status**, **payment history grid month by month (days late, STD / SMA / SUB / DBT / LSS)** | rows | partial — engine has `TradeLine`; database has summary columns only |
+| Closed accounts with the same fields | rows | ❌ add |
+| Bureau summary: on-time payment %, card limit used %, age of oldest account, total enquiries, unsecured account count, score trend | numbers | ❌ add (shown to the officer; rules use the account rows) |
+
+**Portfolio summary — worked out from the account rows, per bureau and for the combined view** (asked for by Sameer)
+
+| Measure | Use |
+|---|---|
+| Number of active accounts — loans and cards separately | exposure, credit-hungry pattern |
+| **Total active loan balance** (outstanding) and total sanctioned | exposure |
+| **Total active card balance** and total card limit → utilisation % | FOIR (card obligation), utilisation rule |
+| Total overdue amount | overdue rule |
+| **SMA flags** — number of accounts currently SMA-0 / SMA-1 / SMA-2, and SUB / DBT / LSS | bureau rules |
+| Worst DPD in the last 3 / 6 / 12 / 24 / 36 months | DPD rules |
+| Secured vs unsecured — count and balance | credit mix |
+| Total monthly EMI (after frequency conversion) + card and overdraft obligation | FOIR |
+| Loans opened in the last 6 and 12 months | credit-hungry flag |
+| Restructured, written-off, settled, suit-filed — counts | hard filters |
 | Enquiries: date, lender, purpose, amount | rows | ✅ count only |
 | Credit card limits and balances | ₹ | ✅ utilisation |
 
 **Analyse — already built in the engine:** DPD 30/60/90, SMA-0/1/2, SUB/DBT/LSS, write-off, settlement, suit, enquiries > 6 in 90 days, thin file (< 12 months), card utilisation > 70%, undeclared loans vs declared and bank EMIs.
 
 **Analyse — new**
+- **Restructured accounts** (for example "restructured due to COVID-19") → flag; a restructure means the borrower could not pay as agreed.
+- **Overdue amount above zero** on any active account → flag (threshold to be set in policy).
+- **Many small loans from digital lenders** opened and closed within months → credit-hungry pattern flag (count opened in the last 6 and 12 months).
+- A loan reported by a lender whose **licence was cancelled** → the record may be stale; treat as a data issue for the officer, not as a bad mark.
+- **Obligations for FOIR:** EMI converted to monthly using the payment frequency; **credit cards and overdrafts** have no EMI → count 5% of the outstanding (industry norm, to be confirmed in policy); **corporate credit cards** are the company's liability → shown, not counted.
+- An **office address** on file that is the employer's address → supports the employment claim.
 - PAN, DOB and name on the report match D1 and D2.
 - Addresses and phones on file vs the application; **many different addresses or phones = identity flag**.
 - A car-loan enquiry from another lender in the last 30 days = shopping around, or a second loan on the same car.
 
-**Open question:** a customer with **no bureau record** (new to credit) — reject, refer to an officer, or allow with a lower LTV? Until decided: **refer** (the existing "missing reports refer" rule, decision D6 of 17 Sep).
+**Open questions**
+1. Card and overdraft obligation for FOIR: 5% of the outstanding (industry norm) — confirm or give the office figure.
+2. A customer with **no bureau record** (new to credit) — reject, refer to an officer, or allow with a lower LTV? Until decided: **refer** (the existing "missing reports refer" rule, decision D6 of 17 Sep).
 
 **Feeds:** bureau layer of the decision, FOIR (bureau EMIs), fraud.
 
