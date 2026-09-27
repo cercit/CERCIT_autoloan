@@ -19,9 +19,9 @@ The database design follows from this page, not the other way round. Each docume
 | D5 | Bank statement — **salary account only, last 6 months** | Upload PDF, later Account Aggregator | Apply | Yes |
 | D6 | Credit bureau report (CIBIL) | Pulled by us, with consent | After consent | Yes (not uploaded) |
 | D7 | Vehicle quotation / proforma invoice | Dealer or customer | Apply | Yes — **missing from today's apply form** |
-| D8 | Address proof, if current address ≠ Aadhaar address | Customer upload | Apply | Only if different |
+| D8 | Current address proof — EB bill (+ house owner details if rented) | Customer upload | Apply | Only if current address ≠ Aadhaar |
 | D9 | Live photo + face match | Customer (camera) | Right after PAN and Aadhaar; again at signing | Yes |
-| D10 | Employment proof (ID card or appointment letter) | Customer upload | On request | Only if employer not verified |
+| D10 | Company ID card (supporting only) | Customer upload | Apply | Optional — employment judged from D3/D4/D5 |
 
 After approval (Sanction module, later): signed KFS, loan agreement, e-mandate (NACH), insurance policy, final invoice, RC copy after registration. They are listed at the end; they do not shape the Phase 1 tables.
 
@@ -332,35 +332,57 @@ A real employer payslip (a large NBFC's "Form T" pay slip / leave card) carries 
 
 ---
 
-## D7 — Vehicle quotation / proforma invoice
+## D7 — Vehicle quotation / proforma invoice  ✅ reviewed with Sameer, 27 Sep 2026
 
-**Why:** the loan's collateral value. Without it LTV is a guess.
+**Why:** the loan's collateral value. Without it LTV is a guess. Missing from today's apply form (reconcile R6).
 
-| Capture | Type | Today |
+**Sources:** the dealer, or the customer uploading what the dealer gave them. Later: the dealer system sends it directly.
+
+**Capture (Sameer's list)**
+
+| Field | Type | Today |
 |---|---|---|
-| Dealer name, dealer GSTIN | text | ❌ (dealer picked by make) |
-| Make, model, variant, fuel, colour | text | typed by customer |
+| Customer name on the quote | text | ❌ |
+| Dealer name | text | dealer picked by make |
+| Issuing sales officer — name and mobile | text | ❌ |
+| Date of quotation and validity (valid-until date or days) | dates | ❌ |
+| Car make, model, variant | text | typed by customer |
+| Colour, fuel type | text | fuel only |
 | Ex-showroom price | ₹ | typed |
-| Road tax, registration, insurance, accessories, extended warranty | ₹ each | estimated in code (6.5% / 4%) |
-| On-road price | ₹ | typed |
-| Quotation date, validity | date | ❌ |
+| Road tax | ₹ | estimated in code (6.5%) — replace with the quote |
+| Insurance | ₹ | estimated in code (4%) — replace with the quote |
 
 **Analyse**
+- **Customer name on the quote matches the applicant at 60% or more** (a lower bar than identity documents: dealers type names loosely). Below 60% → refer.
+- Quote is still valid on the application date (date + validity).
 - Dealer is in the dealer master (132 dealers seeded) and active.
-- Ex-showroom within ±5% of the OEM price list for that variant (flags inflated invoices).
-- LTV = loan ÷ ex-showroom (policy basis confirmed 17 Sep), cap by CIBIL band and employer category.
-- Accessories/warranty not funded beyond policy.
-- Quotation not older than 30 days.
+- Make, model and variant exist for that make; ex-showroom within ±5% of the OEM price list for the variant (flags inflated quotes).
+- On-road = ex-showroom + road tax + insurance (+ any other lines shown); **LTV** = loan ÷ ex-showroom (policy basis agreed 17 Sep).
+- Sales officer's mobile is not the applicant's own mobile (a self-made quote).
 
-**How:** OCR of the quotation; later, dealer portal/API sends it directly.
+**Genuineness:** the same edit checks as other uploads; dealer name matches the dealer master.
 
-**Feeds:** collateral layer (LTV), final sanction amount, dealer risk.
+**Feeds:** collateral layer (LTV), final loan amount, dealer risk, and later the payment to the dealer and the contact for delivery follow-up.
+
+**Open question:** quotation required **at application**, or only **after approval, before payment**?
 
 ---
 
-## D8 — Address proof (only if current address differs)
+## D8 — Current address proof (only if current address ≠ Aadhaar)  ✅ reviewed with Sameer, 27 Sep 2026
 
-Capture: document type (utility bill, rent agreement, passport), name, address, date. Analyse: name matches, address matches the declared current address, bill ≤ 60 days old. How: OCR. Feeds: address verification.
+**Accepted:** the **electricity (EB) bill**. For a rented house, the EB bill in the owner's name **plus the house owner's details** (rent agreement or owner's name and contact) is enough.
+
+| Capture | Type |
+|---|---|
+| Bill: consumer name, service address, bill date, electricity board | text, date |
+| Rented: owner's name and contact, rent agreement if given | text |
+| Own / family house: relation to the bill holder | text |
+
+**Analyse:** service address = declared current address; bill up to 60 days old; bill name = applicant, family member or the named owner; declared rent (if any) counted in expenses.
+
+**How:** OCR of the bill. **Feeds:** address verification.
+
+---
 
 ## D9 — Live photo and face match  ✅ agreed with Sameer, 27 Sep 2026 — moved into Phase 1
 
@@ -389,9 +411,15 @@ Capture: document type (utility bill, rent agreement, passport), name, address, 
 
 ---
 
-## D10 — Employment proof (on request)
+## D10 — Employment proof  ✅ reviewed with Sameer, 27 Sep 2026
 
-Capture: employer, employee name, ID, joining date. Analyse: matches slips; supports vintage. Used when the employer is not in the employer master or is category C.
+**Decided:** no separate employer verification — industry practice does not do it. Employment is judged from the **recent salary slip** (D3: employer, employee ID, date of joining, PF/UAN) together with Form 16 and the bank salary credits. A **company ID card** is accepted as supporting proof where available (optional).
+
+| Capture (ID card, if given) | Type |
+|---|---|
+| Employer, employee name, employee ID, photo | text, image |
+
+**Analyse:** employee ID and employer match the salary slip; photo can join the face match (D9).
 
 ---
 
