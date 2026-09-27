@@ -88,14 +88,6 @@ export function lockedMessage(lockedUntil?: string): string {
     : "This account is locked after too many wrong passwords. Ask an admin to unlock it.";
 }
 
-const EMPLOYEE_DOMAINS = ["cercit.in", "cercit.com"];
-
-export function isEmployeeEmail(email: string): boolean {
-  const domain = email.split("@")[1]?.toLowerCase();
-  if (!domain) return false;
-  return EMPLOYEE_DOMAINS.includes(domain);
-}
-
 export function setCustomerEmail(email: string) {
   try { sessionStorage.setItem("cercit_customer_email", email); } catch {}
 }

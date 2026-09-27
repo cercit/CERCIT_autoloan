@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { LandingFooter } from "@/components/landing/footer";
+import { usePublicOrgInfo } from "@/lib/org-api";
 
 export const Route = createFileRoute("/legal")({
   head: () => ({
@@ -20,20 +21,41 @@ export const Route = createFileRoute("/legal")({
 
 type Section = { id: string; title: string; body: ReactNode };
 
+/** Contacts and registration from the organisation settings (041), so the page matches what admins set. */
+function GrievanceContacts() {
+  const org = usePublicOrgInfo();
+  const reach = [org.support_email && `write to ${org.support_email}`, org.support_phone && `call ${org.support_phone}`]
+    .filter(Boolean)
+    .join(" or ");
+  const officer = [org.grievance_officer_name, org.grievance_officer_email, org.grievance_officer_phone].filter(Boolean);
+  const registration = [
+    org.legal_name,
+    org.cin && `CIN ${org.cin}`,
+    org.rbi_registration_no && `RBI registration ${org.rbi_registration_no}`,
+    org.registered_address,
+  ].filter(Boolean);
+  return (
+    <>
+      {reach && (
+        <p>
+          If you have a complaint, {reach}. We aim to reply within {org.grievance_reply_days} working days.
+        </p>
+      )}
+      {officer.length > 0 && (
+        <p>If you are not happy with the answer, escalate it to our Grievance Redressal Officer: {officer.join(", ")}.</p>
+      )}
+      {registration.length > 0 && <p>Lender: {registration.join(" · ")}.</p>}
+    </>
+  );
+}
+
 const sections: Section[] = [
   {
     id: "grievance",
     title: "Grievance redressal",
     body: (
       <>
-        <p>
-          If you have a complaint, write to support@cercit.in or call 1800 000 0000. We aim to reply
-          within 7 working days.
-        </p>
-        <p>
-          If you are not happy with the answer, escalate it to our Grievance Redressal Officer at
-          gro@cercit.in.
-        </p>
+        <GrievanceContacts />
         <p>
           If your complaint is still not resolved within 30 days, you can take it to the Reserve
           Bank of India under the Reserve Bank - Integrated Ombudsman Scheme, 2021, at{" "}

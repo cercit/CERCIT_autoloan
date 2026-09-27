@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Linkedin, Mail, MessageCircle, Phone, Twitter } from "lucide-react";
 
+import { usePublicOrgInfo } from "@/lib/org-api";
+
 import { openAudiencePopup } from "./audience-popup";
 
 const legalLinks = [
@@ -12,6 +14,7 @@ const legalLinks = [
 ] as const;
 
 export function LandingFooter() {
+  const org = usePublicOrgInfo();
   return (
     <footer className="landing-footer">
       <div className="mx-auto max-w-6xl px-4 py-12">
@@ -47,15 +50,21 @@ export function LandingFooter() {
 
           <div className="footer-col">
             <h3>Contact</h3>
-            <p>
-              <Phone aria-hidden="true" /> 1800 000 0000
-            </p>
-            <p>
-              <Mail aria-hidden="true" /> support@cercit.in
-            </p>
-            <p>
-              <MessageCircle aria-hidden="true" /> WhatsApp on the same number
-            </p>
+            {org.support_phone && (
+              <p>
+                <Phone aria-hidden="true" /> {org.support_phone}
+              </p>
+            )}
+            {org.support_email && (
+              <p>
+                <Mail aria-hidden="true" /> {org.support_email}
+              </p>
+            )}
+            {org.support_phone && (
+              <p>
+                <MessageCircle aria-hidden="true" /> WhatsApp on the same number
+              </p>
+            )}
             <p className="footer-note">Demo details. Not monitored.</p>
           </div>
 

@@ -18,7 +18,6 @@ import {
   staffStatus,
   isSupabaseConfigured,
   enableDemoMode,
-  isEmployeeEmail,
   setCustomerEmail,
   DEMO_EMAIL,
 } from "@/lib/auth";
@@ -90,7 +89,7 @@ function Login() {
   /** Staff go to the dashboard, customers to their application. */
   async function routeByRole(userEmail: string) {
     const status = isSupabaseConfigured ? await staffStatus() : "not_staff";
-    if (status === "staff" || isEmployeeEmail(userEmail)) {
+    if (status === "staff") {
       try { sessionStorage.removeItem("cercit_customer_email"); } catch {}
       navigate({ to: "/dashboard" });
       return;
@@ -265,6 +264,36 @@ function Login() {
               </p>
             )}
           </form>
+
+          {as !== "customer" && (
+            // The demo account runs on sample data in the browser and never reaches the
+            // database (enableDemoMode), so showing it publicly opens nothing real.
+            <div className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm">
+              <p className="font-medium">Try the demo</p>
+              <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground">
+                <dt>Email</dt>
+                <dd className="font-mono text-foreground">{DEMO_EMAIL}</dd>
+                <dt>Password</dt>
+                <dd className="font-mono text-foreground">demo</dd>
+              </dl>
+              <p className="mt-1.5 text-xs text-muted-foreground">Sample data only. Nothing you do is saved.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2.5 w-full"
+                onClick={() => {
+                  setByCode(false);
+                  setCodeSent(false);
+                  setError(null);
+                  setEmail(DEMO_EMAIL);
+                  setPassword("demo");
+                }}
+              >
+                Fill in the demo login
+              </Button>
+            </div>
+          )}
 
           <p className="mt-5 text-center text-sm text-muted-foreground">
             {as === "official" ? (

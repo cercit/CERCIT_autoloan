@@ -19,6 +19,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EmployersRouteImport } from './routes/employers'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as OrganisationRouteImport } from './routes/organisation'
 import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
 import { Route as RateGridRouteImport } from './routes/rate-grid'
 import { Route as RolesRouteImport } from './routes/roles'
@@ -78,6 +79,11 @@ const LegalRoute = LegalRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganisationRoute = OrganisationRouteImport.update({
+  id: '/organisation',
+  path: '/organisation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PolicyRulesRoute = PolicyRulesRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
   '/roles': typeof RolesRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
   '/roles': typeof RolesRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
   '/roles': typeof RolesRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/organisation'
     | '/policy-rules'
     | '/rate-grid'
     | '/roles'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/organisation'
     | '/policy-rules'
     | '/rate-grid'
     | '/roles'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/organisation'
     | '/policy-rules'
     | '/rate-grid'
     | '/roles'
@@ -279,6 +291,7 @@ export interface RootRouteChildren {
   EmployersRoute: typeof EmployersRoute
   LegalRoute: typeof LegalRoute
   LoginRoute: typeof LoginRoute
+  OrganisationRoute: typeof OrganisationRoute
   PolicyRulesRoute: typeof PolicyRulesRoute
   RateGridRoute: typeof RateGridRoute
   RolesRoute: typeof RolesRoute
@@ -361,6 +374,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/organisation': {
+      id: '/organisation'
+      path: '/organisation'
+      fullPath: '/organisation'
+      preLoaderRoute: typeof OrganisationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/policy-rules': {
@@ -447,6 +467,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmployersRoute: EmployersRoute,
   LegalRoute: LegalRoute,
   LoginRoute: LoginRoute,
+  OrganisationRoute: OrganisationRoute,
   PolicyRulesRoute: PolicyRulesRoute,
   RateGridRoute: RateGridRoute,
   RolesRoute: RolesRoute,

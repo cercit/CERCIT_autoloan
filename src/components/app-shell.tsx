@@ -6,6 +6,7 @@ import {
   Clock,
   LayoutDashboard,
   KeyRound,
+  Landmark,
   LogOut,
   Menu,
   Search,
@@ -47,6 +48,7 @@ const nav: { to: string; label: string; icon: typeof LayoutDashboard; badge?: nu
   { to: "/rate-grid", label: "Rate Grid", icon: Table2 },
   { to: "/users", label: "Users", icon: Users2 },
   { to: "/roles", label: "Roles", icon: KeyRound },
+  { to: "/organisation", label: "Organisation", icon: Landmark },
   { to: "/audit-log", label: "Audit Log", icon: Clock },
 ];
 

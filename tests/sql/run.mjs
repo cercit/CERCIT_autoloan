@@ -1062,9 +1062,9 @@ const asOperator = () => asApi("", "");
   // Same rights as the CASE list in 018, role by role
   const counts = Object.fromEntries((await db.query(
     "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
-  // compliance: the 12 from 018, plus role.approve from 039
+  // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041
   t.equal("every role keeps its 018 rights", counts,
-    { admin: 12, compliance: 13, credit_head: 20, credit_manager: 9, credit_officer: 7, policy_manager: 11, reviewer: 5, viewer: 3 });
+    { admin: 13, compliance: 13, credit_head: 20, credit_manager: 9, credit_officer: 7, policy_manager: 11, reviewer: 5, viewer: 3 });
   t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
     ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
   const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
@@ -1300,6 +1300,54 @@ const asOperator = () => asApi("", "");
   await t.rejects("anon cannot ask", () => db.query("select * from fn_my_account()"), /permission denied for function/);
   await db.query("reset role");
   await asOperator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 21. Organisation settings (041)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("organisation settings");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const base = { company_name: "cercit", support_email: "support@cercit.in", support_phone: "1800 000 0000",
+    grievance_officer_email: "gro@cercit.in", grievance_reply_days: 7, staff_email_domains: ["cercit.in"], restrict_staff_domains: false };
+  const save = (p) => db.query("select fn_org_settings_save($1::jsonb)", [JSON.stringify(p)]);
+
+  await db.query("set role anon");
+  await asApi("anon");
+  const pub = (await one("select fn_public_org_info() as v")).v;
+  t.equal("anyone reads the public details", [pub.company_name, pub.support_phone, pub.cin], ["cercit", "1800 000 0000", null]);
+  t.equal("staff domains are not public", "staff_email_domains" in pub, false);
+  await t.rejects("anon cannot read staff settings", () => db.query("select fn_org_settings()"), /permission denied for function/);
+  await db.query("reset role");
+
+  await asApi("authenticated", OFFICER);
+  t.equal("an officer reads settings, cannot change them", (await one("select fn_org_settings()->>'can_manage' as v")).v, "false");
+  await t.rejects("an officer cannot save", () => save(base), /permission denied: org.manage/);
+
+  await asApi("authenticated", ADMIN);
+  await t.rejects("a made-up CIN shape is refused", () => save({ ...base, cin: "12345" }), /ck_org_cin/);
+  await t.rejects("a bad domain is refused", () => save({ ...base, staff_email_domains: ["@cercit.in"] }), /not an email domain/);
+  await t.ok("admin saves a valid CIN, GSTIN and grievance officer", () => save({ ...base, cin: "u65999ka2026ptc123456", gstin: "29ABCDE1234F1Z5", grievance_officer_name: "A. Officer" }));
+  t.equal("CIN stored upper case", (await one("select cin from organisation_settings")).cin, "U65999KA2026PTC123456");
+  await t.rejects("restriction refused while active staff use other domains",
+    () => save({ ...base, restrict_staff_domains: true }), /use other domains/);
+
+  // Restriction on: only company addresses from then on (operator sets it up directly)
+  await asOperator();
+  await db.query("update organisation_settings set restrict_staff_domains = true, staff_email_domains = array['cercit.in']");
+  await t.rejects("a staff account on another domain is refused", () => db.query("insert into users (email, full_name, role) values ('x@gmail.com', 'X', 'credit_officer')"), /company address/);
+  await t.ok("a company address is fine", () => db.query("insert into users (email, full_name, role) values ('y@cercit.in', 'Y', 'credit_officer')"));
+  await t.ok("an existing outside address can still be edited in other ways", () => db.query("update users set full_name = 'Admin Renamed' where email = 'adm@t.in'"));
+  await db.query("update organisation_settings set restrict_staff_domains = false");
+
+  t.equal("the change is audited with before and after",
+    (await one("select event_detail->'before'->>'cin' as b, event_detail->'after'->>'cin' as a from audit_events where event_type = 'ORG_SETTINGS_CHANGED' order by created_at desc limit 1")),
+    { b: null, a: "U65999KA2026PTC123456" });
+  await db.query("set role authenticated");
+  await t.rejects("nobody edits the settings table directly", () => db.query("update organisation_settings set company_name = 'x'"), /permission denied/);
+  await db.query("reset role");
   failures += t.report();
 }
 
