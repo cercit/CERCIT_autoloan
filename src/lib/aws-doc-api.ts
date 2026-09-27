@@ -25,7 +25,11 @@ export type DocType =
   | "pan_card"
   | "aadhaar_card"
   | "bank_statement"
-  | "bureau_report";
+  | "bureau_report"
+  | "quote"
+  | "eb_bill"
+  | "company_id"
+  | "live_photo";
 
 export interface ExtractionField {
   value: string | number;

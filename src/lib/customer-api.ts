@@ -16,6 +16,7 @@ export interface DraftDocument {
   status: "MISSING" | "RECEIVED" | "ACCEPTED" | "REUPLOAD" | "WAIVED" | "NOT_NEEDED";
   note: string | null;
   sides: number;
+  files?: { side: "front" | "back" | "single"; file_name: string; size: number; uploaded_at: string }[];
 }
 
 export interface DraftVehicle {
@@ -141,4 +142,43 @@ export async function saveVehicle(applicationId: string, v: VehicleInput): Promi
 export function simulatedMobileCode(): string {
   const n = (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) % 900000;
   return String(100000 + n);
+}
+
+export interface UploadType {
+  upload_type: string;
+  folder: string;
+  allowed_mime: string[];
+  max_mb: number;
+}
+
+export async function getUploadTypes(): Promise<Record<string, UploadType>> {
+  const { data, error } = await supabase.rpc("fn_document_upload_types");
+  if (error) throw new Error(message(error));
+  return (data ?? {}) as Record<string, UploadType>;
+}
+
+export async function registerDocument(input: {
+  applicationId: string;
+  docType: string;
+  side: "front" | "back" | "single";
+  key: string;
+  file: File;
+  sha256: string;
+  backend: "s3" | "supabase";
+  wasLocked: boolean;
+}): Promise<{ status: DraftDocument["status"] }> {
+  const { data, error } = await supabase.rpc("fn_customer_register_document", {
+    p_application_id: input.applicationId,
+    p_doc_type: input.docType,
+    p_side: input.side,
+    p_storage_key: input.key,
+    p_file_name: input.file.name,
+    p_mime_type: input.file.type,
+    p_size_bytes: input.file.size,
+    p_sha256: input.sha256,
+    p_backend: input.backend,
+    p_was_locked: input.wasLocked,
+  });
+  if (error) throw new Error(message(error));
+  return data as { status: DraftDocument["status"] };
 }

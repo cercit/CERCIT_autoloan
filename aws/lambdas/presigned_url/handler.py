@@ -12,7 +12,7 @@ import uuid
 import boto3
 from botocore.config import Config
 
-from shared.supabase_client import is_staff_request, valid_application_id
+from shared.supabase_client import customer_can_upload, is_staff_request, valid_application_id
 
 s3 = boto3.client(
     "s3",
@@ -22,12 +22,18 @@ s3 = boto3.client(
 )
 BUCKET = os.environ.get("DOCS_BUCKET", "cercit-docs")
 
+# Must match document_types.upload_type / storage_folder (sql/044). The first five
+# folders trigger the document readers; "uploads/other/*" is stored only.
 DOC_TYPE_FOLDERS = {
     "salary_slip": "uploads/salary-slips",
     "form16": "uploads/form16",
     "bank_statement": "uploads/bank-statements",
     "pan_card": "uploads/kyc",
     "aadhaar_card": "uploads/kyc",
+    "quote": "uploads/other/quote",
+    "eb_bill": "uploads/other/eb-bill",
+    "company_id": "uploads/other/company-id",
+    "live_photo": "uploads/other/live-photo",
 }
 
 ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/tiff"}
@@ -42,9 +48,6 @@ def handler(event, context):
     """
     if event.get("httpMethod") == "OPTIONS":
         return _response(200, {})
-    if not is_staff_request(event):
-        return _response(401, {"error": "sign-in required"})
-
     try:
         body = json.loads(event.get("body", "{}"))
     except (json.JSONDecodeError, TypeError):
@@ -57,6 +60,9 @@ def handler(event, context):
 
     if not valid_application_id(application_id):
         return _response(400, {"error": "valid applicationId required"})
+    # Staff for any application; a customer only for their own draft (sql/044).
+    if not (is_staff_request(event) or customer_can_upload(event, application_id)):
+        return _response(401, {"error": "sign-in required"})
     if doc_type not in DOC_TYPE_FOLDERS:
         return _response(400, {"error": f"Invalid docType. Must be one of: {list(DOC_TYPE_FOLDERS.keys())}"})
     if content_type not in ALLOWED_TYPES:

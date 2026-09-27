@@ -42,6 +42,30 @@ def is_staff_request(event: dict) -> bool:
         return False
 
 
+def _bearer(event: dict) -> str:
+    headers = event.get("headers") or {}
+    auth = next((v for k, v in headers.items() if k.lower() == "authorization"), "")
+    return auth if auth.lower().startswith("bearer ") else ""
+
+
+def customer_can_upload(event: dict, application_id: str) -> bool:
+    """True only if the caller's own sign-in token owns this draft application (sql/044)."""
+    auth = _bearer(event)
+    if not auth:
+        return False
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/rpc/fn_customer_can_upload",
+        data=json.dumps({"p_application_id": application_id}).encode(),
+        method="POST",
+        headers={"apikey": SUPABASE_KEY, "Authorization": auth, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read() or "false") is True
+    except (urllib.error.HTTPError, urllib.error.URLError, ValueError):
+        return False
+
+
 def _headers() -> dict[str, str]:
     return {
         "apikey": SUPABASE_KEY,

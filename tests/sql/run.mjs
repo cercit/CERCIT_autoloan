@@ -1449,6 +1449,62 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 24. Customer document uploads (044)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("customer documents");
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  const OTHER = "c2c2c2c2-0000-0000-0000-0000000000c2";
+  const asCustomer = async (sub, email) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, email, role: "authenticated" })]);
+  };
+  await db.query("set role authenticated");
+  await asCustomer(CUST, "asha.r@example.com");
+  const app = (await one("select fn_customer_current()->'draft'->>'application_id' as v")).v;
+  const sha = "a".repeat(64);
+  const reg = (type, side, key, extra = {}) => db.query(
+    "select fn_customer_register_document($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) as v",
+    [app, type, side, key, extra.name ?? "file.pdf", extra.mime ?? "application/pdf", extra.size ?? 120000, extra.sha ?? sha, extra.backend ?? "s3", extra.locked ?? false]);
+
+  t.equal("the owner may upload", (await one("select fn_customer_can_upload($1) as v", [app])).v, true);
+  const types = (await one("select fn_document_upload_types() as v")).v;
+  t.equal("upload types come from the document map", [types.PAN.upload_type, types.PAN.folder, types.QUOTE.folder], ["pan_card", "uploads/kyc", "uploads/other/quote"]);
+
+  await t.rejects("a key outside this application is refused", () => reg("PAN", "front", `uploads/kyc/APP-OTHER/x.pdf`), /does not belong/);
+  await t.rejects("a key in the wrong folder is refused", () => reg("PAN", "front", `uploads/form16/${app}/x.pdf`), /does not belong/);
+  await t.rejects("a path trick is refused", () => reg("PAN", "front", `uploads/kyc/${app}/../other/x.pdf`), /does not belong/);
+  await t.rejects("two-sided documents need a side", () => reg("PAN", "single", `uploads/kyc/${app}/a.pdf`), /wrong side/);
+  await t.rejects("a spreadsheet is refused", () => reg("PAN", "front", `uploads/kyc/${app}/a.xls`, { mime: "application/vnd.ms-excel" }), /PDF, JPG or PNG/);
+  await t.rejects("a file over the limit is refused", () => reg("PAN", "front", `uploads/kyc/${app}/a.pdf`, { size: 50 * 1024 * 1024 }), /under 10 MB/);
+
+  const front = (await reg("PAN", "front", `uploads/kyc/${app}/1-front.jpg`, { mime: "image/jpeg" })).rows[0].v;
+  t.equal("one side of PAN is not enough", front.status, "MISSING");
+  const back = (await reg("PAN", "back", `uploads/kyc/${app}/2-back.jpg`, { mime: "image/jpeg" })).rows[0].v;
+  t.equal("both sides mark PAN received", back.status, "RECEIVED");
+  await reg("PAN", "front", `uploads/kyc/${app}/3-front.jpg`, { mime: "image/jpeg" });
+  const cur = (await one("select fn_customer_current() as v")).v;
+  const pan = cur.draft.documents.find((d) => d.doc_type === "PAN");
+  t.equal("a new front replaces the old one", pan.files.map((f) => f.side).sort(), ["back", "front"]);
+
+  await reg("SALARY_SLIP", "single", `uploads/salary-slips/${app}/jun.pdf`, { locked: true });
+  await reg("SALARY_SLIP", "single", `uploads/salary-slips/${app}/jul.pdf`);
+  const slips = (await one("select fn_customer_current() as v")).v.draft.documents.find((d) => d.doc_type === "SALARY_SLIP");
+  t.equal("salary slips keep every file", [slips.files.length, slips.status], [2, "RECEIVED"]);
+
+  await asCustomer(OTHER, "other@example.com");
+  t.equal("another customer may not upload here", (await one("select fn_customer_can_upload($1) as v", [app])).v, false);
+  await t.rejects("another customer cannot register a file here", () => reg("FORM16_B", "single", `uploads/form16/${app}/f.pdf`), /application not found/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("replaced files are kept, marked superseded", (await one("select count(*) filter (where superseded_at is not null)::int as n from documents where doc_type = 'PAN'")).n, 1);
+  t.equal("locked PDFs are flagged, the password never stored", (await one("select count(*) filter (where was_password_protected)::int as n from documents")).n, 1);
+  t.equal("every upload is audited", (await one("select count(*)::int as n from audit_events where event_type = 'DOCUMENT_UPLOADED'")).n, 5);
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
