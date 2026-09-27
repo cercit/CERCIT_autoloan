@@ -1,12 +1,10 @@
-import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { CarCharacter } from "./CarCharacter";
 import { CHARACTER_EVENTS, IDLE_AFTER_MS, SCROLL_FAST_AT, SCROLL_VERY_FAST_AT, type CharacterEvent } from "./events";
 import { EXPRESSION_CAPTIONS, type CarExpression } from "./expressions";
 import "./character.css";
 
-// The 3D car downloads only on pages that show the companion.
-const CarCharacter3D = lazy(() => import("./CarCharacter3D"));
 
 type Ctx = {
   emit: (event: CharacterEvent) => void;
@@ -23,15 +21,6 @@ const CharacterContext = createContext<Ctx>({
 });
 
 export const useCharacter = () => useContext(CharacterContext);
-
-function webglAvailable() {
-  try {
-    const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Wraps a customer page: provides `useCharacter()` and shows the car fixed at the
@@ -99,70 +88,32 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * The car in the bottom-right corner. Owns the scroll-speed state so that
- * per-frame updates re-render only the car, never the page.
+ * The car in the bottom-right corner: the front-facing cartoon car (Sameer's
+ * choice, 27 Sep 2026). It animates its own driving from scroll speed; this
+ * component adds the scroll emotions (a quick flick surprises it, a fling shocks it).
  */
 function CornerCar({ expression, emit }: { expression: CarExpression; emit: (e: CharacterEvent) => void }) {
-  const [drive, setDrive] = useState(0);
-  const [use3d, setUse3d] = useState(false);
-  const lastScrollEvent = useRef(0);
+  const lastEvent = useRef(0);
 
-  // 3D when the device can: WebGL present and no reduced-motion preference.
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setUse3d(!reduce && webglAvailable());
-  }, []);
-
-  // Scroll speed → drive (0…1), decaying smoothly; fast scrolling also sets an emotion.
-  useEffect(() => {
-    let frame = 0;
-    let target = 0;
-    let current = 0;
-    let last = 0;
     let lastY = window.scrollY;
     let lastT = performance.now();
-    const tick = (t: number) => {
-      const dt = Math.min((t - (last || t)) / 1000, 0.05);
-      last = t;
-      target *= Math.exp(-3.8 * dt);
-      current += (target - current) * (1 - Math.exp(-11 * dt));
-      setDrive(current < 0.01 ? 0 : current);
-      frame = current > 0.005 || target > 0.005 ? requestAnimationFrame(tick) : 0;
-      if (!frame) last = 0;
-    };
-    const push = (amount: number) => {
-      target = Math.max(target, Math.min(1, amount));
-      const now = performance.now();
-      if (now - lastScrollEvent.current > 1500) {
-        if (target >= SCROLL_VERY_FAST_AT) { lastScrollEvent.current = now; emit("SCROLL_VERY_FAST"); }
-        else if (target >= SCROLL_FAST_AT) { lastScrollEvent.current = now; emit("SCROLL_FAST"); }
-      }
-      if (!frame) frame = requestAnimationFrame(tick);
-    };
     const onScroll = () => {
       const now = performance.now();
-      const speed = Math.abs(window.scrollY - lastY) / Math.max(16, now - lastT);
+      const speed = Math.abs(window.scrollY - lastY) / Math.max(16, now - lastT) / 2.5; // ~0…1
       lastY = window.scrollY;
       lastT = now;
-      push(speed / 2.5);
+      if (now - lastEvent.current < 1500) return;
+      if (speed >= SCROLL_VERY_FAST_AT) { lastEvent.current = now; emit("SCROLL_VERY_FAST"); }
+      else if (speed >= SCROLL_FAST_AT) { lastEvent.current = now; emit("SCROLL_FAST"); }
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(frame);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, [emit]);
 
-  const flat = <CarCharacter expression={expression} />;
   return (
     <div className="corner-companion" aria-hidden="true">
-      {use3d ? (
-        <Suspense fallback={flat}>
-          <CarCharacter3D expression={expression} drive={drive} />
-        </Suspense>
-      ) : (
-        flat
-      )}
+      <CarCharacter expression={expression} />
     </div>
   );
 }

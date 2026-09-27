@@ -40,14 +40,18 @@ export function CustomerStart() {
   );
 }
 
-function OtpBoxes({ value, onChange, label, id }: { value: string; onChange: (v: string) => void; label: string; id: string }) {
+// The email code length is a Supabase project setting (Authentication > Email > OTP length); this project sends 8.
+const EMAIL_CODE_LENGTH = 8;
+const MOBILE_CODE_LENGTH = 6;
+
+function OtpBoxes({ value, onChange, label, id, length }: { value: string; onChange: (v: string) => void; label: string; id: string; length: number }) {
   const { privateField } = useCharacter();
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <InputOTP id={id} maxLength={6} value={value} onChange={onChange} inputMode="numeric" autoComplete="one-time-code" {...privateField}>
+      <InputOTP id={id} maxLength={length} value={value} onChange={onChange} inputMode="numeric" autoComplete="one-time-code" {...privateField}>
         <InputOTPGroup>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {Array.from({ length }, (_, i) => i).map((i) => (
             <InputOTPSlot key={i} index={i} />
           ))}
         </InputOTPGroup>
@@ -113,7 +117,7 @@ function StartForm() {
 
   function checkMobile(v: string) {
     setMobileEntry(v);
-    if (v.length < 6) return;
+    if (v.length < MOBILE_CODE_LENGTH) return;
     if (v === mobileCode) {
       setMobileOk(true);
       emit("OTP_SUCCESS");
@@ -140,7 +144,7 @@ function StartForm() {
 
   async function checkEmail(v: string) {
     setEmailEntry(v);
-    if (v.length < 6) return;
+    if (v.length < EMAIL_CODE_LENGTH) return;
     setBusy("email-code");
     setError(null);
     try {
@@ -282,7 +286,7 @@ function StartForm() {
                   Demo: SMS isn't connected yet, so no text message is sent. Your code is{" "}
                   <span className="font-mono text-sm font-semibold tabular-nums">{mobileCode}</span>.
                 </p>
-                <OtpBoxes id="mobile-otp" label="Enter the 6-digit code" value={mobileEntry} onChange={checkMobile} />
+                <OtpBoxes id="mobile-otp" label="Enter the 6-digit code" length={MOBILE_CODE_LENGTH} value={mobileEntry} onChange={checkMobile} />
               </>
             )}
           </div>
@@ -312,8 +316,8 @@ function StartForm() {
             </div>
             {emailSent && (
               <>
-                <p className="text-xs text-muted-foreground">We sent a 6-digit code to {email.trim()}. Check spam if it isn't there in a minute.</p>
-                <OtpBoxes id="email-otp" label="Enter the code from the email" value={emailEntry} onChange={(v) => void checkEmail(v)} />
+                <p className="text-xs text-muted-foreground">We sent a code to {email.trim()}. Check spam if it isn't there in a minute.</p>
+                <OtpBoxes id="email-otp" label={`Enter the ${EMAIL_CODE_LENGTH}-digit code from the email`} length={EMAIL_CODE_LENGTH} value={emailEntry} onChange={(v) => void checkEmail(v)} />
                 {busy === "email-code" && <p className="text-xs text-muted-foreground">Checking…</p>}
               </>
             )}

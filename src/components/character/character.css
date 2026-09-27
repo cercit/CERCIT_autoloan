@@ -102,8 +102,6 @@
 }
 
 /* cercit additions */
-.car-character--3d { width: 100%; }
-.car-character--3d .car-canvas { width: 100%; aspect-ratio: 4 / 3; }
 .corner-companion { width: 190px; pointer-events: none; }
 .corner-companion .car-character { pointer-events: auto; }
 /* Pages with the companion keep the bottom-right corner clear. */
