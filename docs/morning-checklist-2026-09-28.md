@@ -1,33 +1,46 @@
 # Morning checklist, 28 Sep 2026
 
-Pushed last night: commit 38d4cac (live photo first, PDF passwords, Aadhaar masking, DigiLocker PDFs, ITR).
-The website works before and after these steps. Passwords and Aadhaar masking switch on once steps 1 and 2 are done.
+## Done last night
 
-## Pending, do in this order
+- Migrations 044 and 045 ran on Supabase.
+- The AWS deploy ran twice. The second run fixed the shared-code packing (commit 2de5d87). The upload, finalise and policy services all start and correctly refuse anyone who isn't signed in.
+- Built overnight (commit after 2de5d87): step 4, submit with an email code, the tracking page, the returning-customer continue link, and face match. Tested with fake data in a real browser, end to end, with no errors.
 
-1. **Supabase: run migration 045**
-   - File: `Lov_cercit\sql\045_document_capture.sql` (Supabase, then SQL Editor, paste, Run)
-   - Check: `SELECT code, required, back_required, multi_file, ask_password FROM document_types ORDER BY sort_order;` should show 10 rows, with LIVE_PHOTO first and ITR included.
+## Your steps, in this order
 
-2. **AWS deploy** (one command in PowerShell):
+1. **Supabase: run migration 046**
+   - File: `Lov_cercit\sql\046_customer_details_submit.sql` (Supabase → SQL Editor → paste → Run).
+   - Check: `SELECT count(*) FILTER (WHERE mobile_hash IS NULL) FROM customers;` should return 0.
+
+2. **Supabase: the "Magic Link" email template** (Authentication → Emails → Magic Link)
+   - The continue link uses this template. Make sure the body has a link as well as the code. For example:
+     `<p><a href="{{ .ConfirmationURL }}">Continue your cercit application</a></p><p>Or enter this code: {{ .Token }}</p>`
+   - Then open Authentication → URL Configuration → Redirect URLs. Check that `https://cercit.github.io/CERCIT_autoloan/**` is listed. If it isn't, add it.
+
+3. **AWS deploy** (PowerShell):
    ```
    powershell -ExecutionPolicy Bypass -File "C:\Users\samsm\OneDrive\Desktop\Claude\PM Projects\AI-Credit-Underwriter\Lov_cercit\aws\deploy.ps1"
    ```
    What it ships:
-   - **New:** `cercit-document-finalize`, which opens locked PDFs with the password, masks Aadhaar and registers the file. It adds the `POST /finalize` address.
-   - **Changed:** `cercit-presigned-url`. Customers now upload into `incoming/` first.
-   - **Changed:** `cercit-kyc-extractor`. It now tells PAN from Aadhaar by the new file names.
-   - **Changed:** the S3 bucket. Anything left in `incoming/` is deleted after 1 day.
+   - **New:** `cercit-customer-resume` (POST /resume). It emails the continue link when a mobile number already has an application in progress.
+   - **Changed:** `cercit-document-finalize`. After a live photo, PAN front or Aadhaar front is uploaded, it compares the faces (Amazon Rekognition).
+   - **Changed:** `cercit-get-extractions`. A customer can now read back what was found in their own documents, limited to the fields step 4 uses. This is what pre-fills step 4.
+   - **Changed:** the shared code, which gains the continue-link and face-match helpers.
+   - Cost: Rekognition's free tier is 5,000 face comparisons a month for the first 12 months. Each upload uses 1–2.
 
-   First deploy note: the new service downloads a PDF library of about 20 MB, so the build takes a few minutes longer. If you see "Access is denied" from OneDrive, pause OneDrive sync and run it again.
+4. **Test on your phone:** start at https://cercit.github.io/CERCIT_autoloan/login?as=customer and work through:
+   1. Take the live photo, then upload PAN and Aadhaar (try the e-Aadhaar PDF with its password).
+   2. Upload a locked salary slip with its password, Form 16, and the bank statement.
+   3. Step 4: check the pre-filled fields, correct anything wrong, and confirm all three parts.
+   4. Tick the bureau consent, take the emailed code, and submit. You should land on the tracking page.
+   5. Sign out, start again with the same mobile number, and check that the "you already started" message appears and the email arrives.
+   6. As staff: open the application, then the Documents tab. The face match card should be there.
 
-3. **Test on your phone:** go to https://cercit.github.io/CERCIT_autoloan/login?as=customer, then:
-   - take the live photo
-   - upload a PAN card photo
-   - upload the e-Aadhaar PDF with its password
-   - upload a locked salary slip
+## Open items added to the reconcile list (Vault/Policies/14-Build-Backlog.md)
 
-4. **Migration 046 (step 4):** run it if it's in the folder by morning. The step 4 notes are at the bottom of this file.
-
-## Step 4 notes
-(filled in overnight)
+- **R15:** decided. The customer types the password; it's used once and never stored.
+- **R16:** the continue link shows a masked email. While the mobile OTP is simulated, anyone could check whether a number has an application in progress. OK for the demo; revisit when real SMS arrives.
+- **R17:** face-match bands (90+ match, 70–90 review, below 70 mismatch) are provisional. Decide whether a mismatch blocks submit or only flags it.
+- **R18:** the QR code on older Aadhaar cards still carries the full number. Only the printed digits are masked so far.
+- **R19:** the PDF library is licensed AGPL. Fine for this build; commercial use needs a licence or a replacement.
+- **R20:** the document readers' write to the `document_extractions` table fails because the columns don't match. Pre-fill and the staff screen read the readers' S3 files instead. The writer needs fixing.

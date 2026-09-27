@@ -215,3 +215,85 @@ export async function registerDocument(input: {
   if (error) throw new Error(message(error));
   return data as { status: DraftDocument["status"] };
 }
+
+// --- Step 4, submit and tracking (sql/046) ---------------------------------
+
+export type DetailGroup = "PERSONAL" | "ADDRESS" | "EMPLOYMENT";
+
+export interface AddressInput {
+  line1: string;
+  line2?: string;
+  city: string;
+  state_code: string;
+  pincode: string;
+}
+
+export interface DetailsState {
+  groups: Partial<Record<DetailGroup, { values: Record<string, unknown>; confirmed_at: string }>>;
+  customer: { full_name: string; email: string; pan_last4: string | null } | null;
+  states: { code: string; name: string }[];
+  eb_bill: { required: string; status: string } | null;
+}
+
+export async function getDetails(applicationId: string): Promise<DetailsState> {
+  const { data, error } = await supabase.rpc("fn_customer_details", {
+    p_application_id: applicationId,
+  });
+  if (error) throw new Error(message(error));
+  return data as DetailsState;
+}
+
+/** Saves one group as confirmed. `shown` is what we pre-filled, so changes to it are recorded. */
+export async function saveDetails(
+  applicationId: string,
+  group: DetailGroup,
+  values: Record<string, unknown>,
+  shown: Record<string, unknown>,
+): Promise<{ values: Record<string, unknown>; edited: string[] }> {
+  const { data, error } = await supabase.rpc("fn_customer_save_details", {
+    p_application_id: applicationId,
+    p_group: group,
+    p: values,
+    p_prefilled: shown,
+  });
+  if (error) throw new Error(message(error));
+  return data as { values: Record<string, unknown>; edited: string[] };
+}
+
+export async function submitApplication(
+  applicationId: string,
+  bureauConsentVersion: string,
+): Promise<{ status: string; approval_stage: string }> {
+  const { data, error } = await supabase.rpc("fn_customer_submit", {
+    p_application_id: applicationId,
+    p_bureau_consent_version: bureauConsentVersion,
+    p_user_agent: navigator.userAgent,
+  });
+  if (error) throw new Error(message(error));
+  return data as { status: string; approval_stage: string };
+}
+
+export interface TrackedApplication {
+  application_id: string;
+  status: string;
+  approval_stage: "IN_PRINCIPLE" | "FINAL" | null;
+  submitted_at: string;
+  decided_at: string | null;
+  loan_amount: number | null;
+  tenure_months: number | null;
+  vehicle: string | null;
+  events: { stage: string; at: string }[];
+  attention: { name: string; note: string | null }[];
+}
+
+export interface TrackingState {
+  customer: { first_name: string; email: string } | null;
+  draft: { application_id: string; step: number } | null;
+  applications: TrackedApplication[];
+}
+
+export async function getTracking(): Promise<TrackingState> {
+  const { data, error } = await supabase.rpc("fn_customer_track");
+  if (error) throw new Error(message(error));
+  return data as TrackingState;
+}

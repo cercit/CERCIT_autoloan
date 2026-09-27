@@ -25,6 +25,8 @@ import boto3
 import pymupdf as fitz
 from botocore.config import Config
 
+import face_match
+
 from shared.supabase_client import customer_can_upload, customer_register_document, is_staff_request, valid_application_id
 
 s3 = boto3.client("s3", region_name="ap-south-1", config=Config(s3={"addressing_style": "virtual"}))
@@ -142,6 +144,11 @@ def handler(event, context):
         _delete_all_versions(final_key)
         return _response(400, {"error": reply})
     result["document"] = reply
+    # Live photo against the PAN and Aadhaar photos; a failure here never fails the upload.
+    try:
+        face_match.run(s3, BUCKET, app, code, side, data, ctype)
+    except Exception as e:  # noqa: BLE001
+        print(f"face match skipped for {app} {code}: {type(e).__name__}")
     return _response(200, result)
 
 

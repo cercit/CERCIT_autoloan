@@ -7,6 +7,7 @@ import json
 import os
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -89,6 +90,38 @@ def customer_register_document(event: dict, params: dict) -> tuple[bool, Any]:
         return False, msg[:1].upper() + msg[1:]
     except (urllib.error.URLError, ValueError):
         return False, "The file could not be saved. Try again."
+
+
+def record_face_match(application_id: str, doc_type: str, side: str, similarity: float | None, result: str) -> None:
+    """Face match result from the upload service (sql/046; service key only)."""
+    _post("/rest/v1/rpc/fn_record_face_match", {
+        "p_application_id": application_id, "p_doc_type": doc_type, "p_side": side,
+        "p_similarity": similarity, "p_result": result,
+    })
+
+
+def resume_lookup(mobile: str) -> dict | None:
+    """The newest draft application for this mobile, or None (sql/046; service key only)."""
+    out = _post("/rest/v1/rpc/fn_customer_resume_lookup", {"p_mobile": mobile})
+    return out if isinstance(out, dict) and out.get("email") else None
+
+
+def send_continue_link(email: str, redirect_to: str) -> bool:
+    """Emails the customer a sign-in link (Supabase "Magic Link" template). Never creates a login."""
+    url = f"{SUPABASE_URL}/auth/v1/otp?redirect_to={urllib.parse.quote(redirect_to, safe='')}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps({"email": email, "create_user": False}).encode(),
+        method="POST",
+        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            return True
+    except urllib.error.HTTPError as e:
+        return e.code == 429  # one email a minute: the earlier link is still on its way
+    except urllib.error.URLError:
+        return False
 
 
 def _headers() -> dict[str, str]:

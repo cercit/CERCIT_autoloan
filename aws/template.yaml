@@ -107,12 +107,33 @@ Resources:
             - Effect: Allow
               Action: [s3:DeleteObjectVersion]
               Resource: !Sub "arn:aws:s3:::cercit-docs-${AWS::AccountId}/*"
+            - Effect: Allow
+              Action: [rekognition:CompareFaces]
+              Resource: "*"
       Events:
         Finalize:
           Type: Api
           Properties:
             RestApiId: !Ref CercitApi
             Path: /finalize
+            Method: post
+
+  CustomerResumeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-customer-resume
+      CodeUri: lambdas/presigned_url/
+      Handler: handler.resume_handler
+      Timeout: 15
+      Environment:
+        Variables:
+          CUSTOMER_LOGIN_URL: https://cercit.github.io/CERCIT_autoloan/login?as=customer
+      Events:
+        Resume:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CercitApi
+            Path: /resume
             Method: post
 
   GetExtractionsFunction:

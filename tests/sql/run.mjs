@@ -1546,6 +1546,76 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 26. Details, submit, tracking, returning customers (046)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("details and submit");
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  const claims = (extra = {}) => db.query("select set_config('request.jwt.claims', $1, false)",
+    [JSON.stringify({ sub: CUST, email: "asha.r@example.com", role: "authenticated", ...extra })]);
+  await db.query("set role authenticated");
+  await asApi("authenticated", CUST);
+  await claims();
+  const app = (await one("select fn_customer_current()->'draft'->>'application_id' as v")).v;
+  const save = (group, p, shown = {}) => db.query("select fn_customer_save_details($1, $2, $3, $4) as v", [app, group, JSON.stringify(p), JSON.stringify(shown)]);
+  const submit = () => db.query("select fn_customer_submit($1, '2026-09-v1', 'test') as v", [app]);
+  const addr = { line1: "12, 3rd Cross, Indiranagar", city: "bengaluru", state_code: "KA", pincode: "560038" };
+
+  const d = (await one("select fn_customer_details($1) as v", [app])).v;
+  t.equal("details start empty, with the state list", [Object.keys(d.groups).length, d.states.some((s) => s.code === "KA")], [0, true]);
+
+  const personal = { dob: "1991-06-02", father_name: "Ramesh Rao", gender: "FEMALE", marital_status: "MARRIED", pan: "ABCPR1234F" };
+  await t.rejects("a company PAN is refused", () => save("PERSONAL", { ...personal, pan: "ABCCR1234F" }), /personal PAN/);
+  await t.rejects("an under-18 date of birth is refused", () => save("PERSONAL", { ...personal, dob: "2015-01-01" }), /between 18 and 75/);
+  const p1 = (await save("PERSONAL", personal, { dob: "1991-06-02", father_name: "Ramesh Rau", pan: "ABCPR1234F" })).rows[0].v;
+  t.equal("changes to pre-filled fields are listed; the PAN is kept masked", [p1.edited, p1.values.pan], [["father_name"], "XXXXXX234F"]);
+  await save("PERSONAL", { ...personal, pan: "XXXXXX234F" });
+  t.equal("re-saving with the masked PAN keeps the PAN", (await one("select pan_last4 from customers where auth_user_id = $1", [CUST])).pan_last4, "234F");
+
+  await t.rejects("a rented home needs the owner's mobile", () => save("ADDRESS", { permanent: addr, current_same: true, residence: "RENTED", owner_name: "K Das", years_at_current: 2 }), /owner's 10-digit mobile/);
+  await t.rejects("a bad PIN is refused", () => save("ADDRESS", { permanent: { ...addr, pincode: "056003" }, current_same: true, residence: "OWNED", years_at_current: 5 }), /PIN code/);
+  await save("ADDRESS", { permanent: addr, current_same: false, current: { ...addr, line1: "Flat 4B, Palm Grove, HSR Layout", pincode: "560102" },
+                          residence: "RENTED", owner_name: "K Das", owner_mobile: "98450 12345", years_at_current: 2 }, { permanent: addr });
+  const eb = (await one("select fn_customer_details($1) as v", [app])).v.eb_bill;
+  t.equal("a different current address makes the electricity bill needed", [eb.required, eb.status], ["ALWAYS", "MISSING"]);
+
+  await save("EMPLOYMENT", { employer_name: "Acme Motors Pvt Ltd", employer_category: "PRIVATE_LTD", designation: "Engineer", date_of_joining: "2019-04-01", net_monthly_salary: 85000 },
+             { employer_name: "Acme Motors Pvt Ltd", net_monthly_salary: 85000 });
+  await t.rejects("submit waits for every needed document", () => submit(), /still needed: .*Form 16.*Bank statement.*Electricity bill/);
+
+  const reg = (type, key) => db.query("select fn_customer_register_document($1, $2, 'single', $3, 'f.pdf', 'application/pdf', 9000, $4) as v", [app, type, key, "c".repeat(64)]);
+  await reg("FORM16_B", `uploads/form16/${app}/f16.pdf`);
+  await reg("BANK_STMT", `uploads/bank-statements/${app}/b2.pdf`);
+  await reg("EB_BILL", `uploads/other/eb-bill/${app}/eb.pdf`);
+  await t.rejects("submit needs a fresh email code", () => submit(), /code we email you/);
+  await claims({ amr: [{ method: "otp", timestamp: Math.floor(Date.now() / 1000) - 3600 }] });
+  await t.rejects("a code from an hour ago is not enough", () => submit(), /code we email you/);
+  await claims({ amr: [{ method: "otp", timestamp: Math.floor(Date.now() / 1000) - 60 }] });
+  const done = (await submit()).rows[0].v;
+  t.equal("submitted for in-principle approval without a quotation", [done.status, done.approval_stage], ["SUBMITTED", "IN_PRINCIPLE"]);
+  t.equal("the draft is closed", (await one("select fn_customer_current()->'draft' as v")).v, null);
+  const tr = (await one("select fn_customer_track() as v")).v;
+  t.equal("tracking shows it, received, with the quotation still to come",
+    [tr.applications.length, tr.applications[0].events[0].stage, tr.applications[0].attention[0].name], [1, "RECEIVED", "Vehicle quotation"]);
+
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("customer changes are kept with what we showed", (await one("select edited_fields from application_detail_groups where group_code = 'PERSONAL'")).edited_fields, []);
+  t.equal("the bureau consent is recorded", (await one("select count(*)::int as n from customer_consents where purpose = 'BUREAU_PULL'")).n, 1);
+  const mob = (await one("select fn_mask_email('asha.r@example.com') as v")).v;
+  t.equal("emails are masked for the continue screen", mob, "a•••@example.com");
+  t.equal("every customer has a mobile blind index", (await one("select count(*) filter (where mobile_hash is null)::int as n from customers")).n, 0);
+  await db.query("set role authenticated");
+  await t.rejects("customers cannot look up a mobile", () => db.query("select fn_customer_resume_lookup('9876543210')"), /permission denied/);
+  await t.rejects("customers cannot record a face match", () => db.query("select fn_record_face_match($1, 'PAN', 'front', 95, 'MATCH')", [app]), /permission denied/);
+  await db.query("reset role");
+  await db.query("select fn_record_face_match($1, 'PAN', 'front', 96.5, 'MATCH')", [app]);
+  t.equal("face match results are kept", (await one("select result, similarity::text from kyc_face_matches")).result, "MATCH");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

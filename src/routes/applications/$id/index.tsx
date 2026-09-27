@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { EngineDecisionCard } from "@/components/policy/engine-decision-card";
 import { CopilotReview } from "@/components/copilot-review";
 import { DocumentList } from "@/components/document-list";
+import { FaceMatchCard } from "@/components/face-match-card";
 import { CashflowSummaryCard } from "@/components/cashflow-summary-card";
 import { BankStatementReview } from "@/components/bank-statement-review";
 import type { TransactionCategory } from "@/lib/transaction-categorizer";
@@ -293,6 +294,7 @@ function ApplicationDetail() {
 
         <TabsContent value="documents" className="space-y-4">
           <DocumentList applicationId={app.id} refreshKey={docRefreshKey} />
+          <FaceMatchCard applicationId={app.id} />
           {isAwsConfigured() && (
             <div className="grid gap-4 sm:grid-cols-2">
               {AWS_DOC_TYPES.map((dt) => (

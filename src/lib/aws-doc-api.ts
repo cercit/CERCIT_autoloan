@@ -112,6 +112,24 @@ export async function finalizeUpload(body: {
   return data as FinalizeResult;
 }
 
+/**
+ * Start screen: if this mobile has an application in progress, the service
+ * emails a continue link to the address used for it (sql/046). No sign-in.
+ */
+export async function requestContinueLink(
+  mobile: string,
+): Promise<
+  { found: false } | { found: true; sent: boolean; emailMasked: string; started: string }
+> {
+  const res = await fetch(`${API_BASE}/resume`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mobile }),
+  });
+  if (!res.ok) return { found: false };
+  return res.json();
+}
+
 export async function uploadToS3(presignedUrl: string, file: File): Promise<void> {
   const res = await fetch(presignedUrl, {
     method: "PUT",

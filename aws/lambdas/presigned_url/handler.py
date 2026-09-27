@@ -13,7 +13,13 @@ import uuid
 import boto3
 from botocore.config import Config
 
-from shared.supabase_client import customer_can_upload, is_staff_request, valid_application_id
+from shared.supabase_client import (
+    customer_can_upload,
+    is_staff_request,
+    resume_lookup,
+    send_continue_link,
+    valid_application_id,
+)
 
 s3 = boto3.client(
     "s3",
@@ -99,11 +105,14 @@ def get_extractions_handler(event, context):
     GET /extraction/{applicationId}
     Returns all extracted fields for an application.
     """
-    if not is_staff_request(event):
-        return _response(401, {"error": "sign-in required"})
     application_id = (event.get("pathParameters") or {}).get("applicationId")
     if not valid_application_id(application_id):
         return _response(400, {"error": "valid applicationId required"})
+    # Staff see everything; a customer sees what was read from their own draft's
+    # documents, to pre-fill step 4 (sql/046), and only the fields step 4 uses.
+    staff = is_staff_request(event)
+    if not (staff or customer_can_upload(event, application_id)):
+        return _response(401, {"error": "sign-in required"})
 
     prefix = f"extracted/{application_id}/"
     result = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix)
@@ -116,12 +125,55 @@ def get_extractions_handler(event, context):
         resp = s3.get_object(Bucket=BUCKET, Key=obj["Key"])
         data = json.loads(resp["Body"].read().decode())
         doc_type = data.get("source", obj["Key"].split("/")[-1].replace(".json", ""))
-        extractions[doc_type] = data.get("fields", {})
+        fields = data.get("fields", {})
+        if not staff:
+            keep = CUSTOMER_FIELDS.get(doc_type, ())
+            fields = {k: {"value": v.get("value"), "confidence": v.get("confidence")}
+                      for k, v in fields.items() if k in keep and isinstance(v, dict)}
+        extractions[doc_type] = fields
 
     return _response(200, {
         "applicationId": application_id,
         "extractions": extractions,
         "documentCount": len(extractions),
+    })
+
+
+CUSTOMER_FIELDS = {
+    "pan_card": ("name", "father_name", "dob", "pan_number"),
+    "aadhaar_card": ("name", "dob", "gender", "address"),
+    "salary_slip": ("employee_name", "employer_name", "net_salary", "pay_period"),
+    "form16": ("employee_name", "employer_name"),
+}
+CONTINUE_URL = os.environ.get("CUSTOMER_LOGIN_URL", "https://cercit.github.io/CERCIT_autoloan/login?as=customer")
+_MOBILE_RE = re.compile(r"^[6-9]\d{9}$")
+
+
+def resume_handler(event, context):
+    """
+    POST /resume  {"mobile": "98xxxxxxxx"}   (no sign-in: the customer is on the start screen)
+
+    If this mobile has an application in progress, email a continue link to the
+    address used for it and say where it went, masked (s•••@gmail.com).
+    """
+    if event.get("httpMethod") == "OPTIONS":
+        return _response(200, {})
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return _response(400, {"error": "Invalid JSON body"})
+    mobile = re.sub(r"\D", "", str(body.get("mobile", "")))[-10:]
+    if not _MOBILE_RE.match(mobile):
+        return _response(400, {"error": "Enter a 10-digit Indian mobile number."})
+    found = resume_lookup(mobile)
+    if not found:
+        return _response(200, {"found": False})
+    sent = send_continue_link(found["email"], CONTINUE_URL)
+    return _response(200, {
+        "found": True,
+        "sent": sent,
+        "emailMasked": found.get("email_masked"),
+        "started": found.get("started"),
     })
 
 
@@ -132,7 +184,7 @@ def _response(status: int, body: dict) -> dict:
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
         },
         "body": json.dumps(body),
     }
