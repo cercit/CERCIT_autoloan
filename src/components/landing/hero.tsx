@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 
 import cockpitDark from "@/assets/cercit-cockpit-day-dark.webp";
 import cockpitLight from "@/assets/cercit-cockpit-day-light.webp";
+import { BrandLogo } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,10 +111,7 @@ export function Hero() {
         onFocusCapture={() => setHeaderHidden(false)}
       >
         <header className="site-header">
-          <Link to="/" className="brand" aria-label="cercit home">
-            <span className="brand-mark">c</span>
-            <span>cercit</span>
-          </Link>
+          <BrandLogo className="brand" height={36} />
           <nav className="desktop-nav" aria-label="Primary navigation">
             {navLinks.map(([href, label]) => (
               <a key={href} href={href}>

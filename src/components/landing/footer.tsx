@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Linkedin, Mail, MessageCircle, Phone, Twitter } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand";
 import { usePublicOrgInfo } from "@/lib/org-api";
 
 import { openAudiencePopup } from "./audience-popup";
@@ -20,12 +21,7 @@ export function LandingFooter() {
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-10 md:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
           <div>
-            <Link to="/" className="inline-flex items-center gap-2" aria-label="cercit home">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
-                c
-              </span>
-              <span className="footer-brand-name text-lg font-bold tracking-tight">cercit</span>
-            </Link>
+            <BrandLogo height={34} />
             <p className="mt-3 max-w-xs text-sm opacity-80">
               Credit Evaluation and Risk Compliance Intelligence Tool for vehicle finance.
             </p>

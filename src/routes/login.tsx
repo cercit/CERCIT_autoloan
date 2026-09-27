@@ -21,6 +21,7 @@ import {
   setCustomerEmail,
   DEMO_EMAIL,
 } from "@/lib/auth";
+import { BrandLogo } from "@/components/brand";
 
 type LoginAs = "customer" | "official";
 
@@ -171,14 +172,9 @@ function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 via-background to-slate-100 px-4 py-10">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 via-background to-slate-100 dark:from-background dark:via-background dark:to-surface-subtle px-4 py-10">
       <div className="flex items-center justify-between px-2">
-        <Link to="/" className="inline-flex items-center gap-2" aria-label="cercit home">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            c
-          </span>
-          <span className="text-lg font-bold tracking-tight">cercit</span>
-        </Link>
+        <BrandLogo height={30} />
         <ThemeToggle />
       </div>
 

@@ -25,6 +25,7 @@ import {
 import { makes } from "@/lib/customer-data";
 import { emiFor, inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand";
 
 export const Route = createFileRoute("/apply")({
   head: () => ({
@@ -141,12 +142,7 @@ function Apply() {
   if (submitted) {
     return (
       <div className="flex min-h-screen flex-col bg-background px-4 py-6">
-        <Link to="/" className="inline-flex items-center gap-2" aria-label="cercit home">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            c
-          </span>
-          <span className="text-lg font-bold tracking-tight">cercit</span>
-        </Link>
+        <BrandLogo height={30} />
         <div className="flex flex-1 items-center justify-center py-10">
           <div className="panel max-w-md p-8 text-center">
             <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-success/12 text-success">
@@ -176,12 +172,7 @@ function Apply() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
-          <Link to="/" className="inline-flex items-center gap-2" aria-label="cercit home">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-              c
-            </span>
-            <span className="text-lg font-bold tracking-tight">cercit</span>
-          </Link>
+          <BrandLogo height={30} />
           <div className="flex items-center gap-1">
             <ThemeToggle />
             <Button variant="ghost" size="sm" asChild>

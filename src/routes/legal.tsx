@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { LandingFooter } from "@/components/landing/footer";
 import { usePublicOrgInfo } from "@/lib/org-api";
+import { BrandLogo } from "@/components/brand";
 
 export const Route = createFileRoute("/legal")({
   head: () => ({
@@ -149,12 +150,7 @@ function LegalPage() {
     <div className="landing min-h-screen bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
-          <Link to="/" className="inline-flex items-center gap-2" aria-label="cercit home">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
-              c
-            </span>
-            <span className="text-lg font-bold tracking-tight">cercit</span>
-          </Link>
+          <BrandLogo height={30} />
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"

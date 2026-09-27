@@ -14,6 +14,14 @@ Paste this whole file into Lovable after the master prompt, with the line:
 - Tone: calm, clear, trustworthy. Plain words, short sentences. No hype, no slang, no emojis.
 - Money in rupees with Indian grouping: **₹8,50,000**, "₹8.5 lakh". Dates like **27 Sep 2026**. Interest "8.99% p.a.".
 
+## 1a. Logo
+
+cercit's logo is a car drawn as a circuit board with a chip at its heart, beside the name "cercit" (lower case, blue dot on the i). Attached as `cercit-logo-horizontal-light.png` / `-dark.png` and `cercit-mark-light.png` / `-dark.png`.
+
+- Show the horizontal logo top-left of the demo page, 30–36 px tall; light version on light backgrounds, dark version on dark.
+- **The character is a separate, friendly car — do not copy the logo's circuit car into the character**, and do not add circuit lines to the character. The two should feel like family through colour only: the character's accents use the logo's blues (cyan `#5FDCFD` → blue `#004FE2`).
+- Full rules: `docs/design/brand-identity.md` in the cercit repo.
+
 ## 2. Colours — replace section 15 of the master prompt
 
 cercit's tokens are defined in OKLCH in the code; hex values below are the same colours for Lovable.

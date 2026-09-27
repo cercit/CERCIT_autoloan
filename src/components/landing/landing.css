@@ -43,8 +43,7 @@ html:not(.dark) .header-shell.is-scrolled .site-header { background: oklch(1 0 0
 
 /* header */
 .site-header { position: relative; z-index: 5; height: 88px; padding: 0 clamp(24px,5.5vw,88px); display: flex; align-items: center; gap: 42px; border-bottom: 1px solid oklch(1 0 0 / 10%); background: oklch(0.06 0.02 250 / 58%); backdrop-filter: blur(18px); }
-.brand { color: var(--h-fg); display: inline-flex; align-items: center; gap: 11px; font-size: 25px; font-weight: 800; text-decoration: none; letter-spacing: 0; }
-.brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; color: var(--h-primary-fg); background: var(--h-primary); box-shadow: 0 0 24px var(--h-glow); font-size: 20px; line-height: 1; padding-bottom: 2px; }
+.brand { display: inline-flex; align-items: center; text-decoration: none; }
 .desktop-nav { display: flex; align-items: center; justify-content: center; gap: clamp(18px,2.4vw,40px); flex: 1; }
 .desktop-nav a { color: var(--h-muted); font-size: 13px; font-weight: 600; text-decoration: none; transition: color 180ms ease; }
 .desktop-nav a:hover { color: var(--h-fg); }
@@ -237,9 +236,8 @@ html:not(.dark) .landing-footer a:focus-visible { outline-color: oklch(0.52 0.2 
   .dashboard-light { display: none; }
   .site-header { height: 68px; padding: 0 18px; background: oklch(0.05 0.02 250 / 72%); }
   .landing-hero { --header-h: 68px; }
-  .brand { font-size: 22px; }
-  .brand-mark { width: 34px; height: 34px; }
-  .header-actions { display: none; }
+  .brand img { height: 30px !important; }
+    .header-actions { display: none; }
   .mobile-menu { display: inline-flex; }
   .hero-content { width: 100%; min-height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 28px; padding: 25svh 18px 28px; }
   .hero-copy { max-width: 450px; }
