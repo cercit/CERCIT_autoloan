@@ -156,7 +156,12 @@ export async function getExtractions(applicationId: string): Promise<ExtractionR
   const res = await fetch(`${API_BASE}/extraction/${encodeURIComponent(applicationId)}`, {
     headers: await authHeaders(),
   });
-  if (!res.ok) throw new Error("Failed to fetch extractions");
+  if (!res.ok)
+    throw new Error(
+      res.status === 401
+        ? "Your sign-in has expired. Sign in again to fill from your documents."
+        : "We couldn't reach the document reader. Try again in a minute.",
+    );
   return res.json();
 }
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Check, FileSearch, Loader2, Pencil, Send } from "lucide-react";
+import { ArrowLeft, Check, FileSearch, Loader2, Pencil, RefreshCw, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { useCharacter } from "@/components/character/companion";
@@ -176,17 +176,62 @@ function DetailsStep() {
   }, [emit, load, navigate]);
 
   const appId = state?.draft?.application_id ?? "";
+  const [reading, setReading] = useState(false);
+  const [readError, setReadError] = useState("");
+  const [fillNonce, setFillNonce] = useState(0);
+
+  const fetchReads = useCallback(async () => {
+    setReading(true);
+    setReadError("");
+    try {
+      const r = await getExtractions(appId);
+      setExtracted(r.extractions ?? {});
+      return Object.keys(r.extractions ?? {}).length;
+    } catch (e) {
+      setReadError(e instanceof Error ? e.message : "We couldn't reach the document reader.");
+      return -1;
+    } finally {
+      setReading(false);
+    }
+  }, [appId]);
+
+  // Documents are read in the background and can take up to a minute after upload,
+  // so keep looking for a while instead of checking once.
   useEffect(() => {
     if (!appId || !isAwsConfigured()) return;
-    void getExtractions(appId)
-      .then((r) => setExtracted(r.extractions ?? {}))
-      .catch(() => setExtracted({}));
-  }, [appId]);
+    let stop = false;
+    void (async () => {
+      for (let i = 0; i < 8 && !stop; i++) {
+        const n = await fetchReads();
+        if (n !== 0) return;
+        await new Promise((r) => setTimeout(r, 8000));
+      }
+    })();
+    return () => {
+      stop = true;
+    };
+  }, [appId, fetchReads]);
+
+  const fillFromDocuments = async () => {
+    if ((await fetchReads()) >= 0) setFillNonce((n) => n + 1);
+  };
 
   const pre = useMemo(
     () => prefillFrom(extracted, details?.states ?? []),
     [extracted, details?.states],
   );
+  const filledCount =
+    Object.keys(pre.personal).length +
+    Object.keys(pre.work).length +
+    (pre.permanent?.line1 ? 1 : 0);
+  const notRead = [
+    !pre.personal["dob"] && "date of birth",
+    !pre.personal["father_name"] && "father's name",
+    !pre.personal["gender"] && "gender",
+    !pre.permanent?.line1 && "address",
+    !pre.work["employer_name"] && "employer",
+    !pre.work["net_monthly_salary"] && "take-home pay",
+  ].filter(Boolean) as string[];
   const confirmed = (g: DetailGroup) => !!details?.groups[g];
   const allConfirmed = confirmed("PERSONAL") && confirmed("ADDRESS") && confirmed("EMPLOYMENT");
   const readSomething = Object.keys(extracted).length > 0;
@@ -212,19 +257,66 @@ function DetailsStep() {
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <div className="space-y-4">
+          {isAwsConfigured() && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-3 text-sm">
+              <FileSearch className="size-4 shrink-0 text-muted-foreground" />
+              <p className="min-w-0 flex-1" aria-live="polite">
+                {readError ? (
+                  <span className="text-destructive">{readError}</span>
+                ) : reading && !readSomething ? (
+                  "Reading your documents…"
+                ) : filledCount > 0 ? (
+                  <>
+                    Filled {filledCount} {filledCount === 1 ? "detail" : "details"} from your
+                    documents.
+                    {notRead.length > 0 && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        Not found on them, so please type: {notRead.join(", ")}.
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  "Nothing read from your documents yet. They can take up to a minute after upload."
+                )}
+              </p>
+              <Button
+                id="fill-from-documents"
+                size="sm"
+                variant="outline"
+                disabled={reading}
+                onClick={() => void fillFromDocuments()}
+              >
+                {reading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                Fill from my documents
+              </Button>
+            </div>
+          )}
           <PersonalGroup
             app={appId}
             details={details}
             prefill={pre.personal}
             source={pre.personalSrc}
+            fillNonce={fillNonce}
             onSaved={load}
           />
-          <AddressGroup app={appId} details={details} prefill={pre.permanent} onSaved={load} />
+          <AddressGroup
+            app={appId}
+            details={details}
+            prefill={pre.permanent}
+            fillNonce={fillNonce}
+            onSaved={load}
+          />
           <WorkGroup
             app={appId}
             details={details}
             prefill={pre.work}
             source={pre.workSrc}
+            fillNonce={fillNonce}
             onSaved={load}
           />
           <SubmitBlock app={appId} state={state} ready={allConfirmed} />
@@ -344,6 +436,29 @@ function Choice({
   );
 }
 
+/** "Fill from my documents" on a part the customer already confirmed: puts what was read
+ *  into the fields they left empty (never over something typed or saved) and reopens it.
+ *  A part not yet confirmed already shows what was read, so there is nothing to do. */
+function useFillEmpty(
+  fillNonce: number,
+  prefill: Values,
+  saved: Record<string, unknown> | undefined,
+  typed: Values,
+  setV: (f: (p: Values) => Values) => void,
+  setEditing: (b: boolean) => void,
+) {
+  useEffect(() => {
+    if (fillNonce === 0 || !saved) return;
+    const add = Object.fromEntries(
+      Object.entries(prefill).filter(([k, x]) => x && !(k in typed) && !str(saved[k]).trim()),
+    );
+    if (Object.keys(add).length === 0) return;
+    setV((p) => ({ ...p, ...add }));
+    setEditing(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per button press
+  }, [fillNonce]);
+}
+
 function useGroupSave(app: string, group: DetailGroup, onSaved: () => Promise<void>) {
   const { emit } = useCharacter();
   const [busy, setBusy] = useState(false);
@@ -409,12 +524,14 @@ function PersonalGroup({
   details,
   prefill,
   source,
+  fillNonce,
   onSaved,
 }: {
   app: string;
   details: DetailsState;
   prefill: Values;
   source: Source;
+  fillNonce: number;
   onSaved: () => Promise<void>;
 }) {
   const saved = details.groups.PERSONAL?.values;
@@ -432,6 +549,7 @@ function PersonalGroup({
     pan: str(saved?.["pan"]) || prefill["pan"] || "",
   };
   const cur = { ...base, ...v };
+  useFillEmpty(fillNonce, prefill, saved, v, setV, setEditing);
   const set = (k: string) => (x: string) => setV((p) => ({ ...p, [k]: x }));
   const from = (k: string) => (!saved && !(k in v) && prefill[k] ? source[k] : undefined);
 
@@ -613,11 +731,13 @@ function AddressGroup({
   app,
   details,
   prefill,
+  fillNonce,
   onSaved,
 }: {
   app: string;
   details: DetailsState;
   prefill: AddressInput | null;
+  fillNonce: number;
   onSaved: () => Promise<void>;
 }) {
   const saved = details.groups.ADDRESS?.values as Record<string, unknown> | undefined;
@@ -641,6 +761,15 @@ function AddressGroup({
   const ownerMob = ownerMobile ?? str(saved?.["owner_mobile"]);
   const yrs = years ?? str(saved?.["years_at_current"]);
   const fromAadhaar = !saved && permanent === null && prefill?.line1 ? "Aadhaar" : undefined;
+
+  // "Fill from my documents": only an empty permanent address is replaced.
+  useEffect(() => {
+    if (fillNonce > 0 && prefill?.line1 && !(perm.line1 ?? "").trim()) {
+      setPermanent(prefill);
+      setEditing(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per button press
+  }, [fillNonce]);
 
   return (
     <GroupShell
@@ -799,12 +928,14 @@ function WorkGroup({
   details,
   prefill,
   source,
+  fillNonce,
   onSaved,
 }: {
   app: string;
   details: DetailsState;
   prefill: Values;
   source: Source;
+  fillNonce: number;
   onSaved: () => Promise<void>;
 }) {
   const saved = details.groups.EMPLOYMENT?.values;
@@ -820,6 +951,7 @@ function WorkGroup({
     existing_emis: str(saved?.["existing_emis"]),
   };
   const cur = { ...base, ...v };
+  useFillEmpty(fillNonce, prefill, saved, v, setV, setEditing);
   const set = (k: string) => (x: string) => setV((p) => ({ ...p, [k]: x }));
   const from = (k: string) => (!saved && !(k in v) && prefill[k] ? source[k] : undefined);
   const inr = (s: string) => (s ? `₹${Number(s).toLocaleString("en-IN")}` : "");
