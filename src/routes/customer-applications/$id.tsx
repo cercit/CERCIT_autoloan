@@ -612,11 +612,22 @@ function DocumentLine({
 
   async function view(key: string) {
     setLinkError(null);
-    const w = window.open("", "_blank", "noopener");
+    // Open the tab now, while the click still counts (after the await the browser
+    // treats it as a pop-up and blocks it). Not "noopener": with it, window.open
+    // returns null and the file could never be loaded into the tab.
+    const w = window.open("", "_blank");
+    if (w) {
+      w.opener = null;
+      w.document.title = "Opening file…";
+      w.document.body.textContent = "Opening the file…";
+    }
     try {
       const url = await fileLink(app, key);
       if (w) w.location.href = url;
-      else window.open(url, "_blank", "noopener");
+      else if (!window.open(url, "_blank", "noopener"))
+        setLinkError(
+          "Your browser blocked the new tab. Allow pop-ups for this site and try again.",
+        );
     } catch (e) {
       w?.close();
       setLinkError((e as Error).message);
