@@ -133,13 +133,17 @@ export function Hero() {
                 <DropdownMenuItem asChild>
                   <Link to="/login" search={{ as: "customer" }} className="login-choice">
                     <span className="font-medium">Customer</span>
-                    <span className="text-xs text-muted-foreground">Track your loan application</span>
+                    <span className="text-xs text-muted-foreground">
+                      Track your loan application
+                    </span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/login" search={{ as: "official" }} className="login-choice">
                     <span className="font-medium">Official</span>
-                    <span className="text-xs text-muted-foreground">Credit officers, managers and admins</span>
+                    <span className="text-xs text-muted-foreground">
+                      Credit officers, managers and admins
+                    </span>
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -230,7 +234,7 @@ export function Hero() {
             </p>
             <div className="hero-actions">
               <Button asChild size="lg" className="primary-cta">
-                <Link to="/apply">
+                <Link to="/login" search={{ as: "customer" }}>
                   Start Your Journey <ArrowRight />
                 </Link>
               </Button>

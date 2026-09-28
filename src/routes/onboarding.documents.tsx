@@ -81,6 +81,7 @@ function DocumentsStep() {
   return (
     <OnboardingShell
       step={3}
+      progress={needed.length ? done / needed.length : 0}
       applicationId={app}
       title="Your documents"
       lead="A quick photo of you first, then your documents. You can leave and come back; everything you upload is saved."

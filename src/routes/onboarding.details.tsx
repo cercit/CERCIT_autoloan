@@ -192,6 +192,12 @@ function DetailsStep() {
   return (
     <OnboardingShell
       step={4}
+      progress={
+        details
+          ? (["PERSONAL", "ADDRESS", "EMPLOYMENT"] as const).filter((g) => details.groups[g])
+              .length / 3.4
+          : 0
+      }
       applicationId={app}
       title="Check your details"
       lead={

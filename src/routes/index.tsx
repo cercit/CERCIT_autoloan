@@ -207,15 +207,13 @@ function Landing() {
 
       <section className="cta-band">
         <div className="relative mx-auto max-w-3xl px-4 py-20 text-center">
-          <p className="section-eyebrow cta-eyebrow">
-            Ready when you are
-          </p>
+          <p className="section-eyebrow cta-eyebrow">Ready when you are</p>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
             Start the engine on your application.
           </h2>
           <p className="cta-sub mt-4">It takes about five minutes. No branch visit needed.</p>
           <Button size="lg" className="cta-primary mt-9" asChild>
-            <Link to="/apply">
+            <Link to="/login" search={{ as: "customer" }}>
               Apply Now <ArrowRight className="size-4" />
             </Link>
           </Button>

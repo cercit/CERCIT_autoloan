@@ -105,7 +105,9 @@ function StaffLogin() {
   async function routeByRole(userEmail: string) {
     const status = isSupabaseConfigured ? await staffStatus() : "not_staff";
     if (status === "staff") {
-      try { sessionStorage.removeItem("cercit_customer_email"); } catch {}
+      try {
+        sessionStorage.removeItem("cercit_customer_email");
+      } catch {}
       navigate({ to: "/dashboard" });
       return;
     }
@@ -163,7 +165,9 @@ function StaffLogin() {
         // Only a wrong password counts towards the lockout, not a network fault.
         if (/invalid login credentials/i.test(result.error)) {
           await recordFailedLogin(normalized);
-          setError("Wrong email or password. After 5 wrong tries in a row the account locks for 30 minutes.");
+          setError(
+            "Wrong email or password. After 5 wrong tries in a row the account locks for 30 minutes.",
+          );
         } else {
           setError(result.error);
         }
@@ -314,20 +318,32 @@ function StaffLogin() {
             {as === "official" ? (
               <>
                 Customer?{" "}
-                <Link to="/login" search={{ as: "customer" }} className="font-medium text-primary hover:underline">
+                <Link
+                  to="/login"
+                  search={{ as: "customer" }}
+                  className="font-medium text-primary hover:underline"
+                >
                   Customer sign in
                 </Link>
               </>
             ) : (
               <>
                 Need a car loan?{" "}
-                <Link to="/apply" className="font-medium text-primary hover:underline">
+                <Link
+                  to="/login"
+                  search={{ as: "customer" }}
+                  className="font-medium text-primary hover:underline"
+                >
                   Apply now
                 </Link>
                 {as === "customer" && (
                   <>
                     {" · "}
-                    <Link to="/login" search={{ as: "official" }} className="font-medium text-primary hover:underline">
+                    <Link
+                      to="/login"
+                      search={{ as: "official" }}
+                      className="font-medium text-primary hover:underline"
+                    >
                       Official sign in
                     </Link>
                   </>

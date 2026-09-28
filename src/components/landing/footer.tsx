@@ -33,13 +33,23 @@ export function LandingFooter() {
               EMI calculator
             </Link>
             <Link to="/check-eligibility">Check eligibility</Link>
-            <Link to="/apply">Apply</Link>
+            <Link to="/login" search={{ as: "customer" }}>
+              Apply
+            </Link>
             <Link to="/application-status">Track application</Link>
             <Link to="/login">Login</Link>
-            <button type="button" className="footer-link-btn" onClick={() => openAudiencePopup("investor")}>
+            <button
+              type="button"
+              className="footer-link-btn"
+              onClick={() => openAudiencePopup("investor")}
+            >
               For investors
             </button>
-            <button type="button" className="footer-link-btn" onClick={() => openAudiencePopup("lender")}>
+            <button
+              type="button"
+              className="footer-link-btn"
+              onClick={() => openAudiencePopup("lender")}
+            >
               For banks &amp; NBFCs
             </button>
           </nav>

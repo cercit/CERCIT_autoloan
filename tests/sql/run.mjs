@@ -1820,6 +1820,10 @@ const asOperator = () => asApi("", "");
   await db.query("reset role");
   await asOperator();
   await db.query("select set_config('request.jwt.claims', '', false)");
+  // 051: a customer who has submitted is still found by mobile.
+  const mob = (await one("select fn_pii_decrypt(mobile_enc) as m from customers where auth_user_id = 'c1c1c1c1-0000-0000-0000-0000000000c1'")).m;
+  const found = (await one("select fn_customer_resume_lookup($1) as v", [mob])).v;
+  t.equal("a returning customer is found by mobile at any stage", [found?.email, found?.status !== "DRAFT"], ["asha.r@example.com", true]);
   failures += t.report();
 }
 
