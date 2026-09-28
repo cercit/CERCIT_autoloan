@@ -49,7 +49,9 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/my-loan")({
   validateSearch: (s: Record<string, unknown>): { app?: string } =>
-    typeof s["app"] === "string" ? { app: s["app"] } : {},
+    (typeof s["app"] === "string" || typeof s["app"] === "number") && String(s["app"])
+      ? { app: String(s["app"]) }
+      : {},
   head: () => ({ meta: [{ title: "Your car loan — cercit" }] }),
   component: MyLoan,
 });

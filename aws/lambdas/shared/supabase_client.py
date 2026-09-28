@@ -15,8 +15,9 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 # IDs are interpolated into PostgREST filters and S3 keys, so only these shapes are accepted.
+# Real application numbers are YYYYMM + 6 digits (fn_generate_application_id, 004); APP-... are the samples.
 _APP_ID_RE = re.compile(
-    r"^(APP-\d{4}-\d{5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+    r"^(APP-\d{4}-\d{5}|\d{12}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
 )
 
 

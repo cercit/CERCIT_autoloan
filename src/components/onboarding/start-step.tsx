@@ -403,9 +403,9 @@ function StartForm({ onProgress }: { onProgress: (p: number) => void }) {
           <p className="text-sm text-muted-foreground">
             {linkSent?.sent ? (
               <>
-                This number already has an application with us. We've emailed a sign-in link to{" "}
-                <span className="font-medium text-foreground">{linkSent.to}</span>. Open it on this
-                device, or type that email below for a code.
+                This number already has an application with us. We've emailed a code and a sign-in
+                link to <span className="font-medium text-foreground">{linkSent.to}</span>. Type
+                that email and the code below, or just open the link on this device.
               </>
             ) : (
               <>
@@ -414,29 +414,72 @@ function StartForm({ onProgress }: { onProgress: (p: number) => void }) {
               </>
             )}
           </p>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[14rem] flex-1 space-y-1.5">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={emailSent && busy !== null}
-              />
+          {linkSent?.sent ? (
+            // The code is already in their inbox: sending another would cancel it.
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={busy === "email-code"}
+                />
+              </div>
+              {!emailOk && (
+                <OtpBoxes
+                  id="email-otp"
+                  label={`The ${EMAIL_CODE_LENGTH}-digit code from that email`}
+                  length={EMAIL_CODE_LENGTH}
+                  value={emailEntry}
+                  onChange={(v) =>
+                    EMAIL.test(email.trim())
+                      ? void checkEmail(v)
+                      : (setEmailEntry(v),
+                        v.length === EMAIL_CODE_LENGTH && fail("Type your email address first."))
+                  }
+                />
+              )}
+              {busy === "email-code" && <p className="text-xs text-muted-foreground">Checking…</p>}
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline"
+                disabled={busy !== null}
+                onClick={() => {
+                  setLinkSent({ to: linkSent.to, sent: false });
+                  void sendEmail();
+                }}
+              >
+                Didn't get it? Send a new code (the first one stops working)
+              </button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void sendEmail()}
-              disabled={busy === "email"}
-            >
-              {busy === "email" && <Loader2 className="size-4 animate-spin" />}
-              {emailSent ? "Send again" : "Send code"}
-            </Button>
-          </div>
-          {emailCodeBox}
+          ) : (
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[14rem] flex-1 space-y-1.5">
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={emailSent && busy !== null}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void sendEmail()}
+                disabled={busy === "email"}
+              >
+                {busy === "email" && <Loader2 className="size-4 animate-spin" />}
+                {emailSent ? "Send again" : "Send code"}
+              </Button>
+            </div>
+          )}
+          {!linkSent?.sent && emailCodeBox}
           <button
             type="button"
             className="text-xs text-primary hover:underline"
