@@ -54,10 +54,10 @@ export interface QueueRow {
 
 export async function getCustomerQueue(
   scope: "OPEN" | "DONE" | "ALL",
-): Promise<{ drafts: number; rows: QueueRow[] }> {
+): Promise<{ drafts: number; rows: QueueRow[]; restricted?: boolean }> {
   const { data, error } = await supabase.rpc("fn_staff_customer_queue", { p_scope: scope });
   if (error) throw new Error(message(error));
-  return data as { drafts: number; rows: QueueRow[] };
+  return data as { drafts: number; rows: QueueRow[]; restricted?: boolean };
 }
 
 export interface CaseFile {

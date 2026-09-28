@@ -27,7 +27,7 @@ from botocore.config import Config
 
 import face_match
 
-from shared.supabase_client import customer_can_upload, customer_register_document, is_staff_request, valid_application_id
+from shared.supabase_client import can_see_customer_data, customer_can_upload, customer_register_document, valid_application_id
 
 s3 = boto3.client("s3", region_name="ap-south-1", config=Config(s3={"addressing_style": "virtual"}))
 textract = boto3.client("textract", region_name="ap-south-1")
@@ -72,7 +72,7 @@ def handler(event, context):
 
     if not valid_application_id(app):
         return _response(400, {"error": "valid applicationId required"})
-    staff = is_staff_request(event)
+    staff = can_see_customer_data(event)
     if not (staff or customer_can_upload(event, app)):
         return _response(401, {"error": "sign-in required"})
     if code not in DOC_TYPES or side not in ("front", "back", "single"):

@@ -13,7 +13,7 @@ import boto3
 
 from shared.supabase_client import (
     get_extractions,
-    is_staff_request,
+    can_see_customer_data,
     valid_application_id,
     write_validation_result,
 )
@@ -25,7 +25,7 @@ BUCKET = os.environ.get("DOCS_BUCKET", "cercit-docs")
 def handler(event, context):
     """Can be invoked directly via API Gateway or as step function."""
     via_api = "httpMethod" in event
-    if via_api and not is_staff_request(event):
+    if via_api and not can_see_customer_data(event):  # names and figures: not for the demo login (sql/050)
         return {"statusCode": 401, "body": "sign-in required"}
     try:
         body = json.loads(event.get("body") or "{}") if via_api else event

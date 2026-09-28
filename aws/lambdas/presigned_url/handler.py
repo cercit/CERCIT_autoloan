@@ -14,8 +14,8 @@ import boto3
 from botocore.config import Config
 
 from shared.supabase_client import (
+    can_see_customer_data,
     customer_can_upload,
-    is_staff_request,
     resume_lookup,
     send_continue_link,
     valid_application_id,
@@ -74,7 +74,7 @@ def handler(event, context):
     if not valid_application_id(application_id):
         return _response(400, {"error": "valid applicationId required"})
     # Staff for any application; a customer only for their own draft (sql/044).
-    staff = is_staff_request(event)
+    staff = can_see_customer_data(event)  # not the shared demo login (sql/050)
     if not (staff or customer_can_upload(event, application_id)):
         return _response(401, {"error": "sign-in required"})
     if doc_type not in DOC_TYPE_FOLDERS:
@@ -115,7 +115,7 @@ def get_extractions_handler(event, context):
         return _response(400, {"error": "valid applicationId required"})
     # Staff see everything; a customer sees what was read from their own draft's
     # documents, to pre-fill step 4 (sql/046), and only the fields step 4 uses.
-    staff = is_staff_request(event)
+    staff = can_see_customer_data(event)  # not the shared demo login (sql/050)
     if not (staff or customer_can_upload(event, application_id)):
         return _response(401, {"error": "sign-in required"})
 
@@ -163,7 +163,7 @@ def document_url_handler(event, context):
     """
     if event.get("httpMethod") == "OPTIONS":
         return _response(200, {})
-    if not is_staff_request(event):
+    if not can_see_customer_data(event):
         return _response(401, {"error": "sign-in required"})
     try:
         body = json.loads(event.get("body") or "{}")

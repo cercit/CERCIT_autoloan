@@ -1571,7 +1571,7 @@ const asOperator = () => asApi("", "");
   const p1 = (await save("PERSONAL", personal, { dob: "1991-06-02", father_name: "Ramesh Rau", pan: "ABCPR1234F" })).rows[0].v;
   t.equal("changes to pre-filled fields are listed; the PAN is kept masked", [p1.edited, p1.values.pan], [["father_name"], "XXXXXX234F"]);
   await save("PERSONAL", { ...personal, pan: "XXXXXX234F" });
-  t.equal("re-saving with the masked PAN keeps the PAN", (await one("select pan_last4 from customers where auth_user_id = $1", [CUST])).pan_last4, "234F");
+  t.equal("re-saving with the masked PAN keeps the PAN", (await one("select fn_customer_details($1) as v", [app])).v.customer.pan_last4, "234F");
 
   await t.rejects("a rented home needs the owner's mobile", () => save("ADDRESS", { permanent: addr, current_same: true, residence: "RENTED", owner_name: "K Das", years_at_current: 2 }), /owner's 10-digit mobile/);
   await t.rejects("a bad PIN is refused", () => save("ADDRESS", { permanent: { ...addr, pincode: "056003" }, current_same: true, residence: "OWNED", years_at_current: 5 }), /PIN code/);
@@ -1782,6 +1782,44 @@ const asOperator = () => asApi("", "");
   t.equal("the account number is stored encrypted", (await one("select count(*)::int as n from repayment_mandates where account_enc is not null and account_last4 = '6789'")).n, 1);
   t.equal("new applications never start with the dealer's papers on the checklist",
     (await one("select count(*)::int as n from application_document_requirements r join applications a on a.id = r.application_id where a.status = 'DRAFT' and r.doc_type in ('MARGIN_RECEIPT','VEHICLE_INVOICE','INSURANCE','RC')")).n, 0);
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 29. Real customers are hidden from the public demo login (050)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("customer privacy");
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('demo-viewer@t.in', 'Demo', 'demo_viewer', $1)", [DEMO]);
+  const app = (await one("select application_id from applications where origin = 'CUSTOMER' and status <> 'DRAFT' limit 1")).application_id;
+  const as = async (sub) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("set role authenticated");
+
+  await as(DEMO);
+  t.equal("the demo login is not allowed real customers", (await one("select fn_sees_real_customers() as v")).v, false);
+  const dq = (await one("select fn_staff_customer_queue('ALL') as v")).v;
+  t.equal("its customer queue is empty", [dq.rows.length, dq.restricted], [0, true]);
+  await t.rejects("it cannot open a real customer's case", () => db.query("select fn_staff_customer_case($1)", [app]), /application not found/);
+  await t.rejects("or the loan documents", () => db.query("select fn_staff_after_approval($1)", [app]), /application not found/);
+  await t.rejects("or the credit checks", () => db.query("select fn_staff_customer_checks($1)", [app]), /application not found/);
+  t.equal("customer-journey applications are not in the old list", (await one("select count(*)::int as n from fn_list_applications() l join applications a on a.application_id = l.application_id where a.origin = 'CUSTOMER'")).n, 0);
+  t.equal("reading the tables directly shows no real customer",
+    [(await one("select count(*)::int as n from customers where auth_user_id is not null")).n,
+     (await one("select count(*)::int as n from applications where origin = 'CUSTOMER'")).n,
+     (await one("select count(*)::int as n from documents d join applications a on a.id = d.application_id where a.application_id = $1", [app])).n],
+    [0, 0, 0]);
+  t.equal("sample cases stay visible to the demo", (await one("select count(*)::int as n from applications where origin = 'STAFF'")).n > 0, true);
+
+  await as(OFFICER);
+  t.equal("an officer still sees them", [(await one("select fn_sees_real_customers() as v")).v, (await one("select fn_staff_customer_queue('ALL') as v")).v.rows.length > 0], [true, true]);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
   failures += t.report();
 }
 

@@ -124,6 +124,25 @@ def send_continue_link(email: str, redirect_to: str) -> bool:
         return False
 
 
+def can_see_customer_data(event: dict) -> bool:
+    """Staff allowed to see real customers' personal data (sql/050: pii.reveal).
+    The shared demo login is staff but is not allowed."""
+    auth = _bearer(event)
+    if not auth:
+        return False
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/rpc/fn_sees_real_customers",
+        data=b"{}",
+        method="POST",
+        headers={"apikey": SUPABASE_KEY, "Authorization": auth, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read() or "false") is True
+    except (urllib.error.HTTPError, urllib.error.URLError, ValueError):
+        return False
+
+
 def _headers() -> dict[str, str]:
     return {
         "apikey": SUPABASE_KEY,

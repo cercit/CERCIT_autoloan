@@ -30,7 +30,11 @@ function waited(hours: number) {
 
 function CustomerQueue() {
   const [scope, setScope] = useState<Scope>("OPEN");
-  const [data, setData] = useState<{ drafts: number; rows: QueueRow[] } | null>(null);
+  const [data, setData] = useState<{
+    drafts: number;
+    rows: QueueRow[];
+    restricted?: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,11 +94,19 @@ function CustomerQueue() {
         ) : data.rows.length === 0 ? (
           <EmptyState
             icon={Inbox}
-            title={scope === "OPEN" ? "Nothing waiting" : "No applications here yet"}
+            title={
+              data.restricted
+                ? "Real customers are hidden from this login"
+                : scope === "OPEN"
+                  ? "Nothing waiting"
+                  : "No applications here yet"
+            }
             description={
-              scope === "OPEN"
-                ? "Submitted customer applications appear here for the documents check and the credit decision."
-                : "Decided customer applications appear here."
+              data.restricted
+                ? "This login can see sample cases only. Officers, managers, compliance and admins see real applications."
+                : scope === "OPEN"
+                  ? "Submitted customer applications appear here for the documents check and the credit decision."
+                  : "Decided customer applications appear here."
             }
           />
         ) : (
