@@ -120,3 +120,62 @@ def fuzzy_field_match(
             if pat in key:
                 return {"key": key, **val}
     return None
+
+
+# ---------------------------------------------------------------------------
+# Reading a document (shared by the document readers, 28 Sep 2026)
+# ---------------------------------------------------------------------------
+
+def analyze(textract, bucket: str, key: str, features: list[str], wait_seconds: int = 90) -> list[dict]:
+    """Textract blocks for a file in S3. One-page files use the quick call; a
+    multi-page PDF (Form 16, e-statements) is not supported there, so it goes
+    through the asynchronous job instead."""
+    import time
+
+    try:
+        return textract.analyze_document(
+            Document={"S3Object": {"Bucket": bucket, "Name": key}}, FeatureTypes=features
+        ).get("Blocks", [])
+    except textract.exceptions.UnsupportedDocumentException:
+        pass
+
+    job_id = textract.start_document_analysis(
+        DocumentLocation={"S3Object": {"Bucket": bucket, "Name": key}}, FeatureTypes=features
+    )["JobId"]
+    for _ in range(max(1, wait_seconds // 3)):
+        time.sleep(3)
+        result = textract.get_document_analysis(JobId=job_id)
+        if result["JobStatus"] == "SUCCEEDED":
+            blocks = result.get("Blocks", [])
+            token = result.get("NextToken")
+            while token:
+                more = textract.get_document_analysis(JobId=job_id, NextToken=token)
+                blocks.extend(more.get("Blocks", []))
+                token = more.get("NextToken")
+            return blocks
+        if result["JobStatus"] == "FAILED":
+            raise RuntimeError(f"Textract job failed: {result.get('StatusMessage')}")
+    raise TimeoutError("Textract job did not finish in time")
+
+
+_COMPANY_WORDS = re.compile(
+    r"\b(ltd|limited|pvt|private|llp|inc|corporation|corp|technologies|technology|solutions|services|"
+    r"systems|industries|enterprises|bank|finance|motors|consultancy|software|infotech|labs)\b\.?",
+    re.IGNORECASE,
+)
+
+
+def company_name_from_lines(blocks: list[dict]) -> str | None:
+    """Payslips usually print the employer as a heading, not as "Employer: ...".
+    The first line near the top of page 1 that reads like a company name."""
+    lines = [
+        b for b in blocks
+        if b.get("BlockType") == "LINE" and b.get("Page", 1) == 1 and "Text" in b
+        and b.get("Geometry", {}).get("BoundingBox", {}).get("Top", 1) < 0.3
+    ]
+    lines.sort(key=lambda b: b["Geometry"]["BoundingBox"]["Top"])
+    for b in lines:
+        text = b["Text"].strip()
+        if 4 <= len(text) <= 120 and _COMPANY_WORDS.search(text) and not re.search(r"payslip|pay slip|salary slip", text, re.I):
+            return text.rstrip(" ,.-")
+    return None

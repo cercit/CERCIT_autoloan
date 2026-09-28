@@ -11,6 +11,7 @@ import os
 import boto3
 
 from shared.textract_parser import (
+    analyze,
     parse_key_value_pairs,
     parse_tables,
     normalize_amount,
@@ -57,10 +58,8 @@ def handler(event, context):
     if not application_id:
         return {"statusCode": 400, "body": "No application_id in S3 key"}
 
-    response = textract.analyze_document(
-        Document={"S3Object": {"Bucket": bucket, "Name": key}},
-        FeatureTypes=["FORMS", "TABLES"],
-    )
+    blocks = analyze(textract, bucket, key, ["FORMS", "TABLES"])
+    response = {"Blocks": blocks}
 
     blocks = response.get("Blocks", [])
     kv_pairs = parse_key_value_pairs(blocks)
@@ -68,7 +67,11 @@ def handler(event, context):
 
     fields = _extract_form16_fields(kv_pairs, tables)
 
-    cross_check = _cross_validate_employer(application_id, fields)
+    try:
+        cross_check = _cross_validate_employer(application_id, fields)
+    except Exception as e:  # noqa: BLE001 - never lose the reading over a cross-check
+        print(f"employer cross-check skipped: {type(e).__name__}")
+        cross_check = None
     if cross_check:
         fields["_cross_validation"] = cross_check
 
@@ -86,7 +89,10 @@ def handler(event, context):
         ContentType="application/json",
     )
 
-    upsert_extraction(application_id, "form16", fields)
+    try:
+        upsert_extraction(application_id, "form16", fields)
+    except Exception as e:  # noqa: BLE001
+        print(f"database copy skipped: {type(e).__name__}")
 
     return {"statusCode": 200, "body": json.dumps(result)}
 
@@ -147,9 +153,25 @@ def _try_income_from_tables(tables: list[list[dict]], fields: dict):
                         }
 
 
+
+def _saved_reads(application_id: str) -> list[dict]:
+    """What the other readers already found for this application (their S3 files).
+    The document_extractions table does not take these rows yet (reconcile list R20)."""
+    out = []
+    try:
+        listing = s3.list_objects_v2(Bucket=BUCKET, Prefix=f"extracted/{application_id}/")
+        for obj in listing.get("Contents", []):
+            if obj["Key"].endswith(".json"):
+                data = json.loads(s3.get_object(Bucket=BUCKET, Key=obj["Key"])["Body"].read())
+                out.append({"doc_type": data.get("source", ""), "fields": data.get("fields", {})})
+    except Exception:  # noqa: BLE001 - a cross-check is a bonus, never a reason to fail
+        pass
+    return out
+
+
 def _cross_validate_employer(application_id: str, form16_fields: dict) -> dict | None:
     """Compare employer name from Form 16 against salary slip extraction."""
-    existing = get_extractions(application_id)
+    existing = _saved_reads(application_id)
     salary_data = next(
         (e for e in existing if e.get("doc_type") == "salary_slip"), None
     )

@@ -11,6 +11,8 @@ import os
 import boto3
 
 from shared.textract_parser import (
+    analyze,
+    company_name_from_lines,
     parse_key_value_pairs,
     parse_tables,
     normalize_amount,
@@ -47,16 +49,15 @@ def handler(event, context):
     if not application_id:
         return {"statusCode": 400, "body": "No application_id in S3 key metadata"}
 
-    response = textract.analyze_document(
-        Document={"S3Object": {"Bucket": bucket, "Name": key}},
-        FeatureTypes=["FORMS", "TABLES"],
-    )
-
-    blocks = response.get("Blocks", [])
+    blocks = analyze(textract, bucket, key, ["FORMS", "TABLES"])
     kv_pairs = parse_key_value_pairs(blocks)
     tables = parse_tables(blocks)
 
     fields = _extract_salary_fields(kv_pairs, tables)
+    if "employer_name" not in fields:
+        heading = company_name_from_lines(blocks)
+        if heading:
+            fields["employer_name"] = {"value": heading, "confidence": 0.6, "source": "heading"}
 
     result = {
         "application_id": application_id,
@@ -72,7 +73,10 @@ def handler(event, context):
         ContentType="application/json",
     )
 
-    upsert_extraction(application_id, "salary_slip", fields)
+    try:
+        upsert_extraction(application_id, "salary_slip", fields)
+    except Exception as e:  # noqa: BLE001 - the S3 file above is what the screens read
+        print(f"database copy skipped: {type(e).__name__}")
 
     app_updates = {}
     if fields.get("employer_name", {}).get("confidence", 0) > 0.7:

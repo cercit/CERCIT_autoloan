@@ -11,8 +11,8 @@ import os
 import re
 import boto3
 
-from shared.textract_parser import parse_key_value_pairs, fuzzy_field_match
-from shared.supabase_client import upsert_extraction, get_extractions
+from shared.textract_parser import analyze, parse_key_value_pairs, fuzzy_field_match
+from shared.supabase_client import upsert_extraction
 
 textract = boto3.client("textract", region_name="ap-south-1")
 s3 = boto3.client("s3")
@@ -46,12 +46,7 @@ def handler(event, context):
 
     doc_type = _detect_kyc_type(key)
 
-    response = textract.analyze_document(
-        Document={"S3Object": {"Bucket": bucket, "Name": key}},
-        FeatureTypes=["FORMS"],
-    )
-
-    blocks = response.get("Blocks", [])
+    blocks = analyze(textract, bucket, key, ["FORMS"])
     kv_pairs = parse_key_value_pairs(blocks)
     raw_text = _get_all_text(blocks)
 
@@ -60,9 +55,12 @@ def handler(event, context):
     else:
         fields = _extract_aadhaar(kv_pairs, raw_text)
 
-    cross_check = _cross_validate_name(application_id, fields, doc_type)
-    if cross_check:
-        fields["_cross_validation"] = cross_check
+    try:
+        cross_check = _cross_validate_name(application_id, fields, doc_type)
+        if cross_check:
+            fields["_cross_validation"] = cross_check
+    except Exception as e:  # noqa: BLE001 - never lose the reading over a cross-check
+        print(f"name cross-check skipped: {type(e).__name__}")
 
     result = {
         "application_id": application_id,
@@ -78,7 +76,10 @@ def handler(event, context):
         ContentType="application/json",
     )
 
-    upsert_extraction(application_id, doc_type, fields)
+    try:
+        upsert_extraction(application_id, doc_type, fields)
+    except Exception as e:  # noqa: BLE001 - the S3 file above is what the screens read
+        print(f"database copy skipped: {type(e).__name__}")
 
     return {"statusCode": 200, "body": json.dumps(result)}
 
@@ -146,7 +147,7 @@ def _get_all_text(blocks: list[dict]) -> str:
 
 def _cross_validate_name(application_id: str, current_fields: dict, current_type: str) -> dict | None:
     """Check name consistency across already-extracted KYC docs."""
-    existing = get_extractions(application_id)
+    existing = _saved_reads(application_id)
     current_name = current_fields.get("name", {}).get("value", "")
     if not current_name:
         return None
@@ -172,6 +173,21 @@ def _cross_validate_name(application_id: str, current_fields: dict, current_type
         })
 
     return checks if checks else None
+
+
+def _saved_reads(application_id: str) -> list[dict]:
+    """What the other readers already found for this application (their S3 files).
+    The document_extractions table does not take these rows yet (reconcile list R20)."""
+    out = []
+    try:
+        listing = s3.list_objects_v2(Bucket=BUCKET, Prefix=f"extracted/{application_id}/")
+        for obj in listing.get("Contents", []):
+            if obj["Key"].endswith(".json"):
+                data = json.loads(s3.get_object(Bucket=BUCKET, Key=obj["Key"])["Body"].read())
+                out.append({"doc_type": data.get("source", ""), "fields": data.get("fields", {})})
+    except Exception:  # noqa: BLE001 - a cross-check is a bonus, never a reason to fail
+        pass
+    return out
 
 
 def _token_similarity(a: str, b: str) -> float:

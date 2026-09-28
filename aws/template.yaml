@@ -177,7 +177,7 @@ Resources:
       FunctionName: cercit-salary-slip-extractor
       CodeUri: lambdas/salary_slip_extractor/
       Handler: handler.handler
-      Timeout: 60
+      Timeout: 120
       Policies:
         - S3CrudPolicy:
             BucketName: !Sub "cercit-docs-${AWS::AccountId}"
@@ -200,7 +200,7 @@ Resources:
       FunctionName: cercit-form16-extractor
       CodeUri: lambdas/form16_extractor/
       Handler: handler.handler
-      Timeout: 60
+      Timeout: 120
       Policies:
         - S3CrudPolicy:
             BucketName: !Sub "cercit-docs-${AWS::AccountId}"
@@ -223,7 +223,7 @@ Resources:
       FunctionName: cercit-kyc-extractor
       CodeUri: lambdas/kyc_extractor/
       Handler: handler.handler
-      Timeout: 60
+      Timeout: 120
       Policies:
         - S3CrudPolicy:
             BucketName: !Sub "cercit-docs-${AWS::AccountId}"
