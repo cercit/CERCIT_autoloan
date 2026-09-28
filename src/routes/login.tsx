@@ -166,7 +166,7 @@ function StaffLogin() {
         if (/invalid login credentials/i.test(result.error)) {
           await recordFailedLogin(normalized);
           setError(
-            "Wrong email or password. After 5 wrong tries in a row the account locks for 30 minutes.",
+            'Wrong email or password. After 5 wrong tries in a row the account locks for 30 minutes. Added by an admin and never set a password? Use "Email me a code instead".',
           );
         } else {
           setError(result.error);
@@ -217,7 +217,7 @@ function StaffLogin() {
                     id="code"
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    placeholder="6-digit code"
+                    placeholder="8-digit code"
                     required
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
@@ -228,7 +228,7 @@ function StaffLogin() {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  We will email you a six-digit code. No password needed.
+                  We will email you an 8-digit code. No password needed.
                 </p>
               )
             ) : (
