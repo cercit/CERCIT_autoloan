@@ -199,6 +199,11 @@ export async function sendLoginCode(email: string): Promise<{ error: string | nu
     email: email.trim().toLowerCase(),
     options: { shouldCreateUser: false },
   });
+  if (error && /signups not allowed/i.test(error.message))
+    return {
+      error:
+        "There is no login for this email yet. An admin adds staff on the Users page and sends the sign-in email from there.",
+    };
   return { error: error?.message ?? null };
 }
 
