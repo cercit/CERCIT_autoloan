@@ -1399,7 +1399,7 @@ const asOperator = () => asApi("", "");
     source: "MANUAL", make: "Hyundai", model: "Creta", variant: "SX", fuel_type: "PETROL",
     ex_showroom: 1500000, road_tax: 150000, insurance: 60000, loan_amount: 1200000, tenure_months: 60, ...extra })]);
 
-  t.equal("ten document types from the map (ITR added in 045)", (await one("select count(*)::int as n from document_types")).n, 10);
+  t.equal("fourteen document types (ITR in 045; dealer papers and RC in 049)", (await one("select count(*)::int as n from document_types")).n, 14);
   await db.query("set role anon");
   await asApi("anon");
   t.equal("anyone can read the consent wording", version, "2026-09-v1");
@@ -1521,7 +1521,7 @@ const asOperator = () => asApi("", "");
   const docOf = async (code) => (await one("select fn_customer_current() as v")).v.draft.documents.find((d) => d.doc_type === code);
 
   const types = (await one("select fn_document_upload_types() as v")).v;
-  t.equal("password asked only where files come locked", Object.keys(types).filter((k) => types[k].ask_password).sort(), ["AADHAAR", "BANK_STMT", "ITR", "SALARY_SLIP"]);
+  t.equal("password asked only where files come locked", Object.keys(types).filter((k) => types[k].ask_password && types[k].stage === "APPLICATION").sort(), ["AADHAAR", "BANK_STMT", "ITR", "SALARY_SLIP"]);
   t.equal("ITR is optional and takes several files", [types.ITR.required, types.ITR.multi_file, types.ITR.folder], ["OPTIONAL", true, "uploads/other/itr"]);
   t.equal("open drafts get the live photo on the checklist", (await docOf("LIVE_PHOTO"))?.required, "ALWAYS");
 
@@ -1703,6 +1703,85 @@ const asOperator = () => asApi("", "");
   t.equal("simulated scores sit in the bureau range", dist.lo >= 300 && dist.hi <= 900, true);
   t.equal("every officer step is audited with who did it",
     (await one("select count(*) filter (where actor_id is null)::int as anon, count(*)::int as n from audit_events where event_type like 'OFFICER\\_%' and event_type <> 'OFFICER_DECISION'")).anon, 0);
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 28. After approval: offer and KFS, agreement, mandate, disbursement (049)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("after approval");
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub, email, extra = {}) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, email, role: "authenticated", ...extra })]);
+  };
+  const fresh = { amr: [{ method: "otp", timestamp: Math.floor(Date.now() / 1000) - 30 }] };
+
+  t.equal("working days skip the weekend", (await one("select fn_add_working_days('2026-10-02', 3)::text as v")).v, "2026-10-07");
+  t.equal("APR with no charges is the interest rate", Number((await one("select fn_apr(1000000, fn_emi(1000000, 9, 60), 60) as v")).v), 9);
+  t.equal("first EMI is the 5th, at least 15 days out",
+    await one("select fn_first_emi_date('2026-10-25')::text as a, fn_first_emi_date('2026-10-10')::text as b"), { a: "2026-12-05", b: "2026-11-05" });
+
+  await db.query("set role authenticated");
+  await as(OFFICER, "o@t.in");
+  const app = (await one("select application_id from applications where origin = 'CUSTOMER' and status = 'APPROVED'")).application_id;
+  await db.query("select fn_staff_issue_offer($1)", [app]);
+  const o = (await one("select fn_staff_after_approval($1) as v", [app])).v.offer;
+  t.equal("the offer carries fees, an APR above the rate, and a few working days to accept",
+    [o.status, Number(o.apr_pct) > Number(o.rate_pct), Number(o.net_disbursal) === Number(o.sanctioned_amount) - Number(o.total_upfront), o.valid_until > new Date().toISOString().slice(0, 10)],
+    ["ISSUED", true, true, true]);
+
+  await as(CUST, "asha.r@example.com");
+  await t.rejects("accepting needs the KFS version they saw", () => db.query("select fn_customer_accept_offer($1, 'x', 't')", [app]), /changed since you opened/);
+  await t.rejects("accepting needs a fresh email code", () => db.query("select fn_customer_accept_offer($1, $2, 't')", [app, o.kfs_hash]), /code we email you/);
+  await as(CUST, "asha.r@example.com", fresh);
+  await db.query("select fn_customer_accept_offer($1, $2, 't')", [app, o.kfs_hash]);
+  let cv = (await one("select fn_customer_after_approval($1) as v", [app])).v;
+  t.equal("accepted: the agreement is ready and the dealer's papers are asked for",
+    [cv.offer.status, cv.agreement.status, cv.documents.map((d) => d.doc_type)], ["ACCEPTED", "READY", ["MARGIN_RECEIPT", "VEHICLE_INVOICE", "INSURANCE"]]);
+
+  await t.rejects("the signature must be the customer's name", () => db.query("select fn_customer_sign_agreement($1, $2, 'Someone Else', 't')", [app, cv.agreement.content_hash]), /type your full name exactly/);
+  await db.query("select fn_customer_sign_agreement($1, $2, '  asha   r ', 't')", [app, cv.agreement.content_hash]);
+  await t.rejects("a bad IFSC is refused", () => db.query("select fn_customer_set_mandate($1, $2)", [app, JSON.stringify({ holder_name: "Asha Rao", bank_name: "HDFC Bank", ifsc: "HDFC123", account_number: "50100123456789" })]), /IFSC/);
+  await db.query("select fn_customer_set_mandate($1, $2)", [app, JSON.stringify({ holder_name: "Asha Rao", bank_name: "HDFC Bank", ifsc: "hdfc0001234", account_number: "5010 0123 4567 89", account_type: "savings" })]);
+  cv = (await one("select fn_customer_after_approval($1) as v", [app])).v;
+  t.equal("signed, and the mandate shows only the last 4 digits",
+    [cv.agreement.status, cv.agreement.sign_method, cv.mandate.account, cv.mandate.umrn.startsWith("SIM")], ["SIGNED", "EMAIL_CODE_DEMO", "XXXXXX6789", true]);
+  t.equal("tracking lists the dealer's papers to upload",
+    (await one("select fn_customer_track() as v")).v.applications[0].attention.map((a) => a.doc_type).includes("VEHICLE_INVOICE"), true);
+
+  await as(OFFICER, "o@t.in");
+  await t.rejects("disbursing waits for the dealer's papers", () => db.query("select fn_staff_disburse($1)", [app]), /Down payment receipt.*Vehicle invoice.*Motor insurance/);
+  await as(CUST, "asha.r@example.com");
+  for (const [code, folder] of [["MARGIN_RECEIPT", "margin-receipt"], ["VEHICLE_INVOICE", "invoice"], ["INSURANCE", "insurance"]]) {
+    await db.query("select fn_customer_register_document($1, $2, 'single', $3, 'f.pdf', 'application/pdf', 9000, $4)", [app, code, `uploads/other/${folder}/${app}/abcd1234-f.pdf`, "e".repeat(64)]);
+  }
+  await as(OFFICER, "o@t.in");
+  for (const code of ["MARGIN_RECEIPT", "VEHICLE_INVOICE", "INSURANCE"]) {
+    await db.query("select fn_staff_customer_action($1, 'ACCEPT_DOC', $2)", [app, JSON.stringify({ doc_type: code })]);
+  }
+  await t.rejects("other documents stay closed after approval", () => db.query("select fn_staff_customer_action($1, 'REQUEST_DOC', $2)", [app, JSON.stringify({ doc_type: "PAN", reason: "Please send it again" })]), /closed/);
+  const d = (await one("select fn_staff_disburse($1, '{}') as v", [app])).v;
+  cv = (await one("select fn_staff_after_approval($1) as v", [app])).v;
+  const sched = cv.loan.schedule;
+  t.equal("disbursed: loan account, a schedule that repays exactly the loan, RC asked for",
+    [cv.application.status, d.loan_account_no.startsWith("CL"), sched.length, Math.round(sched.reduce((s, r) => s + Number(r.principal), 0)), cv.documents.find((x) => x.doc_type === "RC")?.status],
+    ["DISBURSED", true, Number(cv.offer.tenure_months), Math.round(Number(cv.offer.sanctioned_amount)), "MISSING"]);
+  await as(CUST, "asha.r@example.com");
+  const tr = (await one("select fn_customer_track() as v")).v.applications[0];
+  t.equal("the customer sees their loan account and the RC to send", [tr.loan.account, tr.attention.map((a) => a.doc_type)], [d.loan_account_no, ["RC"]]);
+  t.equal("the RC can be uploaded after disbursement",
+    (await one("select fn_customer_register_document($1, 'RC', 'single', $2, 'rc.pdf', 'application/pdf', 9000, $3) as v", [app, `uploads/other/rc/${app}/abcd1234-rc.pdf`, "f".repeat(64)])).v.status, "RECEIVED");
+  const types = (await one("select fn_document_upload_types() as v")).v;
+  t.equal("step 3 can tell application documents from the later ones", [types.PAN.stage, types.INSURANCE.stage, types.RC.stage], ["APPLICATION", "BEFORE_DISBURSAL", "AFTER_DISBURSAL"]);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("the account number is stored encrypted", (await one("select count(*)::int as n from repayment_mandates where account_enc is not null and account_last4 = '6789'")).n, 1);
+  t.equal("new applications never start with the dealer's papers on the checklist",
+    (await one("select count(*)::int as n from application_document_requirements r join applications a on a.id = r.application_id where a.status = 'DRAFT' and r.doc_type in ('MARGIN_RECEIPT','VEHICLE_INVOICE','INSURANCE','RC')")).n, 0);
   failures += t.report();
 }
 

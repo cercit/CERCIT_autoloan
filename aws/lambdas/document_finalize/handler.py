@@ -45,6 +45,10 @@ DOC_TYPES = {
     "COMPANY_ID": ("company_id", "uploads/other/company-id"),
     "LIVE_PHOTO": ("live_photo", "uploads/other/live-photo"),
     "ITR": ("itr", "uploads/other/itr"),
+    "MARGIN_RECEIPT": ("margin_receipt", "uploads/other/margin-receipt"),
+    "VEHICLE_INVOICE": ("vehicle_invoice", "uploads/other/invoice"),
+    "INSURANCE": ("insurance", "uploads/other/insurance"),
+    "RC": ("rc", "uploads/other/rc"),
 }
 MAGIC = {"application/pdf": b"%PDF", "image/jpeg": b"\xff\xd8", "image/png": b"\x89PNG"}
 MAX_SIZE = 10 * 1024 * 1024

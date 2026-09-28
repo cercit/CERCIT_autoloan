@@ -3,15 +3,11 @@ import { ArrowLeft, Download, Printer } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
-import {
-  COMPANY,
-  LetterLayout,
-  LetterTable,
-  formatLetterDate,
-} from "@/components/letter-layout";
+import { COMPANY, LetterLayout, LetterTable, formatLetterDate } from "@/components/letter-layout";
 import { Button } from "@/components/ui/button";
 import { emiFor, inr } from "@/lib/format";
-import { downloadLetterPdf } from "@/lib/pdf";
+import { downloadPdf } from "@/lib/doc-pdf";
+import { legacyApprovalSpec } from "@/lib/legacy-letters";
 import { getApplication } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 
@@ -65,7 +61,15 @@ function ApprovalLetter() {
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="size-4" /> Print
           </Button>
-          <Button variant="outline" onClick={() => downloadLetterPdf("approval-letter", `approval_${app.id}_${new Date().toISOString().split("T")[0]}.pdf`)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              void downloadPdf(
+                legacyApprovalSpec(app),
+                `approval_${app.id}_${new Date().toISOString().split("T")[0]}.pdf`,
+              )
+            }
+          >
             <Download className="size-4" /> PDF
           </Button>
         </div>
@@ -111,10 +115,10 @@ function ApprovalLetter() {
           <p>Dear {app.name.split(" ")[0]},</p>
 
           <p>
-            With reference to your vehicle loan application dated {app.submitted}, we are
-            pleased to convey that your application has received{" "}
-            <span className="font-semibold">in-principle approval</span> on the indicative
-            terms set out below.
+            With reference to your vehicle loan application dated {app.submitted}, we are pleased to
+            convey that your application has received{" "}
+            <span className="font-semibold">in-principle approval</span> on the indicative terms set
+            out below.
           </p>
 
           {/* Indicative terms table */}
@@ -132,11 +136,11 @@ function ApprovalLetter() {
 
           <p className="font-semibold">Nature of this communication</p>
           <p>
-            This letter is an in-principle indication of our willingness to extend credit
-            and <span className="font-semibold">does not constitute</span> a sanction letter,
-            a loan agreement, a commitment to disburse funds, or an authorisation to the
-            dealer to deliver the vehicle. No rights, entitlements, or claims arise from
-            this communication under the Indian Contract Act, 1872, or otherwise.
+            This letter is an in-principle indication of our willingness to extend credit and{" "}
+            <span className="font-semibold">does not constitute</span> a sanction letter, a loan
+            agreement, a commitment to disburse funds, or an authorisation to the dealer to deliver
+            the vehicle. No rights, entitlements, or claims arise from this communication under the
+            Indian Contract Act, 1872, or otherwise.
           </p>
 
           <p className="font-semibold">Conditions precedent</p>
@@ -147,37 +151,34 @@ function ApprovalLetter() {
             <li>Vehicle invoice and insurance documentation from the authorised dealer</li>
             <li>Compliance with all applicable policy norms prevailing at the date of sanction</li>
             <li>Execution of the loan agreement, NACH mandate, and hypothecation undertaking</li>
-            <li>
-              Any other condition that {COMPANY.name} may stipulate prior to sanction
-            </li>
+            <li>Any other condition that {COMPANY.name} may stipulate prior to sanction</li>
           </ol>
 
           <p className="font-semibold">Validity and revocation</p>
           <p>
             This in-principle approval is valid for{" "}
             <span className="font-semibold">
-              30 (thirty) calendar days from the date of this letter, or until a formal
-              sanction letter is issued, whichever is earlier.
+              30 (thirty) calendar days from the date of this letter, or until a formal sanction
+              letter is issued, whichever is earlier.
             </span>{" "}
             If the sanction letter is not issued within this period, the approval lapses
             automatically and a fresh application may be required.
           </p>
           <p>
-            {COMPANY.name} reserves the right to revoke, modify, or withdraw this
-            in-principle approval at any time, at its sole discretion, without assigning
-            any reason and without any liability, in accordance with its internal credit
-            policy and applicable RBI guidelines on Fair Practices Code (Master Direction
-            DoR.FIN.REC.37/03.10.038/2024-25).
+            {COMPANY.name} reserves the right to revoke, modify, or withdraw this in-principle
+            approval at any time, at its sole discretion, without assigning any reason and without
+            any liability, in accordance with its internal credit policy and applicable RBI
+            guidelines on Fair Practices Code (Master Direction DoR.FIN.REC.37/03.10.038/2024-25).
           </p>
 
           <p className="font-semibold">Disclaimer</p>
           <p>
-            The terms stated above are indicative and may change upon final assessment.
-            The actual loan amount, rate of interest, tenure, and other terms shall be
-            as specified in the sanction letter and the Key Fact Statement (KFS) issued
-            at the time of sanction, in compliance with the RBI circular on KFS dated
-            15 April 2024 (RBI/2024-25/18). Please do not make any financial
-            commitments or payments to the dealer on the basis of this letter alone.
+            The terms stated above are indicative and may change upon final assessment. The actual
+            loan amount, rate of interest, tenure, and other terms shall be as specified in the
+            sanction letter and the Key Fact Statement (KFS) issued at the time of sanction, in
+            compliance with the RBI circular on KFS dated 15 April 2024 (RBI/2024-25/18). Please do
+            not make any financial commitments or payments to the dealer on the basis of this letter
+            alone.
           </p>
         </div>
 
@@ -195,9 +196,9 @@ function ApprovalLetter() {
         <div className="mt-6 border border-dashed border-slate-400 bg-slate-50 px-3 py-2 text-[9px] text-slate-600">
           <p className="font-semibold text-slate-700">Borrower acknowledgment</p>
           <p>
-            I have read and understood that this is an in-principle approval only, not a
-            sanction or commitment to disburse. I understand that the final terms will be
-            communicated in the sanction letter and KFS.
+            I have read and understood that this is an in-principle approval only, not a sanction or
+            commitment to disburse. I understand that the final terms will be communicated in the
+            sanction letter and KFS.
           </p>
           <div className="mt-3 flex gap-12">
             <div>

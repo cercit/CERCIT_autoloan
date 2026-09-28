@@ -58,3 +58,30 @@
 - **R20:** the document readers' write to the `document_extractions` table fails because the columns don't match. Pre-fill and the staff screen read the readers' S3 files instead. The writer needs fixing.
 - **R21:** customer applications have no bureau pull yet, so the policy engine can't recommend. The officer's decision is recorded without a recommendation. The shared decision path is used once a recommendation exists.
 - **R22:** the older **Applications** list also shows customer applications, with blanks (no vehicle row, drafts show as "New"). Decide whether to hide them there, now that Customer applications has its own queue.
+
+## Added 28 Sep afternoon: PDFs fixed, after-approval journey (migration 049)
+
+**PDF audit, what was wrong and what changed**
+- **Old letter PDFs were pictures of the screen.** The sanction and in-principle letters were screenshots pasted into a PDF: no selectable text, no margins, lines cut across pages, no page numbers. The plain blue "c" box stood in for the logo.
+- **New document maker (`src/lib/doc-pdf.ts`):**
+  - Real text, the real logo, and 20–22 mm margins.
+  - Page numbers and a document reference in the footer.
+  - The printkit page-fit loop: a sparse last page is absorbed by going at most one notch tighter, never below 9.7 pt.
+  - Company details come from Organisation settings.
+- **Investor and bank decks:** logo added to every slide, and both PDFs rebuilt.
+- **Removed:** the "Send to customer" button that did nothing.
+
+**New after approval**
+- **Officer:** "Issue the offer and KFS". The KFS follows the RBI format and is open for 3 working days.
+- **Customer, at `/my-loan`** (linked from the tracking page):
+  - Accept the KFS with an email code.
+  - E-sign the loan agreement: typed name plus email code (demo; production uses Aadhaar eSign).
+  - Set up EMI auto-debit (e-NACH, simulated).
+  - Upload the dealer's papers: down-payment receipt, invoice, insurance.
+- **Officer:** accept the papers, then "Disburse to the dealer". This creates the loan account and repayment schedule, and the customer is asked for the RC.
+- **Documents, downloadable by the customer and the officer:** sanction letter, KFS, loan agreement, e-NACH confirmation, disbursement advice, repayment schedule, welcome letter.
+
+**Your steps**
+1. Run `sql/049_after_approval.sql` in Supabase.
+2. Run the AWS deploy. It adds the 4 new upload folders (down-payment receipt, invoice, insurance, RC).
+3. Test: approve a case to final, then "Issue the offer and KFS". As the customer, open the tracking page, click "See your offer", then accept, sign and set up auto-debit. Upload the papers; as the officer, accept them and disburse. Download the documents.

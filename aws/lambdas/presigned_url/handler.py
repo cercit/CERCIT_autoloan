@@ -42,6 +42,11 @@ DOC_TYPE_FOLDERS = {
     "company_id": "uploads/other/company-id",
     "live_photo": "uploads/other/live-photo",
     "itr": "uploads/other/itr",
+    # After approval (sql/049)
+    "margin_receipt": "uploads/other/margin-receipt",
+    "vehicle_invoice": "uploads/other/invoice",
+    "insurance": "uploads/other/insurance",
+    "rc": "uploads/other/rc",
 }
 
 ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/tiff"}

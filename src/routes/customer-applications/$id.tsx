@@ -17,7 +17,10 @@ import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { downloadPdf } from "@/lib/doc-pdf";
 import { inr } from "@/lib/format";
+import { disburse, getCaseLoan, issueOffer, type AfterApproval } from "@/lib/loan-api";
+import { availableDocs } from "@/lib/loan-docs";
 import {
   FACE_TEXT,
   STATUS_TEXT,
@@ -227,15 +230,19 @@ function CaseView() {
         </p>
       )}
 
-      <NextStep
-        c={c}
-        checks={checks}
-        notAccepted={notAccepted}
-        quoteIn={quoteIn}
-        busy={busy}
-        act={act}
-        runChecks={runChecks}
-      />
+      {(a.status === "APPROVED" && a.approval_stage === "FINAL") || a.status === "DISBURSED" ? (
+        <AfterApprovalPanel id={id} onChange={load} />
+      ) : (
+        <NextStep
+          c={c}
+          checks={checks}
+          notAccepted={notAccepted}
+          quoteIn={quoteIn}
+          busy={busy}
+          act={act}
+          runChecks={runChecks}
+        />
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -935,5 +942,202 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
         )}
       </div>
     </SectionCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// After final approval: offer and KFS, the customer's steps, disbursement (sql/049)
+// ---------------------------------------------------------------------------
+
+function AfterApprovalPanel({ id, onChange }: { id: string; onChange: () => Promise<void> }) {
+  const [a, setA] = useState<AfterApproval | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ref, setRef] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      setA(await getCaseLoan(id));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [id]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const run = async (tag: string, fn: () => Promise<unknown>) => {
+    setBusy(tag);
+    setError(null);
+    try {
+      await fn();
+      await load();
+      await onChange();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!a)
+    return (
+      <section className="panel p-4 text-sm text-muted-foreground">
+        {error ?? "Loading the loan…"}
+      </section>
+    );
+  const o = a.offer;
+  const papers = a.documents.filter((x) => x.doc_type !== "RC");
+  const papersOk = papers.length > 0 && papers.every((x) => x.status === "ACCEPTED");
+  const steps: [string, boolean, string][] = [
+    [
+      "Offer and KFS issued",
+      !!o && o.status !== "WITHDRAWN",
+      o ? `${o.sanction_ref}, open until ${o.valid_until}` : "Not issued",
+    ],
+    [
+      "Customer accepted the KFS",
+      o?.status === "ACCEPTED",
+      o?.accepted_at
+        ? new Date(o.accepted_at).toLocaleString("en-IN")
+        : o?.expired
+          ? "Offer expired"
+          : "Waiting",
+    ],
+    [
+      "Agreement e-signed",
+      a.agreement?.status === "SIGNED",
+      a.agreement?.signed_at
+        ? `by ${a.agreement.signer_name}, ${new Date(a.agreement.signed_at).toLocaleString("en-IN")}`
+        : "Waiting",
+    ],
+    [
+      "EMI auto-debit set up",
+      !!a.mandate,
+      a.mandate ? `${a.mandate.bank_name} ${a.mandate.account}, ${a.mandate.umrn}` : "Waiting",
+    ],
+    [
+      "Dealer papers accepted",
+      papersOk,
+      papers.length
+        ? papers.map((x) => `${x.name}: ${x.status.toLowerCase()}`).join(" · ")
+        : "Asked for once the offer is accepted",
+    ],
+    [
+      "Paid to the dealer",
+      !!a.loan,
+      a.loan
+        ? `${a.loan.loan_account_no}, ${inr(a.loan.net_paid, true)} to ${a.loan.paid_to}`
+        : "—",
+    ],
+  ];
+  const canIssue =
+    !a.loan && (!o || o.status === "WITHDRAWN" || o.status === "EXPIRED" || o.expired);
+  const canDisburse =
+    !a.loan &&
+    o?.status === "ACCEPTED" &&
+    a.agreement?.status === "SIGNED" &&
+    !!a.mandate &&
+    papersOk;
+  const docs = availableDocs(a);
+
+  return (
+    <section className="panel border-primary/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">
+          {a.loan
+            ? `Disbursed · loan ${a.loan.loan_account_no}`
+            : "After approval: offer, agreement, disbursement"}
+        </h2>
+        {o && (
+          <span className="text-xs text-muted-foreground">
+            {inr(o.sanctioned_amount)} · {o.rate_pct}% · APR {o.apr_pct}% · EMI {inr(o.emi)} ×{" "}
+            {o.tenure_months}
+          </span>
+        )}
+      </div>
+      <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        {steps.map(([label, done, note]) => (
+          <li key={label} className="flex items-start gap-2">
+            <span
+              className={cn(
+                "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
+                done ? "bg-success text-success-foreground" : "border border-border",
+              )}
+            >
+              {done && <Check className="size-3" aria-hidden="true" />}
+            </span>
+            <span>
+              <span className={cn(done ? "font-medium" : "text-muted-foreground")}>{label}</span>
+              <span className="block text-xs text-muted-foreground">{note}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-4 flex flex-wrap items-end gap-2">
+        {canIssue && (
+          <Button disabled={busy !== null} onClick={() => void run("issue", () => issueOffer(id))}>
+            {busy === "issue" && <Loader2 className="size-4 animate-spin" />}
+            {o ? "Issue a fresh offer and KFS" : "Issue the offer and KFS"}
+          </Button>
+        )}
+        {!a.loan && o?.status === "ACCEPTED" && (
+          <>
+            <div className="space-y-1">
+              <label htmlFor="utr" className="text-xs text-muted-foreground">
+                Payment reference (UTR), optional
+              </label>
+              <input
+                id="utr"
+                value={ref}
+                onChange={(e) => setRef(e.target.value.toUpperCase().slice(0, 30))}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                placeholder="Simulated if left blank"
+              />
+            </div>
+            <Button
+              disabled={busy !== null || !canDisburse}
+              onClick={() => void run("disburse", () => disburse(id, ref || undefined))}
+            >
+              {busy === "disburse" && <Loader2 className="size-4 animate-spin" />} Disburse to the
+              dealer
+            </Button>
+          </>
+        )}
+      </div>
+      {error && (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+      {docs.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Loan documents
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {docs.map((doc) => (
+              <Button
+                key={doc.key}
+                variant="outline"
+                size="sm"
+                disabled={busy !== null}
+                onClick={() => {
+                  setBusy(doc.key);
+                  void downloadPdf(doc.spec(), doc.file).finally(() => setBusy(null));
+                }}
+              >
+                {busy === doc.key ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <FileText className="size-4" />
+                )}{" "}
+                {doc.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

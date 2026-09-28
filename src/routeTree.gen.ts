@@ -19,6 +19,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EmployersRouteImport } from './routes/employers'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MyLoanRouteImport } from './routes/my-loan'
 import { Route as OrganisationRouteImport } from './routes/organisation'
 import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
 import { Route as RateGridRouteImport } from './routes/rate-grid'
@@ -84,6 +85,11 @@ const LegalRoute = LegalRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyLoanRoute = MyLoanRouteImport.update({
+  id: '/my-loan',
+  path: '/my-loan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrganisationRoute = OrganisationRouteImport.update({
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
@@ -237,6 +245,7 @@ export interface FileRoutesById {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
   '/rate-grid': typeof RateGridRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/my-loan'
     | '/organisation'
     | '/policy-rules'
     | '/rate-grid'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/my-loan'
     | '/organisation'
     | '/policy-rules'
     | '/rate-grid'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/my-loan'
     | '/organisation'
     | '/policy-rules'
     | '/rate-grid'
@@ -352,6 +364,7 @@ export interface RootRouteChildren {
   EmployersRoute: typeof EmployersRoute
   LegalRoute: typeof LegalRoute
   LoginRoute: typeof LoginRoute
+  MyLoanRoute: typeof MyLoanRoute
   OrganisationRoute: typeof OrganisationRoute
   PolicyRulesRoute: typeof PolicyRulesRoute
   RateGridRoute: typeof RateGridRoute
@@ -440,6 +453,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-loan': {
+      id: '/my-loan'
+      path: '/my-loan'
+      fullPath: '/my-loan'
+      preLoaderRoute: typeof MyLoanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/organisation': {
@@ -568,6 +588,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmployersRoute: EmployersRoute,
   LegalRoute: LegalRoute,
   LoginRoute: LoginRoute,
+  MyLoanRoute: MyLoanRoute,
   OrganisationRoute: OrganisationRoute,
   PolicyRulesRoute: PolicyRulesRoute,
   RateGridRoute: RateGridRoute,

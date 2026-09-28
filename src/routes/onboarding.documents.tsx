@@ -54,6 +54,7 @@ function DocumentsStep() {
     .filter(
       ([code, t]) =>
         t.required === "OPTIONAL" &&
+        (t.stage ?? "APPLICATION") === "APPLICATION" &&
         code !== "LIVE_PHOTO" &&
         !checklist.some((d) => d.doc_type === code),
     )

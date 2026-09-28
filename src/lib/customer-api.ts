@@ -182,6 +182,7 @@ export interface UploadType {
   back_required: boolean;
   multi_file: boolean;
   ask_password: boolean;
+  stage?: "APPLICATION" | "BEFORE_DISBURSAL" | "AFTER_DISBURSAL";
 }
 
 export async function getUploadTypes(): Promise<Record<string, UploadType>> {
@@ -285,6 +286,19 @@ export interface TrackedApplication {
   events: { stage: string; at: string; note?: string | null }[];
   // Documents waiting on the customer: asked for again by the officer, or the quotation (sql/047).
   attention: DraftDocument[];
+  // After approval (sql/049).
+  loan?: {
+    offer: {
+      status: "ISSUED" | "ACCEPTED" | "EXPIRED" | "WITHDRAWN";
+      valid_until: string;
+      amount: number;
+      emi: number;
+      apr_pct: number;
+    } | null;
+    agreement: "READY" | "SIGNED" | null;
+    mandate: boolean;
+    account: string | null;
+  };
 }
 
 export interface TrackingState {

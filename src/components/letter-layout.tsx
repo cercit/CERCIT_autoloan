@@ -1,3 +1,4 @@
+import logoLight from "@/assets/brand/logo-horizontal-light.png";
 import type { ReactNode } from "react";
 
 const COMPANY = {
@@ -17,9 +18,7 @@ function LetterHead() {
   return (
     <header className="letter-head flex items-start justify-between border-b-2 border-slate-800 pb-3">
       <div className="flex items-center gap-3">
-        <span className="flex size-11 items-center justify-center rounded-md bg-blue-600 text-xl font-bold text-white">
-          c
-        </span>
+        <img src={logoLight} alt="cercit" className="h-9 w-auto" />
         <div>
           <p className="text-base font-bold text-slate-900">{COMPANY.name}</p>
           <p className="text-[10px] leading-tight text-slate-500">
@@ -44,19 +43,19 @@ function LetterFooter({ showGrievance }: { showGrievance?: boolean }) {
     <footer className="letter-footer mt-auto border-t border-slate-300 pt-2 text-[8px] leading-tight text-slate-400">
       {showGrievance && (
         <div className="mb-1.5 text-[9px] text-slate-500">
-          <span className="font-semibold">Grievance Redressal:</span>{" "}
-          Nodal Officer — Mr. K. Venkataraman, {COMPANY.phone}, grievance@cercit.in |{" "}
-          Banking Ombudsman: https://cms.rbi.org.in
+          <span className="font-semibold">Grievance Redressal:</span> Nodal Officer — Mr. K.
+          Venkataraman, {COMPANY.phone}, grievance@cercit.in | Banking Ombudsman:
+          https://cms.rbi.org.in
         </div>
       )}
       <p>
         {COMPANY.name} is a Non-Banking Financial Company registered with the Reserve Bank of India
-        under Section 45-IA of the RBI Act, 1934. Registration No.: {COMPANY.rbiReg}.
-        GSTIN: {COMPANY.gstin}.
+        under Section 45-IA of the RBI Act, 1934. Registration No.: {COMPANY.rbiReg}. GSTIN:{" "}
+        {COMPANY.gstin}.
       </p>
       <p className="mt-0.5">
-        This is a system-generated document. For digitally signed copies, contact your branch
-        or write to {COMPANY.email}.
+        This is a system-generated document. For digitally signed copies, contact your branch or
+        write to {COMPANY.email}.
       </p>
     </footer>
   );
@@ -110,9 +109,7 @@ export function LetterTable({ rows }: { rows: [string, string][] }) {
       <tbody>
         {rows.map(([label, value], i) => (
           <tr key={label} className={i % 2 === 0 ? "bg-slate-50" : "bg-white"}>
-            <td className="w-[45%] border border-slate-300 px-3 py-1.5 text-slate-600">
-              {label}
-            </td>
+            <td className="w-[45%] border border-slate-300 px-3 py-1.5 text-slate-600">{label}</td>
             <td className="border border-slate-300 px-3 py-1.5 font-medium">{value}</td>
           </tr>
         ))}

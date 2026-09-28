@@ -61,7 +61,9 @@ const STAGES = [
   ["DOCS_VERIFIED", "Documents checked"],
   ["CREDIT_CHECK", "Credit assessment"],
   ["DECISION", "Decision"],
-  ["SANCTION", "Sanction letter"],
+  ["SANCTION", "Loan offer (KFS)"],
+  ["AGREEMENT_SIGNED", "Agreement signed"],
+  ["DISBURSED", "Loan paid to the dealer"],
 ] as const;
 // How far along each application status is: the index of the stage in progress.
 const STATUS_AT: Record<string, number> = {
@@ -69,8 +71,7 @@ const STATUS_AT: Record<string, number> = {
   UNDER_ASSESSMENT: 2,
   APPROVED: 4,
   REJECTED: 4,
-  SANCTIONED: 5,
-  DISBURSED: 5,
+  DISBURSED: 7,
 };
 const STATUS_LABEL: Record<string, string> = {
   SUBMITTED: "Received",
@@ -100,23 +101,27 @@ const when = (iso: string | null | undefined) =>
     : null;
 
 function stagesOf(a: TrackedApplication): ApplicationStage[] {
-  const at = STATUS_AT[a.status] ?? 1;
-  return STAGES.filter(([key]) => !(a.status === "REJECTED" && key === "SANCTION")).map(
-    ([key, label], i) => ({
-      label:
-        key === "DECISION" && a.status === "REJECTED"
-          ? "Decision: not approved"
-          : key === "DECISION" && a.approval_stage === "IN_PRINCIPLE"
-            ? "In-principle decision"
-            : label,
-      date: when(
-        a.events.find((e) => e.stage === key)?.at ??
-          (key === "RECEIVED" ? a.submitted_at : key === "DECISION" ? a.decided_at : null),
-      ),
-      done: i < at,
-      active: i === at,
-    }),
-  );
+  // After approval the later stages are done when their event is in (sql/049).
+  const has = (k: string) => a.events.some((e) => e.stage === k);
+  let at = STATUS_AT[a.status] ?? 1;
+  if (a.status === "APPROVED") at = has("AGREEMENT_SIGNED") ? 6 : has("SANCTION") ? 5 : 4;
+  return STAGES.filter(
+    ([key]) =>
+      !(a.status === "REJECTED" && ["SANCTION", "AGREEMENT_SIGNED", "DISBURSED"].includes(key)),
+  ).map(([key, label], i) => ({
+    label:
+      key === "DECISION" && a.status === "REJECTED"
+        ? "Decision: not approved"
+        : key === "DECISION" && a.approval_stage === "IN_PRINCIPLE"
+          ? "In-principle decision"
+          : label,
+    date: when(
+      a.events.find((e) => e.stage === key)?.at ??
+        (key === "RECEIVED" ? a.submitted_at : key === "DECISION" ? a.decided_at : null),
+    ),
+    done: i < at,
+    active: i === at,
+  }));
 }
 
 function statusLabel(a: TrackedApplication) {
@@ -190,6 +195,35 @@ interface View {
   appliedOn: string;
   attention: DraftDocument[];
   inPrinciple: boolean;
+  loan: TrackedApplication["loan"] | null;
+}
+
+const LOAN_DOCS = ["MARGIN_RECEIPT", "VEHICLE_INVOICE", "INSURANCE", "RC"];
+
+/** What the customer should do next about their loan, if anything. */
+function loanNext(l: NonNullable<View["loan"]>): { text: string; action: string } | null {
+  if (l.account)
+    return {
+      text: `Loan ${l.account} is paid to the dealer. Your documents are ready to download.`,
+      action: "Your loan",
+    };
+  const o = l.offer;
+  if (!o) return null;
+  if (o.status === "EXPIRED")
+    return { text: "Your loan offer expired. We'll send a fresh one.", action: "See details" };
+  if (o.status === "ISSUED")
+    return {
+      text: `Your loan offer is ready: ${inr(o.amount)} at an APR of ${o.apr_pct}%. Accept it by ${new Date(`${o.valid_until}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.`,
+      action: "See your offer",
+    };
+  if (l.agreement !== "SIGNED")
+    return { text: "Offer accepted. Next, sign the loan agreement.", action: "Sign the agreement" };
+  if (!l.mandate)
+    return { text: "Agreement signed. Next, set up EMI auto-debit.", action: "Set up auto-debit" };
+  return {
+    text: "Almost there: upload the dealer's papers so we can pay the dealer.",
+    action: "Upload papers",
+  };
 }
 
 function toView(a: TrackedApplication): View {
@@ -201,8 +235,9 @@ function toView(a: TrackedApplication): View {
     tenure: a.tenure_months ?? 0,
     stages: stagesOf(a),
     appliedOn: when(a.submitted_at) ?? "",
-    attention: a.attention,
+    attention: a.attention.filter((x) => !LOAN_DOCS.includes(x.doc_type)),
     inPrinciple: a.approval_stage === "IN_PRINCIPLE",
+    loan: a.loan ?? null,
   };
 }
 
@@ -257,7 +292,7 @@ function ApplicationStatus() {
   };
 
   const views: View[] = demo
-    ? [{ ...DEMO_APPLICATION, attention: [], inPrinciple: false }]
+    ? [{ ...DEMO_APPLICATION, attention: [], inPrinciple: false, loan: null }]
     : (tracking?.applications ?? []).map(toView);
   const email = tracking?.customer?.email ?? customerEmail;
   const draft = demo ? null : tracking?.draft;
@@ -381,6 +416,16 @@ function ApplicationStatus() {
               </div>
             </div>
 
+            {view.loan && loanNext(view.loan) && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                <p className="text-sm font-medium">{loanNext(view.loan)!.text}</p>
+                <Button size="sm" asChild>
+                  <Link to="/my-loan" search={{ app: view.id }}>
+                    {loanNext(view.loan)!.action}
+                  </Link>
+                </Button>
+              </div>
+            )}
             {view.inPrinciple && (
               <p className="mt-4 text-sm text-muted-foreground">
                 You applied without the dealer's quotation, so this is for in-principle approval.

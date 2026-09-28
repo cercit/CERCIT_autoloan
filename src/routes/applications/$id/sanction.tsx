@@ -1,17 +1,13 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, Download, Printer, Send } from "lucide-react";
+import { ArrowLeft, Download, Printer } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
-import {
-  COMPANY,
-  LetterLayout,
-  LetterTable,
-  formatLetterDate,
-} from "@/components/letter-layout";
+import { COMPANY, LetterLayout, LetterTable, formatLetterDate } from "@/components/letter-layout";
 import { Button } from "@/components/ui/button";
 import { emiFor, inr } from "@/lib/format";
-import { downloadLetterPdf } from "@/lib/pdf";
+import { downloadPdf } from "@/lib/doc-pdf";
+import { legacySanctionSpec } from "@/lib/legacy-letters";
 import { getApplication } from "@/lib/api";
 import type { Application } from "@/lib/mock-data";
 
@@ -55,7 +51,7 @@ function computeApr(
     if (pv > netDisbursed) lo = mid;
     else hi = mid;
   }
-  return ((lo + hi) / 2 * 100).toFixed(2);
+  return (((lo + hi) / 2) * 100).toFixed(2);
 }
 
 function SanctionLetter() {
@@ -100,11 +96,16 @@ function SanctionLetter() {
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="size-4" /> Print
           </Button>
-          <Button variant="outline" onClick={() => downloadLetterPdf("sanction-letter", `sanction_${app.id}_${new Date().toISOString().split("T")[0]}.pdf`)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              void downloadPdf(
+                legacySanctionSpec(app),
+                `sanction_${app.id}_${new Date().toISOString().split("T")[0]}.pdf`,
+              )
+            }
+          >
             <Download className="size-4" /> PDF
-          </Button>
-          <Button>
-            <Send className="size-4" /> Send to customer
           </Button>
         </div>
       }
@@ -154,11 +155,10 @@ function SanctionLetter() {
           <p>Dear {app.name.split(" ")[0]},</p>
 
           <p>
-            Further to your vehicle loan application and upon satisfactory completion
-            of all verifications, we are pleased to sanction a vehicle loan on the
-            terms and conditions set out below. A Key Fact Statement (KFS) as required
-            under RBI Circular RBI/2024-25/18 dated 15 April 2024 is enclosed
-            separately.
+            Further to your vehicle loan application and upon satisfactory completion of all
+            verifications, we are pleased to sanction a vehicle loan on the terms and conditions set
+            out below. A Key Fact Statement (KFS) as required under RBI Circular RBI/2024-25/18
+            dated 15 April 2024 is enclosed separately.
           </p>
 
           {/* Section A: Loan terms */}
@@ -166,10 +166,7 @@ function SanctionLetter() {
           <LetterTable
             rows={[
               ["Sanctioned loan amount", inr(app.loanAmount)],
-              [
-                "Rate of interest",
-                `${app.rate}% p.a. fixed (reducing balance method)`,
-              ],
+              ["Rate of interest", `${app.rate}% p.a. fixed (reducing balance method)`],
               ["Annual Percentage Rate (APR)", `${apr}% p.a.`],
               ["Loan tenure", `${app.tenure} months`],
               ["Equated Monthly Instalment (EMI)", inr(emi)],
@@ -207,62 +204,54 @@ function SanctionLetter() {
           {/* Section D: Conditions */}
           <p className="font-bold text-slate-900">D. Conditions for disbursement</p>
           <ol className="ml-4 list-decimal space-y-0.5 text-[10px] text-slate-700">
+            <li>Execution of the loan agreement and all ancillary documents.</li>
             <li>
-              Execution of the loan agreement and all ancillary documents.
+              Registration of NACH / ECS mandate on the borrower's salary account ({app.salaryBank}
+              ).
             </li>
             <li>
-              Registration of NACH / ECS mandate on the borrower's salary account
-              ({app.salaryBank}).
+              Comprehensive motor insurance policy for the full loan tenure with {COMPANY.name}{" "}
+              noted as loss payee and hypothecatee.
             </li>
             <li>
-              Comprehensive motor insurance policy for the full loan tenure with{" "}
-              {COMPANY.name} noted as loss payee and hypothecatee.
+              Vehicle Registration Certificate (RC) to be endorsed with hypothecation in favour of{" "}
+              {COMPANY.name} within 30 days of registration.
             </li>
+            <li>Delivery of original vehicle invoice and insurance certificate by the dealer.</li>
             <li>
-              Vehicle Registration Certificate (RC) to be endorsed with hypothecation
-              in favour of {COMPANY.name} within 30 days of registration.
-            </li>
-            <li>
-              Delivery of original vehicle invoice and insurance certificate by the
-              dealer.
-            </li>
-            <li>
-              No material adverse change in the borrower's employment, income, or
-              credit profile between the date of this letter and the date of
-              disbursement.
+              No material adverse change in the borrower's employment, income, or credit profile
+              between the date of this letter and the date of disbursement.
             </li>
           </ol>
 
           {/* Section E: Prepayment and foreclosure */}
           <p className="font-bold text-slate-900">E. Prepayment and foreclosure</p>
           <p className="text-[10px]">
-            Part-prepayment or full foreclosure is permitted after a lock-in period
-            of 6 EMIs. No foreclosure charge shall apply to individual borrowers
-            availing floating-rate loans, as per RBI guidelines. For fixed-rate loans,
-            a foreclosure charge of 4% of the outstanding principal shall apply, plus
-            applicable GST. Partial prepayments shall reduce the outstanding principal;
-            the EMI amount or tenure will be revised accordingly.
+            Part-prepayment or full foreclosure is permitted after a lock-in period of 6 EMIs. No
+            foreclosure charge shall apply to individual borrowers availing floating-rate loans, as
+            per RBI guidelines. For fixed-rate loans, a foreclosure charge of 4% of the outstanding
+            principal shall apply, plus applicable GST. Partial prepayments shall reduce the
+            outstanding principal; the EMI amount or tenure will be revised accordingly.
           </p>
 
           {/* Section F: Penal charges */}
           <p className="font-bold text-slate-900">F. Penal charges</p>
           <p className="text-[10px]">
-            In the event of default in repayment, a penal charge of Rs 500 per
-            instance of EMI bounce shall be levied, in accordance with RBI circular
-            DoR.MCS.REC.28/01.01.001/2023-24 dated 18 August 2023. These charges
-            are not compounded and shall not be debited to the loan account. Penal
-            charges are levied for non-compliance with material terms; no additional
-            penal interest is charged over and above the contracted rate.
+            In the event of default in repayment, a penal charge of Rs 500 per instance of EMI
+            bounce shall be levied, in accordance with RBI circular DoR.MCS.REC.28/01.01.001/2023-24
+            dated 18 August 2023. These charges are not compounded and shall not be debited to the
+            loan account. Penal charges are levied for non-compliance with material terms; no
+            additional penal interest is charged over and above the contracted rate.
           </p>
 
           {/* Section G: Cooling-off period */}
           <p className="font-bold text-slate-900">G. Cooling-off / look-up period</p>
           <p className="text-[10px]">
-            You have the right to exit this loan within 3 calendar days of
-            disbursement ("cooling-off period") by repaying the principal disbursed
-            along with proportionate APR charges for the period the funds were
-            utilised. No prepayment penalty or additional charges will apply during
-            this period, in compliance with the RBI Digital Lending Directions, 2025.
+            You have the right to exit this loan within 3 calendar days of disbursement
+            ("cooling-off period") by repaying the principal disbursed along with proportionate APR
+            charges for the period the funds were utilised. No prepayment penalty or additional
+            charges will apply during this period, in compliance with the RBI Digital Lending
+            Directions, 2025.
           </p>
 
           {/* Section H: General terms */}
@@ -270,30 +259,29 @@ function SanctionLetter() {
           <ul className="ml-4 list-disc space-y-0.5 text-[10px] text-slate-700">
             <li>
               This sanction is valid until{" "}
-              <span className="font-semibold">{formatLetterDate(validTill)}</span>.
-              If the loan is not disbursed within this period, the sanction shall
-              lapse and a fresh assessment may be required.
+              <span className="font-semibold">{formatLetterDate(validTill)}</span>. If the loan is
+              not disbursed within this period, the sanction shall lapse and a fresh assessment may
+              be required.
             </li>
             <li>
-              The loan shall be governed by the detailed terms and conditions in
-              the loan agreement executed between the parties.
+              The loan shall be governed by the detailed terms and conditions in the loan agreement
+              executed between the parties.
             </li>
             <li>
-              Any dispute arising shall be subject to the exclusive jurisdiction of
-              the courts at Chennai, Tamil Nadu.
+              Any dispute arising shall be subject to the exclusive jurisdiction of the courts at
+              Chennai, Tamil Nadu.
             </li>
             <li>
-              {COMPANY.name} may assign, transfer, or securitise the loan in
-              accordance with applicable RBI regulations, with prior intimation to the
-              borrower.
+              {COMPANY.name} may assign, transfer, or securitise the loan in accordance with
+              applicable RBI regulations, with prior intimation to the borrower.
             </li>
           </ul>
 
           {/* Validity */}
           <p className="mt-1 text-[10px] font-semibold">
-            Please confirm acceptance by signing and returning a copy of this letter
-            within the validity period. Disbursement shall follow upon receipt of your
-            acceptance and fulfilment of all conditions stated above.
+            Please confirm acceptance by signing and returning a copy of this letter within the
+            validity period. Disbursement shall follow upon receipt of your acceptance and
+            fulfilment of all conditions stated above.
           </p>
         </div>
 
@@ -311,11 +299,10 @@ function SanctionLetter() {
         <div className="mt-4 border border-dashed border-slate-400 bg-slate-50 px-3 py-2 text-[9px] text-slate-600">
           <p className="font-semibold text-slate-700">Borrower acceptance</p>
           <p>
-            I, {app.name}, have read and understood the terms of this sanction letter.
-            I have received the Key Fact Statement (KFS) and acknowledge its contents,
-            including the Annual Percentage Rate of {apr}% p.a. I accept the loan on
-            the terms stated herein and undertake to comply with all conditions for
-            disbursement and repayment.
+            I, {app.name}, have read and understood the terms of this sanction letter. I have
+            received the Key Fact Statement (KFS) and acknowledge its contents, including the Annual
+            Percentage Rate of {apr}% p.a. I accept the loan on the terms stated herein and
+            undertake to comply with all conditions for disbursement and repayment.
           </p>
           <div className="mt-3 flex gap-8">
             <div>
