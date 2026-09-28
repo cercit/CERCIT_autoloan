@@ -178,7 +178,10 @@ export async function signIn(email: string, password: string): Promise<{ error: 
     return { error: "Sign-in is unavailable — this deployment has no Supabase connection." };
   }
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
   if (error) return { error: error.message };
 
   disableDemoMode();
