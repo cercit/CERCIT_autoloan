@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Check,
+  CircleDashed,
   ExternalLink,
   FileText,
   Loader2,
@@ -9,6 +10,8 @@ import {
   RotateCcw,
   ShieldCheck,
   TriangleAlert,
+  X,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
@@ -28,11 +31,15 @@ import {
   fileLink,
   getCaseChecks,
   getCustomerCase,
+  getDocumentChecks,
+  rerunDocumentChecks,
   runCreditChecks,
   type CaseAction,
   type CaseChecks,
   type CaseDocument,
   type CustomerCase,
+  type DocCheck,
+  type DocumentChecks,
 } from "@/lib/staff-customer-api";
 import { cn } from "@/lib/utils";
 
@@ -126,11 +133,13 @@ function CaseView() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [checks, setChecks] = useState<CaseChecks | null>(null);
+  const [docChecks, setDocChecks] = useState<DocumentChecks | null>(null);
 
   const load = useCallback(async () => {
     try {
       setC(await getCustomerCase(id));
       setChecks(await getCaseChecks(id).catch(() => null));
+      setDocChecks(await getDocumentChecks(id).catch(() => null));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -151,6 +160,19 @@ function CaseView() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const rerunChecks = async () => {
+    setBusy("AUTO");
+    setActionError(null);
+    try {
+      await rerunDocumentChecks(id);
+      await load();
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const act = async (action: CaseAction, p: Record<string, unknown> = {}, tag: string = action) => {
     setBusy(tag);
@@ -200,6 +222,11 @@ function CaseView() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <Pill tone={tone}>{stage}</Pill>
+          {docChecks?.summary?.fast_lane && (
+            <Pill tone="success">
+              <Zap className="size-3" aria-hidden="true" /> Fast lane
+            </Pill>
+          )}
           {a.approval_stage === "IN_PRINCIPLE" && <Pill tone="muted">In-principle</Pill>}
           {open && !a.assigned_to_me && (
             <Button
@@ -249,8 +276,21 @@ function CaseView() {
           {checks?.recommendation && <CreditChecksCard checks={checks} />}
           <SectionCard
             title="Documents"
-            description="Open each file, then accept it or ask the customer again. The customer sees your reason."
+            description={
+              docChecks?.enabled
+                ? "Checked automatically against the customer's details. Look only at the ones marked to check; accept them or ask the customer again."
+                : "Open each file, then accept it or ask the customer again. The customer sees your reason."
+            }
           >
+            {docChecks?.enabled && (
+              <AutoCheckSummary
+                checks={docChecks}
+                docs={c.documents}
+                open={open}
+                busy={busy}
+                rerun={() => void rerunChecks()}
+              />
+            )}
             <ul className="divide-y divide-border">
               {c.documents.map((d) => (
                 <DocumentLine
@@ -260,6 +300,8 @@ function CaseView() {
                   open={open}
                   busy={busy}
                   act={act}
+                  checks={docChecks?.documents[d.doc_type]}
+                  autoAccepted={docChecks?.auto_accepted.includes(d.doc_type) ?? false}
                 />
               ))}
             </ul>
@@ -598,12 +640,16 @@ function DocumentLine({
   open,
   busy,
   act,
+  checks,
+  autoAccepted,
 }: {
   app: string;
   d: CaseDocument;
   open: boolean;
   busy: string | null;
   act: Act;
+  checks?: DocCheck[] | undefined;
+  autoAccepted: boolean;
 }) {
   const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState("");
@@ -655,6 +701,10 @@ function DocumentLine({
           {d.reason && d.status !== "ACCEPTED" && (
             <p className="mt-0.5 text-xs text-muted-foreground">{d.reason}</p>
           )}
+          {d.status === "ACCEPTED" && autoAccepted && (
+            <p className="mt-0.5 text-xs text-muted-foreground">Accepted automatically</p>
+          )}
+          {checks && checks.length > 0 && <CheckList checks={checks} />}
         </div>
         {open && d.status === "RECEIVED" && (
           <div className="flex gap-2">
@@ -1155,5 +1205,110 @@ function AfterApprovalPanel({ id, onChange }: { id: string; onChange: () => Prom
         </div>
       )}
     </section>
+  );
+}
+
+const CHECK_LOOK: Record<DocCheck["result"], { icon: typeof Check; cls: string; word: string }> = {
+  PASS: { icon: Check, cls: "text-success", word: "passed" },
+  FAIL: { icon: X, cls: "text-destructive", word: "failed" },
+  UNREAD: {
+    icon: TriangleAlert,
+    cls: "text-warning-foreground dark:text-warning",
+    word: "could not tell",
+  },
+  WAITING: { icon: CircleDashed, cls: "text-muted-foreground", word: "still reading" },
+};
+
+/** One line per check: tick, cross, warning or waiting, with the reason when it did not pass. */
+function CheckList({ checks }: { checks: DocCheck[] }) {
+  return (
+    <ul className="mt-1.5 grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
+      {checks.map((k) => {
+        const look = CHECK_LOOK[k.result];
+        return (
+          <li key={k.check} className="flex items-start gap-1.5">
+            <look.icon
+              className={cn("mt-0.5 size-3.5 shrink-0", look.cls)}
+              aria-label={look.word}
+            />
+            <span className={k.result === "PASS" ? "text-muted-foreground" : "text-foreground"}>
+              {k.label}
+              {k.detail && k.result !== "PASS" && (
+                <span className="text-muted-foreground"> ({k.detail})</span>
+              )}
+              {!k.blocking && <span className="text-muted-foreground"> · for information</span>}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** What the automatic checks did on this case, and what is left for a person. */
+function AutoCheckSummary({
+  checks,
+  docs,
+  open,
+  busy,
+  rerun,
+}: {
+  checks: DocumentChecks;
+  docs: CaseDocument[];
+  open: boolean;
+  busy: string | null;
+  rerun: () => void;
+}) {
+  const s = checks.summary;
+  const name = (code: string) => docs.find((d) => d.doc_type === code)?.name ?? code;
+  const forPerson = s?.for_a_person ?? [];
+  const reading = s?.still_reading ?? [];
+  const n = checks.auto_accepted.length;
+  return (
+    <div className="mb-3 flex flex-wrap items-start justify-between gap-3 rounded-md border border-border bg-surface-subtle px-3 py-2.5 text-sm">
+      <div className="space-y-0.5">
+        {!s ? (
+          <p className="text-muted-foreground">
+            The automatic checks have not run on this case yet.
+          </p>
+        ) : (
+          <>
+            <p>
+              <span className="font-medium">{n}</span> {n === 1 ? "document" : "documents"} accepted
+              automatically.
+              {s.docs_verified_automatically &&
+                " Every needed document passed, so the case moved to the credit check by itself."}
+            </p>
+            {forPerson.length > 0 && (
+              <p className="text-warning-foreground dark:text-warning">
+                For you to check: {forPerson.map(name).join(", ")}.
+              </p>
+            )}
+            {reading.length > 0 && (
+              <p className="text-muted-foreground">
+                Still being read: {reading.map(name).join(", ")}.
+              </p>
+            )}
+            {s.credit_checks?.startsWith("NOT_RUN") && (
+              <p className="text-muted-foreground">
+                The credit check could not run by itself:{" "}
+                {s.credit_checks.replace(/^NOT_RUN:\s*/, "")}.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">Last run {when(s.at)}.</p>
+          </>
+        )}
+      </div>
+      {open && (
+        <Button size="sm" variant="outline" disabled={busy !== null} onClick={rerun}>
+          {busy === "AUTO" ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <ShieldCheck className="size-4" />
+          )}
+          Run the checks again
+        </Button>
+      )}
+    </div>
   );
 }

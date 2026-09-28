@@ -16,6 +16,7 @@ import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AuditLogRouteImport } from './routes/audit-log'
 import { Route as CheckEligibilityRouteImport } from './routes/check-eligibility'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DocumentChecksRouteImport } from './routes/document-checks'
 import { Route as EmployersRouteImport } from './routes/employers'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LoginRouteImport } from './routes/login'
@@ -70,6 +71,11 @@ const CheckEligibilityRoute = CheckEligibilityRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentChecksRoute = DocumentChecksRouteImport.update({
+  id: '/document-checks',
+  path: '/document-checks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmployersRoute = EmployersRouteImport.update({
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
+  '/document-checks': typeof DocumentChecksRoute
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
+  '/document-checks': typeof DocumentChecksRoute
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/audit-log': typeof AuditLogRoute
   '/check-eligibility': typeof CheckEligibilityRoute
   '/dashboard': typeof DashboardRoute
+  '/document-checks': typeof DocumentChecksRoute
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
+    | '/document-checks'
     | '/employers'
     | '/legal'
     | '/login'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
+    | '/document-checks'
     | '/employers'
     | '/legal'
     | '/login'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/audit-log'
     | '/check-eligibility'
     | '/dashboard'
+    | '/document-checks'
     | '/employers'
     | '/legal'
     | '/login'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   AuditLogRoute: typeof AuditLogRoute
   CheckEligibilityRoute: typeof CheckEligibilityRoute
   DashboardRoute: typeof DashboardRoute
+  DocumentChecksRoute: typeof DocumentChecksRoute
   EmployersRoute: typeof EmployersRoute
   LegalRoute: typeof LegalRoute
   LoginRoute: typeof LoginRoute
@@ -432,6 +445,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/document-checks': {
+      id: '/document-checks'
+      path: '/document-checks'
+      fullPath: '/document-checks'
+      preLoaderRoute: typeof DocumentChecksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/employers': {
@@ -585,6 +605,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuditLogRoute: AuditLogRoute,
   CheckEligibilityRoute: CheckEligibilityRoute,
   DashboardRoute: DashboardRoute,
+  DocumentChecksRoute: DocumentChecksRoute,
   EmployersRoute: EmployersRoute,
   LegalRoute: LegalRoute,
   LoginRoute: LoginRoute,

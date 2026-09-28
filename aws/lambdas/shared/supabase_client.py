@@ -154,14 +154,14 @@ def _headers() -> dict[str, str]:
 
 
 def upsert_extraction(application_id: str, doc_type: str, fields: dict) -> dict:
-    """Write extracted fields to the document_extractions table."""
-    payload = {
-        "application_id": application_id,
-        "doc_type": doc_type,
-        "fields": fields,
-        "status": "extracted",
-    }
-    return _post("/rest/v1/document_extractions", payload)
+    """Saves what a reader found (sql/052, fixes R20). The database then re-runs the
+    automatic document checks for a submitted application. doc_type is the reader
+    type: pan_card, aadhaar_card, salary_slip, form16 or bank_statement."""
+    return _post("/rest/v1/rpc/fn_record_document_reading", {
+        "p_application_id": application_id,
+        "p_reader_type": doc_type,
+        "p_fields": fields,
+    })
 
 
 def update_application_fields(application_id: str, updates: dict) -> dict:

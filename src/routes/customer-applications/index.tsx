@@ -74,6 +74,9 @@ function CustomerQueue() {
             </button>
           ))}
         </div>
+        <Link to="/document-checks" className="text-sm text-primary hover:underline">
+          Automatic document check rules
+        </Link>
         {data && data.drafts > 0 && (
           <p className="text-xs text-muted-foreground">
             {data.drafts} more {data.drafts === 1 ? "customer is" : "customers are"} still filling
@@ -156,6 +159,13 @@ function CustomerQueue() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1.5">
+                          {r.fast_lane && <Pill tone="success">Fast lane</Pill>}
+                          {!r.fast_lane && r.auto_verified && (
+                            <Pill tone="primary">Documents auto-checked</Pill>
+                          )}
+                          {!r.auto_verified && r.docs_auto_accepted > 0 && (
+                            <Pill tone="muted">{r.docs_auto_accepted} accepted automatically</Pill>
+                          )}
                           {r.docs_to_check > 0 && (
                             <Pill tone="info">{r.docs_to_check} to check</Pill>
                           )}

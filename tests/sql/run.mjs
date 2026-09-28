@@ -1552,6 +1552,8 @@ const asOperator = () => asApi("", "");
 {
   const t = makeChecker("details and submit");
   const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  // Sections 26-29 walk the manual path; the automatic checks (052) have their own section.
+  await db.query("update document_auto_settings set enabled = false");
   const claims = (extra = {}) => db.query("select set_config('request.jwt.claims', $1, false)",
     [JSON.stringify({ sub: CUST, email: "asha.r@example.com", role: "authenticated", ...extra })]);
   await db.query("set role authenticated");
@@ -1824,6 +1826,132 @@ const asOperator = () => asApi("", "");
   const mob = (await one("select fn_pii_decrypt(mobile_enc) as m from customers where auth_user_id = 'c1c1c1c1-0000-0000-0000-0000000000c1'")).m;
   const found = (await one("select fn_customer_resume_lookup($1) as v", [mob])).v;
   t.equal("a returning customer is found by mobile at any stage", [found?.email, found?.status !== "DRAFT"], ["asha.r@example.com", true]);
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 30. Automatic document checks (052)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("automatic document checks");
+  await db.query("update document_auto_settings set enabled = true");
+  t.equal("names: an initial matches its word; different people do not",
+    await one("select fn_doc_name_score('Sameer M', 'SAMEER S MITTIMANI') as a, fn_doc_name_score('Asha R', 'Priya Sharma') as b, fn_doc_name_score('M S', 'Mohan Sharma') as c"),
+    { a: "1.00", b: "0", c: "0" });
+  t.equal("employers: Pvt Ltd and Private Limited are the same company",
+    (await one("select fn_doc_org_score('Acme Motors Pvt Ltd', 'ACME MOTORS PRIVATE LIMITED') as v")).v, "1.00");
+  t.equal("pay months and dates in the ways documents print them",
+    await one("select fn_doc_month('Sep-26')::text as a, fn_doc_month('Pay slip for August 2026')::text as b, fn_doc_month('09/2026')::text as c, fn_doc_date('02-06-1991')::text as d"),
+    { a: "2026-09-01", b: "2026-08-01", c: "2026-09-01", d: "1991-06-02" });
+
+  const CUST = "c3c3c3c3-0000-0000-0000-0000000000c3";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const PM = "a5a5a5a5-0000-0000-0000-0000000000a5";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub, email, extra = {}) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, email, role: "authenticated", ...extra })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('pm5@t.in', 'Rules Owner', 'policy_manager', $1)", [PM]);
+
+  // A clean customer, start to submit.
+  await db.query("set role authenticated");
+  await as(CUST, "ravi.k@example.com");
+  const version = (await one("select fn_consent_text('APPLICATION_PROCESSING')->>'version' as v")).v;
+  const app = (await one("select fn_customer_start('Ravi', '', 'Kumar', '9876500030', 'SIMULATED', $1, 't') as v", [version])).v.application_id;
+  await db.query("select fn_customer_save_vehicle($1, $2::jsonb)", [app, JSON.stringify({
+    source: "MANUAL", make: "Maruti", model: "Brezza", variant: "ZXi", fuel_type: "PETROL",
+    ex_showroom: 1100000, road_tax: 110000, insurance: 45000, loan_amount: 900000, tenure_months: 60 })]);
+  const reg = (type, key, mime = "application/pdf", masked = false) => db.query(
+    "select fn_customer_register_document($1, $2, 'single', $3, 'f', $4, 90000, $5, 's3', false, false, $6)",
+    [app, type, key, mime, "9".repeat(64), masked]);
+  await reg("LIVE_PHOTO", `uploads/other/live-photo/${app}/abcd1234-me.jpg`, "image/jpeg");
+  await reg("PAN", `uploads/kyc/${app}/abcd1234-pan.pdf`);
+  await reg("AADHAAR", `uploads/kyc/${app}/abcd1234-aadhaar.pdf`, "application/pdf", true);
+  for (const m of ["jul", "aug", "sep"]) await reg("SALARY_SLIP", `uploads/salary-slips/${app}/abcd1234-${m}.pdf`);
+  await reg("FORM16_B", `uploads/form16/${app}/abcd1234-f16.pdf`);
+  await reg("BANK_STMT", `uploads/bank-statements/${app}/abcd1234-bank.pdf`);
+  const save = (group, p) => db.query("select fn_customer_save_details($1, $2, $3, '{}')", [app, group, JSON.stringify(p)]);
+  await save("PERSONAL", { dob: "1990-04-15", father_name: "Suresh Kumar", gender: "MALE", marital_status: "SINGLE", pan: "BKRPK4321L" });
+  await save("ADDRESS", { permanent: { line1: "8, 2nd Main, Jayanagar", city: "Bengaluru", state_code: "KA", pincode: "560041" }, current_same: true, residence: "OWNED", years_at_current: 6 });
+  await save("EMPLOYMENT", { employer_name: "Acme Motors Pvt Ltd", employer_category: "PRIVATE_LTD", designation: "Analyst", date_of_joining: "2018-06-01", net_monthly_salary: 85000, existing_emis: 0 });
+
+  // What the readers found (the readers use the service key).
+  await operator();
+  const month = (await one("select to_char(current_date - interval '10 days', 'Mon YYYY') as v")).v;
+  const ay = (await one("select extract(year from current_date - interval '3 months')::int as v")).v;
+  const read = (type, fields) => db.query("select fn_record_document_reading($1, $2, $3)", [app, type,
+    JSON.stringify(Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { value: v, confidence: 0.95 }])))]);
+  await read("pan_card", { name: "RAVI KUMAR", dob: "15/04/1990", pan_number: "BKRPK4321L" });
+  await read("aadhaar_card", { name: "Ravi Kumar", address: "C/O: Suresh Kumar, 8, 2nd Main, Jayanagar, Bengaluru, Karnataka - 560041", aadhaar_number: "XXXX-XXXX-4321" });
+  await read("salary_slip", { employer_name: "ACME MOTORS PRIVATE LIMITED", net_salary: "60,000.00", pay_period: month });
+  await read("form16", { employer_name: "Acme Motors Pvt. Ltd.", pan: "BKRPK4321L", assessment_year: `${ay}-${String(ay + 1).slice(2)}` });
+  await read("bank_statement", { months_analyzed: 6, salary_count: 6, avg_salary: 85000, bounce_count: 0, emi_total: 0, avg_monthly_balance: 90000 });
+  await db.query("select fn_record_face_match($1, 'PAN', 'single', 96.4, 'MATCH')", [app]);
+  t.equal("readings are saved in the database (R20); nothing is decided on a draft",
+    [(await one("select count(*)::int as n from document_readings r join applications a on a.id = r.application_id where a.application_id = $1", [app])).n,
+     (await one("select count(*)::int as n from application_document_requirements r join applications a on a.id = r.application_id where a.application_id = $1 and r.status = 'ACCEPTED'", [app])).n],
+    [5, 0]);
+
+  // Submit: the payslip says 60,000 but the customer said 85,000.
+  await db.query("set role authenticated");
+  await as(CUST, "ravi.k@example.com", { amr: [{ method: "otp", timestamp: Math.floor(Date.now() / 1000) - 30 }] });
+  await db.query("select fn_customer_submit($1, '2026-09-v1', 't')", [app]);
+  await as(OFFICER, "o@t.in");
+  let c = (await one("select fn_staff_document_checks($1) as v", [app])).v;
+  const status = async () => (await one("select status from applications where application_id = $1", [app])).status;
+  t.equal("on submit, every clean document is accepted and the payslip waits for a person",
+    [c.auto_accepted.sort(), c.summary.for_a_person, await status()],
+    [["AADHAAR", "BANK_STMT", "FORM16_B", "LIVE_PHOTO", "PAN"], ["SALARY_SLIP"], "SUBMITTED"]);
+  const slip = c.documents.SALARY_SLIP.find((x) => x.check === "SALARY_MATCH");
+  t.equal("staff see which check failed and by how much, not the values", [slip.result, slip.detail], ["FAIL", "29.4% below what the customer gave"]);
+  const q = (await one("select fn_staff_customer_queue('OPEN') as v", [])).v.rows.find((r) => r.application_id === app);
+  t.equal("the queue shows how many were accepted automatically", [q.docs_auto_accepted, q.docs_to_check, q.fast_lane], [5, 1, false]);
+
+  // The rules are data: an officer cannot change them; the rules owner can.
+  const rule = (p) => db.query("select fn_staff_set_auto_rule($1) as v", [JSON.stringify(p)]);
+  await t.rejects("an officer cannot change the rules", () => rule({ doc_type: "SALARY_SLIP", check: "SALARY_MATCH", threshold: 40 }), /permission denied/);
+  await as(PM, "pm5@t.in", { aal: "aal2" });
+  await t.rejects("asking the customer needs the words they will see", () => rule({ doc_type: "SALARY_SLIP", check: "EMPLOYER_MATCH", on_fail: "ASK_CUSTOMER" }), /what the customer is told/);
+  await rule({ doc_type: "SALARY_SLIP", check: "SALARY_MATCH", threshold: 40 });
+  const rules = (await one("select fn_staff_auto_rules() as v")).v;
+  t.equal("the new threshold is in force", rules.documents.find((d) => d.doc_type === "SALARY_SLIP").checks.find((k) => k.check === "SALARY_MATCH").threshold, 40);
+
+  // Run again: the payslip passes, the documents are verified and the credit check runs by itself.
+  await as(OFFICER, "o@t.in");
+  const r = (await one("select fn_staff_rerun_document_checks($1) as v", [app])).v;
+  t.equal("with every document accepted the case moves on and the credit check runs itself",
+    [r.accepted_now, r.docs_verified_automatically, r.credit_checks, await status(), ["APPROVE", "MAYBE", "REJECT"].includes(r.recommendation)],
+    [["SALARY_SLIP"], true, "RUN", "UNDER_ASSESSMENT", true]);
+  t.equal("fast lane only for an APPROVE recommendation", r.fast_lane, r.recommendation === "APPROVE");
+  const checks = (await one("select fn_staff_customer_checks($1) as v", [app])).v;
+  t.equal("the credit check used what the readers saved", [checks.bureau.bureau_name, checks.bank.months_covered, Number(checks.income.salary_slip_salary)], ["CIBIL-SIMULATED", 6, 60000]);
+
+  await as(CUST, "ravi.k@example.com");
+  t.equal("the customer's tracking shows the automatic steps in order",
+    (await one("select fn_customer_track() as v")).v.applications[0].events.map((e) => e.stage), ["RECEIVED", "DOCS_VERIFIED", "CREDIT_CHECK"]);
+  await t.rejects("customers cannot see the checks", () => db.query("select fn_staff_document_checks($1)", [app]), /permission denied|not authenticated|no active cercit user/);
+  await as(DEMO, "demo@t.in");
+  await t.rejects("nor can the demo login", () => db.query("select fn_staff_document_checks($1)", [app]), /application not found|permission denied/);
+
+  await operator();
+  t.equal("every automatic step is audited as the system; the rule change as the person",
+    await one(`select count(*) filter (where event_type = 'AUTO_DOC_ACCEPTED' and actor_type = 'SYSTEM')::int as accepted,
+                      count(*) filter (where event_type = 'AUTO_DOCS_VERIFIED')::int as verified,
+                      count(*) filter (where event_type = 'AUTO_RUN_CHECKS' and actor_id is null)::int as checks
+               from audit_events e join applications a on a.id = e.application_id where a.application_id = $1`, [app]),
+    { accepted: 6, verified: 1, checks: 1 });
+  t.equal("the rule change is audited with who made it", (await one("select count(*)::int as n from audit_events where event_type = 'AUTO_RULE_CHANGED' and actor_id is not null")).n, 1);
+  t.equal("customers cannot read the rules or readings tables", await (async () => {
+    await db.query("set role authenticated");
+    await as(CUST, "ravi.k@example.com");
+    try { await db.query("select * from document_readings"); return "read"; } catch { return "refused"; } finally { await operator(); }
+  })(), "refused");
   failures += t.report();
 }
 

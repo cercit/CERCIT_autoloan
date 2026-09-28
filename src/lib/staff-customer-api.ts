@@ -50,6 +50,10 @@ export interface QueueRow {
   docs_with_customer: number;
   fields_edited: number;
   face: FaceResult | null;
+  // What the automatic document checks did (sql/052).
+  fast_lane: boolean;
+  auto_verified: boolean;
+  docs_auto_accepted: number;
 }
 
 export async function getCustomerQueue(
@@ -293,4 +297,114 @@ export async function runCreditChecks(applicationId: string): Promise<void> {
     p_read: read,
   });
   if (error) throw new Error(message(error));
+}
+
+// --- Automatic document checks (sql/052) ---------------------------------------
+
+export type CheckResult = "PASS" | "FAIL" | "UNREAD" | "WAITING";
+
+export interface DocCheck {
+  check: string;
+  label: string;
+  result: CheckResult;
+  detail: string | null;
+  blocking: boolean;
+  at: string;
+}
+
+export interface AutoReview {
+  at: string;
+  trigger: string;
+  accepted_now: string[];
+  asked_again_now: string[];
+  for_a_person: string[];
+  still_reading: string[];
+  auto_accepted_total: number;
+  docs_verified_automatically: boolean;
+  credit_checks: string | null;
+  recommendation: "APPROVE" | "MAYBE" | "REJECT" | null;
+  fast_lane: boolean;
+}
+
+export interface DocumentChecks {
+  summary: AutoReview | null;
+  enabled: boolean;
+  documents: Record<string, DocCheck[]>;
+  auto_accepted: string[];
+}
+
+export async function getDocumentChecks(applicationId: string): Promise<DocumentChecks> {
+  const { data, error } = await supabase.rpc("fn_staff_document_checks", {
+    p_application_id: applicationId,
+  });
+  if (error) throw new Error(message(error));
+  return data as DocumentChecks;
+}
+
+export async function rerunDocumentChecks(applicationId: string): Promise<AutoReview> {
+  const { data, error } = await supabase.rpc("fn_staff_rerun_document_checks", {
+    p_application_id: applicationId,
+  });
+  if (error) throw new Error(message(error));
+  return data as AutoReview;
+}
+
+export interface AutoSettings {
+  enabled: boolean;
+  auto_accept: boolean;
+  auto_verify: boolean;
+  auto_credit_checks: boolean;
+  reader_wait_minutes: number;
+  updated_at: string;
+}
+
+export interface RuleCheck {
+  check: string;
+  label: string;
+  enabled: boolean;
+  blocking: boolean;
+  threshold: number | null;
+  threshold_hint: string | null;
+  on_fail: "REVIEW" | "ASK_CUSTOMER";
+  customer_message: string | null;
+}
+
+export interface RuleDocument {
+  doc_type: string;
+  name: string;
+  required: string;
+  auto_accept: boolean;
+  note: string | null;
+  checks: RuleCheck[];
+}
+
+export interface AutoRules {
+  settings: AutoSettings;
+  can_edit: boolean;
+  documents: RuleDocument[];
+}
+
+export async function getAutoRules(): Promise<AutoRules> {
+  const { data, error } = await supabase.rpc("fn_staff_auto_rules");
+  if (error) throw new Error(message(error));
+  return data as AutoRules;
+}
+
+export type AutoRuleChange =
+  | { settings: Partial<Omit<AutoSettings, "updated_at">> }
+  | { doc_type: string; auto_accept: boolean }
+  | {
+      doc_type: string;
+      check: string;
+      enabled?: boolean;
+      blocking?: boolean;
+      threshold?: number | null;
+      on_fail?: "REVIEW" | "ASK_CUSTOMER";
+      customer_message?: string;
+    };
+
+export async function setAutoRule(change: AutoRuleChange): Promise<AutoRules> {
+  const { data, error } = await supabase.rpc("fn_staff_set_auto_rule", { p: change });
+  if (error) throw new Error(message(error));
+  return data as AutoRules;
 }
