@@ -629,8 +629,13 @@ function DocumentLine({
           "Your browser blocked the new tab. Allow pop-ups for this site and try again.",
         );
     } catch (e) {
-      w?.close();
-      setLinkError((e as Error).message);
+      // Keep the tab and say why, instead of a tab that flashes and closes.
+      const msg = `The file couldn't be opened: ${(e as Error).message}`;
+      if (w) {
+        w.document.title = "File not opened";
+        w.document.body.textContent = msg;
+      }
+      setLinkError(msg);
     }
   }
 
