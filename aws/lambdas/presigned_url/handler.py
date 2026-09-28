@@ -146,7 +146,7 @@ def get_extractions_handler(event, context):
 
 CUSTOMER_FIELDS = {
     "pan_card": ("name", "father_name", "dob", "pan_number"),
-    "aadhaar_card": ("name", "dob", "gender", "address"),
+    "aadhaar_card": ("name", "dob", "gender", "address", "father_name"),
     "salary_slip": ("employee_name", "employer_name", "net_salary", "pay_period"),
     "form16": ("employee_name", "employer_name"),
 }

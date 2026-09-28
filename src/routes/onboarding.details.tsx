@@ -79,17 +79,34 @@ function amount(s: string): string {
   return Number.isFinite(n) && n > 0 ? String(Math.round(n)) : "";
 }
 
+/** The person an Aadhaar address is addressed through: "S/O: <name>, ..." or "C/O: <name>, ..." */
+const RELATION = /^\s*(?:address\s*:?\s*)?(s|d|c|w)\s*\/\s*[o0]\s*[:.]?\s*([^,]+),?/i;
+
+function relationName(text: string): string {
+  const m = text.match(RELATION);
+  return m && m[1]!.toLowerCase() !== "w" ? m[2]!.trim() : "";
+}
+
 function readAddress(text: string, states: DetailsState["states"]): AddressInput | null {
   if (!text) return null;
-  const pin = text.match(/\b[1-9]\d{5}\b/)?.[0] ?? "";
-  const state = states.find((s) => new RegExp(`\\b${s.name}\\b`, "i").test(text));
-  const rest = text
-    .replace(pin, "")
+  const clean = text
+    // an Aadhaar number, full or masked, is never part of the address
+    .replace(/\b(?:[\dXx]{4}[\s-]?[\dXx]{4}[\s-]?\d{4}|[Xx]{4}[\s-]?[Xx]{4})\b/g, " ")
+    .replace(RELATION, "")
+    .replace(/^\s*address\s*:?\s*/i, "");
+  const pinMatch = clean.match(/\b([1-9]\d{2})\s?(\d{3})\b/);
+  const pin = pinMatch ? pinMatch[1]! + pinMatch[2]! : "";
+  const state = states.find((s) => new RegExp(`\\b${s.name}\\b`, "i").test(clean));
+  const rest = clean
+    .replace(pinMatch?.[0] ?? /$^/, "")
     .replace(state ? new RegExp(`\\b${state.name}\\b`, "i") : /$^/, "")
-    .replace(/^(address|s\/o|d\/o|w\/o|c\/o)[:\s]*/i, "")
     .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
+    .map((x) =>
+      x
+        .replace(/^[\s\-–]+|[\s\-–]+$/g, "")
+        .replace(/^(dist(rict)?|vtc|po|sub district)\s*:\s*/i, ""),
+    )
+    .filter((x) => x && /[a-z0-9]/i.test(x));
   // Aadhaar addresses end "..., City, State PIN": the last part left is the city.
   const city = rest.length > 2 ? titleCase(rest.pop()!) : "";
   return {
@@ -117,6 +134,15 @@ function prefillFrom(x: ExtractionResult["extractions"], states: DetailsState["s
   put(personal, personalSrc, "dob", isoDate(val(x, "pan_card", "dob")), "PAN");
   put(personal, personalSrc, "dob", isoDate(val(x, "aadhaar_card", "dob")), "Aadhaar");
   put(personal, personalSrc, "father_name", titleCase(val(x, "pan_card", "father_name")), "PAN");
+  put(
+    personal,
+    personalSrc,
+    "father_name",
+    titleCase(
+      val(x, "aadhaar_card", "father_name") || relationName(val(x, "aadhaar_card", "address")),
+    ),
+    "Aadhaar",
+  );
   put(personal, personalSrc, "pan", val(x, "pan_card", "pan_number").toUpperCase(), "PAN");
   const g = val(x, "aadhaar_card", "gender").toUpperCase();
   put(

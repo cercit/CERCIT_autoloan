@@ -49,11 +49,14 @@ def handler(event, context):
     blocks = analyze(textract, bucket, key, ["FORMS"])
     kv_pairs = parse_key_value_pairs(blocks)
     raw_text = _get_all_text(blocks)
+    lines = _lines(blocks)
 
     if doc_type == "pan_card":
         fields = _extract_pan(kv_pairs, raw_text)
+        _pan_from_lines(fields, lines)
     else:
         fields = _extract_aadhaar(kv_pairs, raw_text)
+        _aadhaar_from_lines(fields, lines)
 
     try:
         cross_check = _cross_validate_name(application_id, fields, doc_type)
@@ -111,6 +114,11 @@ def _extract_aadhaar(kv_pairs: dict, raw_text: str) -> dict:
         match = fuzzy_field_match(kv_pairs, patterns)
         if match:
             fields[field_name] = {"value": match["value"], "confidence": match["confidence"]}
+            # "S/O: <father>, <house>..." read as a pair loses its label; keep it so the
+            # father's name can be taken from the front of the address.
+            rel = re.search(r"\b([sdcw])\s*/\s*[o0]\b", str(match.get("key", "")), re.I)
+            if field_name == "address" and rel:
+                fields[field_name]["value"] = f"{rel.group(1).upper()}/O: {match['value']}"
 
     if "aadhaar_number" not in fields:
         aadhaar_match = re.search(r"\d{4}\s?\d{4}\s?\d{4}", raw_text)
@@ -143,6 +151,135 @@ def _get_all_text(blocks: list[dict]) -> str:
     """Concatenate all LINE text for regex fallback extraction."""
     lines = [b["Text"] for b in blocks if b.get("BlockType") == "LINE" and "Text" in b]
     return " ".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Line-by-line reading. Downloaded e-Aadhaar and e-PAN PDFs print most details
+# without "Label: value" pairs (a bare "MALE", a "DOB: .." line, an address that
+# runs over several lines), so the form reader alone misses them.
+# ---------------------------------------------------------------------------
+
+_DATE = re.compile(r"\b(\d{2})[/.-](\d{2})[/.-](\d{4})\b")
+_PIN = re.compile(r"\b[1-9]\d{2}\s?\d{3}\b")
+# An Aadhaar number, full or masked ("XXXX XXXX 1234", or "XXXX XXXX" when the last group
+# was cut off): never part of an address.
+_UID = re.compile(r"\b(?:[\dXx]{4}[\s-]?[\dXx]{4}[\s-]?\d{4}|[Xx]{4}[\s-]?[Xx]{4})\b")
+_RELATION = re.compile(r"\b(S/O|D/O|C/O|W/O|S/0|D/0|C/0)\s*[:.]?\s*([^,\n]+)", re.I)
+_NOT_ADDRESS = re.compile(r"aadhaar|\bVID\b|mobile|download|issue|enrol|help|www\.|@|government|unique", re.I)
+
+
+def _lines(blocks: list[dict]) -> list[str]:
+    out = []
+    for b in blocks:
+        if b.get("BlockType") == "LINE" and b.get("Text"):
+            text = re.sub(r"[^\x20-\x7E]+", " ", b["Text"])  # drop the Hindi half of bilingual labels
+            text = re.sub(r"\s+", " ", text).strip(" /:|-")
+            if text:
+                out.append(text)
+    return out
+
+
+def _value_after(lines: list[str], label: re.Pattern) -> str:
+    """The text after a label on its line, or the next line when the label stands alone."""
+    for i, line in enumerate(lines):
+        m = label.search(line)
+        if not m:
+            continue
+        rest = line[m.end():].strip(" :/-")
+        if rest:
+            return rest
+        if i + 1 < len(lines):
+            return lines[i + 1]
+    return ""
+
+
+def _is_name(s: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z .']{1,60}", s)) and not re.search(
+        r"\b(government|india|income|tax|department|card|signature|name|father|birth|dob|male|female)\b", s, re.I)
+
+
+def _pan_from_lines(fields: dict, lines: list[str]) -> None:
+    if "father_name" not in fields:
+        v = _value_after(lines, re.compile(r"father'?s?\s*name", re.I))
+        if _is_name(v):
+            fields["father_name"] = {"value": v, "confidence": 0.75, "source": "lines"}
+    if "name" not in fields:
+        v = _value_after(lines, re.compile(r"(?<!father's )(?<!fathers )\bname\b", re.I))
+        if _is_name(v):
+            fields["name"] = {"value": v, "confidence": 0.75, "source": "lines"}
+    if "dob" not in fields:
+        for line in lines:
+            m = _DATE.search(line)
+            if m:
+                fields["dob"] = {"value": m.group(0), "confidence": 0.75, "source": "lines"}
+                break
+
+
+def _aadhaar_from_lines(fields: dict, lines: list[str]) -> None:
+    dob_at = None
+    for i, line in enumerate(lines):
+        if re.search(r"\bDOB\b|birth", line, re.I):
+            m = _DATE.search(line) or re.search(r"\b(19|20)\d{2}\b", line)
+            if m:
+                dob_at = i
+                if "dob" not in fields:
+                    fields["dob"] = {"value": m.group(0), "confidence": 0.85, "source": "lines"}
+                break
+
+    if "gender" not in fields or not re.search(r"male|female|transgender", str(fields["gender"].get("value")), re.I):
+        for line in lines:
+            m = re.search(r"\b(FEMALE|MALE|TRANSGENDER)\b", line, re.I)
+            if m:
+                fields["gender"] = {"value": m.group(1).upper(), "confidence": 0.9, "source": "lines"}
+                break
+
+    # The name is printed just above the date of birth on the card.
+    if "name" not in fields and dob_at:
+        for j in range(dob_at - 1, max(dob_at - 3, -1), -1):
+            if _is_name(lines[j]):
+                fields["name"] = {"value": lines[j], "confidence": 0.75, "source": "lines"}
+                break
+
+    address = _address_block(lines)
+    old = str((fields.get("address") or {}).get("value") or "")
+    if address and (not _PIN.search(old) or len(address) > len(old)):
+        fields["address"] = {"value": address, "confidence": 0.8, "source": "lines"}
+    elif old:
+        fields["address"]["value"] = _clean_address(old)
+
+    rel = _RELATION.search(str((fields.get("address") or {}).get("value") or ""))
+    if rel and "father_name" not in fields and rel.group(1).upper()[0] in "SDC":
+        name = rel.group(2).strip()
+        if _is_name(re.sub(r"^late\s+", "", name, flags=re.I)):
+            fields["father_name"] = {
+                "value": name,
+                "confidence": 0.7 if rel.group(1).upper().startswith("C") else 0.85,
+                "source": "address " + rel.group(1).upper().replace("0", "O"),
+            }
+
+
+def _clean_address(text: str) -> str:
+    text = _UID.sub(" ", text)
+    text = re.sub(r"\s*,\s*(,\s*)+", ", ", text)
+    return re.sub(r"\s+", " ", text).strip(" ,")
+
+
+def _address_block(lines: list[str]) -> str:
+    """From the "Address" label (or the S/O, C/O line) down to the line with the PIN code."""
+    starts = [i for i, l in enumerate(lines) if re.match(r"address\b", l, re.I)]
+    starts += [i for i, l in enumerate(lines) if _RELATION.match(l) and i not in starts]
+    for start in starts:
+        parts = []
+        for line in lines[start:start + 9]:
+            if _NOT_ADDRESS.search(line):
+                continue
+            text = re.sub(r"^address\s*[:\-]?\s*", "", line, flags=re.I)
+            text = _UID.sub(" ", text).strip(" ,")
+            if text:
+                parts.append(text)
+            if _PIN.search(text):
+                return _clean_address(", ".join(parts))
+    return ""
 
 
 def _cross_validate_name(application_id: str, current_fields: dict, current_type: str) -> dict | None:
