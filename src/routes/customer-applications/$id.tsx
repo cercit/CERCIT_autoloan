@@ -23,8 +23,11 @@ import {
   STATUS_TEXT,
   caseAction,
   fileLink,
+  getCaseChecks,
   getCustomerCase,
+  runCreditChecks,
   type CaseAction,
+  type CaseChecks,
   type CaseDocument,
   type CustomerCase,
 } from "@/lib/staff-customer-api";
@@ -73,6 +76,7 @@ const FIELD_LABELS: Record<string, string> = {
   designation: "Designation",
   date_of_joining: "Joined",
   net_monthly_salary: "Monthly take-home",
+  existing_emis: "EMIs paid now",
 };
 const GROUP_TITLES = {
   PERSONAL: "About the customer",
@@ -99,10 +103,11 @@ function show(key: string, v: unknown): string {
       .filter(Boolean)
       .join(", ");
   }
-  if (key === "net_monthly_salary") return inr(Number(v));
+  if (key === "net_monthly_salary" || key === "existing_emis") return inr(Number(v));
   const text = String(v);
   // Stored codes (FEMALE, PRIVATE_LTD) read as words: "Female", "Private ltd".
-  if (/^[A-Z][A-Z_]+$/.test(text)) return text.charAt(0) + text.slice(1).toLowerCase().replaceAll("_", " ");
+  if (/^[A-Z][A-Z_]+$/.test(text))
+    return text.charAt(0) + text.slice(1).toLowerCase().replaceAll("_", " ");
   return text;
 }
 
@@ -117,14 +122,29 @@ function CaseView() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [checks, setChecks] = useState<CaseChecks | null>(null);
 
   const load = useCallback(async () => {
     try {
       setC(await getCustomerCase(id));
+      setChecks(await getCaseChecks(id).catch(() => null));
     } catch (e) {
       setError((e as Error).message);
     }
   }, [id]);
+
+  const runChecks = async () => {
+    setBusy("CHECKS");
+    setActionError(null);
+    try {
+      await runCreditChecks(id);
+      await load();
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
   useEffect(() => {
     void load();
   }, [load]);
@@ -207,10 +227,19 @@ function CaseView() {
         </p>
       )}
 
-      <NextStep c={c} notAccepted={notAccepted} quoteIn={quoteIn} busy={busy} act={act} />
+      <NextStep
+        c={c}
+        checks={checks}
+        notAccepted={notAccepted}
+        quoteIn={quoteIn}
+        busy={busy}
+        act={act}
+        runChecks={runChecks}
+      />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          {checks?.recommendation && <CreditChecksCard checks={checks} />}
           <SectionCard
             title="Documents"
             description="Open each file, then accept it or ask the customer again. The customer sees your reason."
@@ -418,17 +447,22 @@ type Act = (action: CaseAction, p?: Record<string, unknown>, tag?: string) => Pr
 
 function NextStep({
   c,
+  checks,
   notAccepted,
   quoteIn,
   busy,
   act,
+  runChecks,
 }: {
   c: CustomerCase;
+  checks: CaseChecks | null;
   notAccepted: CaseDocument[];
   quoteIn: boolean;
   busy: string | null;
   act: Act;
+  runChecks: () => Promise<void>;
 }) {
+  const rec = checks?.recommendation ?? null;
   const a = c.application;
   const [note, setNote] = useState("");
 
@@ -465,6 +499,35 @@ function NextStep({
             : "final approval"}
           . A reason is needed to refer or reject.
         </p>
+        <div className="flex flex-wrap items-center gap-3 rounded-md bg-surface-subtle p-3 text-sm">
+          {rec ? (
+            <p>
+              Engine recommends{" "}
+              <span className="font-semibold">
+                {rec.recommendation === "APPROVE"
+                  ? "approve"
+                  : rec.recommendation === "MAYBE"
+                    ? "a closer look"
+                    : "reject"}
+              </span>
+              {rec.recommended_rate ? ` at ${rec.recommended_rate}%` : ""}. Your decision is
+              recorded against it.
+            </p>
+          ) : (
+            <p>
+              Run the credit checks first: bureau report, income and bank, then the policy engine.
+            </p>
+          )}
+          <Button
+            size="sm"
+            variant={rec ? "ghost" : "default"}
+            disabled={busy !== null}
+            onClick={() => void runChecks()}
+          >
+            {busy === "CHECKS" && <Loader2 className="size-4 animate-spin" />}
+            {rec ? "Run again" : "Run credit checks"}
+          </Button>
+        </div>
         <Textarea
           id="decision-note"
           value={note}
@@ -477,7 +540,11 @@ function NextStep({
             <Button
               key={d}
               variant={d === "APPROVE" ? "default" : d === "REJECT" ? "destructive" : "outline"}
-              disabled={busy !== null || (a.status === "UNDER_REVIEW" && d === "REFER")}
+              disabled={
+                busy !== null ||
+                (a.status === "UNDER_REVIEW" && d === "REFER") ||
+                (d === "APPROVE" && !rec)
+              }
               onClick={() =>
                 void act("DECIDE", { decision: d, note }, d).then((ok) => ok && setNote(""))
               }
@@ -728,6 +795,145 @@ function NoteBox({ busy, act }: { busy: string | null; act: Act }) {
           Add note
         </Button>
       </form>
+    </SectionCard>
+  );
+}
+
+const REC_TEXT = {
+  APPROVE: ["Approve", "success"],
+  MAYBE: ["Closer look", "warning"],
+  REJECT: ["Reject", "destructive"],
+} as const;
+
+function CreditChecksCard({ checks }: { checks: CaseChecks }) {
+  const b = checks.bureau;
+  const i = checks.income;
+  const k = checks.bank;
+  const r = checks.recommendation!;
+  const money = (v: number | null | undefined) =>
+    v === null || v === undefined ? "not read" : inr(Number(v));
+  const factors = Array.isArray(r.risk_factors)
+    ? (r.risk_factors as unknown[]).map((f) => (typeof f === "string" ? f : JSON.stringify(f)))
+    : [];
+  return (
+    <SectionCard
+      title="Credit checks"
+      description={`Run ${when(r.generated_at)}. The same policy engine as staff applications.`}
+      action={
+        <Pill tone={REC_TEXT[r.recommendation][1]}>Engine: {REC_TEXT[r.recommendation][0]}</Pill>
+      }
+    >
+      <div className="space-y-4">
+        {b && (
+          <div>
+            <h3 className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Bureau report
+              {b.bureau_name.endsWith("SIMULATED") && <Pill tone="warning">Simulated (demo)</Pill>}
+            </h3>
+            {b.score === null ? (
+              <p className="text-sm font-medium text-destructive">No record at the bureau.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-4">
+                <LabelValue label="Score" value={<span className="tabular-nums">{b.score}</span>} />
+                <LabelValue
+                  label="Active loans"
+                  value={`${b.active_accounts ?? 0}, EMI ${money(b.total_monthly_emi)}`}
+                />
+                <LabelValue
+                  label="Worst late payment (12 m)"
+                  value={b.dpd_max_12m ? `${b.dpd_max_12m} days` : "None"}
+                />
+                <LabelValue label="Enquiries (90 days)" value={b.enquiry_count_90d ?? 0} />
+                <LabelValue
+                  label="Card use"
+                  value={b.credit_utilization_pct !== null ? `${b.credit_utilization_pct}%` : "—"}
+                />
+                <LabelValue
+                  label="Oldest account"
+                  value={
+                    b.oldest_account_months
+                      ? `${Math.floor(b.oldest_account_months / 12)} y ${b.oldest_account_months % 12} m`
+                      : "—"
+                  }
+                />
+                <LabelValue
+                  label="Write-offs / settled (5 y)"
+                  value={`${b.writeoff_count_5y ?? 0} / ${b.settled_count_5y ?? 0}`}
+                />
+                <LabelValue
+                  label="EMIs the customer declared"
+                  value={money(checks.declared_existing_emis)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {i && (
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Monthly income
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <LabelValue label="Declared" value={money(i.declared_net_salary)} />
+              <LabelValue label="Salary slip" value={money(i.salary_slip_salary)} />
+              <LabelValue label="Bank salary credits" value={money(i.bank_credit_salary)} />
+              <LabelValue label="Form 16 (÷12)" value={money(i.form16_monthly_equiv)} />
+            </div>
+            <p
+              className={cn(
+                "mt-2 text-sm",
+                i.income_variance_flag && "font-medium text-warning-foreground dark:text-warning",
+              )}
+            >
+              Counted: {money(i.eligible_net_salary)} (the lowest of these)
+              {i.income_variance_pct !== null
+                ? ` · sources differ by up to ${i.income_variance_pct}%`
+                : ""}
+            </p>
+          </div>
+        )}
+        <div>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Bank statement
+          </h3>
+          {k ? (
+            <p className="text-sm">
+              {k.months_covered} months · average balance {money(k.avg_monthly_balance)} · salary{" "}
+              {k.salary_regularity === "REGULAR" ? "every month" : "not every month"} ·{" "}
+              {k.bounce_count_6m ?? 0} bounces
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              The reader could not analyse the statement, so the engine treats the bank checks as
+              not available.
+            </p>
+          )}
+        </div>
+        <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-4">
+          <LabelValue label="Rate" value={r.recommended_rate ? `${r.recommended_rate}%` : "—"} />
+          <LabelValue label="EMI" value={money(r.recommended_emi)} />
+          <LabelValue
+            label="EMIs to income (FOIR)"
+            value={r.foir_calculated !== null ? `${r.foir_calculated}%` : "—"}
+          />
+          <LabelValue
+            label="Loan to value"
+            value={r.ltv_calculated !== null ? `${r.ltv_calculated}%` : "—"}
+          />
+        </div>
+        {(r.summary_text || factors.length > 0) && (
+          <div className="text-sm">
+            {r.summary_text && <p>{r.summary_text}</p>}
+            {factors.length > 0 && (
+              <ul className="mt-1 list-inside list-disc text-muted-foreground">
+                {factors.slice(0, 8).map((f, n) => (
+                  <li key={n}>{f}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
     </SectionCard>
   );
 }

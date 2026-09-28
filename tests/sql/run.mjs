@@ -1580,7 +1580,8 @@ const asOperator = () => asApi("", "");
   const eb = (await one("select fn_customer_details($1) as v", [app])).v.eb_bill;
   t.equal("a different current address makes the electricity bill needed", [eb.required, eb.status], ["ALWAYS", "MISSING"]);
 
-  await save("EMPLOYMENT", { employer_name: "Acme Motors Pvt Ltd", employer_category: "PRIVATE_LTD", designation: "Engineer", date_of_joining: "2019-04-01", net_monthly_salary: 85000 },
+  await t.rejects("the EMIs they pay now are asked", () => save("EMPLOYMENT", { employer_name: "Acme Motors Pvt Ltd", employer_category: "PRIVATE_LTD", date_of_joining: "2019-04-01", net_monthly_salary: 85000 }), /EMIs you pay/);
+  await save("EMPLOYMENT", { employer_name: "Acme Motors Pvt Ltd", employer_category: "PRIVATE_LTD", designation: "Engineer", date_of_joining: "2019-04-01", net_monthly_salary: 85000, existing_emis: 4500 },
              { employer_name: "Acme Motors Pvt Ltd", net_monthly_salary: 85000 });
   await t.rejects("submit waits for every needed document", () => submit(), /still needed: .*Form 16.*Bank statement.*Electricity bill/);
 
@@ -1665,6 +1666,17 @@ const asOperator = () => asApi("", "");
   await t.rejects("a viewer cannot decide", () => act("DECIDE", { decision: "APPROVE" }), /permission denied/);
   await as(OFFICER, "o@t.in");
   await t.rejects("a rejection needs a reason", () => act("DECIDE", { decision: "REJECT", note: "no" }), /reason/);
+  await t.rejects("approving needs the credit checks", () => act("DECIDE", { decision: "APPROVE" }), /credit checks before approving/);
+  const read = { slip_net_salary: 85400, form16_annual: 1020000, bank: { avg_monthly_balance: 62000, avg_salary: 85400, salary_count: 6, months: 6, emi_total: 4500, bounce_count: 0 } };
+  const run = (await one("select fn_staff_customer_run_checks($1, $2) as v", [app, JSON.stringify(read)])).v;
+  const checks = (await one("select fn_staff_customer_checks($1) as v", [app])).v;
+  t.equal("credit checks: simulated bureau, bank and income from the readers, engine recommendation",
+    [checks.bureau.bureau_name, checks.bank.salary_regularity, Number(checks.income.eligible_net_salary), Number(checks.declared_existing_emis), ["APPROVE", "MAYBE", "REJECT"].includes(checks.recommendation?.recommendation)],
+    ["CIBIL-SIMULATED", "REGULAR", 85000, 4500, true]);
+  t.equal("the case stays with the officer after the checks", (await one("select status from applications where application_id = $1", [app])).status, "UNDER_ASSESSMENT");
+  const again = (await one("select fn_staff_customer_run_checks($1, $2) as v", [app, JSON.stringify(read)])).v;
+  t.equal("the same PAN always gets the same simulated report",
+    (await one("select count(distinct score)::int as n, count(*)::int as c from bureau_reports b join applications a on a.id = b.application_id where a.application_id = $1", [app])), { n: 1, c: 1 });
   const ok = (await act("DECIDE", { decision: "APPROVE" })).rows[0].v;
   t.equal("approved in principle (no quotation yet)", [ok.status, ok.approval_stage], ["APPROVED", "IN_PRINCIPLE"]);
   await t.rejects("final needs the quotation first", () => act("MOVE_TO_FINAL"), /quotation/);
@@ -1685,6 +1697,10 @@ const asOperator = () => asApi("", "");
   await asOperator();
   await db.query("select set_config('request.jwt.claims', '', false)");
   t.equal("each decision is audited with its outcome", (await one("select count(*)::int as n from audit_events where event_type = 'OFFICER_DECIDE' and event_detail->>'decision' = 'APPROVE'")).n, 2);
+  t.equal("with checks run, the decision goes through the shared decision path", (await one("select count(*)::int as n from credit_decisions cd join applications a on a.id = cd.application_id where a.application_id = $1", [app])).n > 0, true);
+  const dist = (await one(`select count(*) filter (where (v->>'hit')::boolean is false)::int as nohit, round(avg((v->>'score')::int))::int as avg, min((v->>'score')::int) as lo, max((v->>'score')::int) as hi
+                           from (select fn_simulated_bureau(id) as v from customers) x`));
+  t.equal("simulated scores sit in the bureau range", dist.lo >= 300 && dist.hi <= 900, true);
   t.equal("every officer step is audited with who did it",
     (await one("select count(*) filter (where actor_id is null)::int as anon, count(*)::int as n from audit_events where event_type like 'OFFICER\\_%' and event_type <> 'OFFICER_DECISION'")).anon, 0);
   failures += t.report();

@@ -90,7 +90,12 @@ function readAddress(text: string, states: DetailsState["states"]): AddressInput
     .filter(Boolean);
   // Aadhaar addresses end "..., City, State PIN": the last part left is the city.
   const city = rest.length > 2 ? titleCase(rest.pop()!) : "";
-  return { line1: rest.join(", ").slice(0, 300), city, state_code: state?.code ?? "", pincode: pin };
+  return {
+    line1: rest.join(", ").slice(0, 300),
+    city,
+    state_code: state?.code ?? "",
+    pincode: pin,
+  };
 }
 
 /** RAMESH RAO → Ramesh Rao (documents print names in capitals). */
@@ -804,6 +809,7 @@ function WorkGroup({
     designation: str(saved?.["designation"]),
     date_of_joining: str(saved?.["date_of_joining"]),
     net_monthly_salary: str(saved?.["net_monthly_salary"]) || prefill["net_monthly_salary"] || "",
+    existing_emis: str(saved?.["existing_emis"]),
   };
   const cur = { ...base, ...v };
   const set = (k: string) => (x: string) => setV((p) => ({ ...p, [k]: x }));
@@ -823,6 +829,12 @@ function WorkGroup({
           <Row label="Designation" value={str(saved?.["designation"])} />
           <Row label="Joined" value={fmtDate(str(saved?.["date_of_joining"]))} />
           <Row label="Monthly take-home" value={inr(str(saved?.["net_monthly_salary"]))} />
+          <Row
+            label="EMIs you pay now"
+            value={
+              str(saved?.["existing_emis"]) === "0" ? "None" : inr(str(saved?.["existing_emis"]))
+            }
+          />
         </>
       }
     >
@@ -831,7 +843,11 @@ function WorkGroup({
         onSubmit={(e) => {
           e.preventDefault();
           void save(
-            { ...cur, net_monthly_salary: Number(cur["net_monthly_salary"] || 0) },
+            {
+              ...cur,
+              net_monthly_salary: Number(cur["net_monthly_salary"] || 0),
+              existing_emis: cur["existing_emis"] === "" ? "" : Number(cur["existing_emis"]),
+            },
             saved
               ? {}
               : {
@@ -897,6 +913,19 @@ function WorkGroup({
               onChange={(e) =>
                 set("net_monthly_salary")(e.target.value.replace(/\D/g, "").slice(0, 8))
               }
+              inputMode="numeric"
+              className="tabular-nums"
+            />
+          </Field>
+          <Field
+            id="emis"
+            label="Loan EMIs you pay now (₹ a month)"
+            hint="Home, car, personal loans and card EMIs added up. Enter 0 if none."
+          >
+            <Input
+              id="emis"
+              value={cur["existing_emis"]}
+              onChange={(e) => set("existing_emis")(e.target.value.replace(/\D/g, "").slice(0, 8))}
               inputMode="numeric"
               className="tabular-nums"
             />

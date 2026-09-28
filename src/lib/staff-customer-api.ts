@@ -198,3 +198,99 @@ export async function fileLink(applicationId: string, key: string): Promise<stri
   if (!res.ok) throw new Error(body.error ?? "The file couldn't be opened");
   return body.url as string;
 }
+
+// --- Credit checks (sql/048) ------------------------------------------------
+
+export interface CaseChecks {
+  bureau: {
+    bureau_name: string;
+    score: number | null;
+    active_accounts: number | null;
+    total_outstanding: number | null;
+    total_monthly_emi: number | null;
+    dpd_max_12m: number | null;
+    dpd_60_plus_flag: boolean | null;
+    enquiry_count_90d: number | null;
+    writeoff_count_5y: number | null;
+    settled_count_5y: number | null;
+    credit_utilization_pct: number | null;
+    oldest_account_months: number | null;
+    created_at: string;
+  } | null;
+  bank: {
+    months_covered: number;
+    avg_monthly_balance: number | null;
+    avg_salary_credit: number | null;
+    salary_regularity: string | null;
+    bounce_count_6m: number | null;
+  } | null;
+  income: {
+    declared_net_salary: number | null;
+    salary_slip_salary: number | null;
+    bank_credit_salary: number | null;
+    form16_monthly_equiv: number | null;
+    income_variance_pct: number | null;
+    income_variance_flag: boolean;
+    eligible_net_salary: number | null;
+  } | null;
+  recommendation: {
+    recommendation: "APPROVE" | "MAYBE" | "REJECT";
+    recommended_rate: number | null;
+    recommended_amount: number | null;
+    recommended_emi: number | null;
+    foir_calculated: number | null;
+    ltv_calculated: number | null;
+    risk_factors: unknown;
+    summary_text: string | null;
+    generated_at: string;
+  } | null;
+  declared_existing_emis: number | null;
+}
+
+export async function getCaseChecks(applicationId: string): Promise<CaseChecks> {
+  const { data, error } = await supabase.rpc("fn_staff_customer_checks", {
+    p_application_id: applicationId,
+  });
+  if (error) throw new Error(message(error));
+  return data as CaseChecks;
+}
+
+const num = (v: unknown): number | null => {
+  const n = Number(String(v ?? "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/**
+ * Gathers what the document readers found (staff read of the S3 results), then
+ * runs the bureau pull and the assessment. Anything not found is sent empty.
+ */
+export async function runCreditChecks(applicationId: string): Promise<void> {
+  let x: Record<string, Record<string, { value: unknown }>> = {};
+  if (API_BASE) {
+    const { data } = await supabase.auth.getSession();
+    const res = await fetch(`${API_BASE}/extraction/${encodeURIComponent(applicationId)}`, {
+      headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+    }).catch(() => null);
+    if (res?.ok) x = ((await res.json()) as { extractions?: typeof x }).extractions ?? {};
+  }
+  const bank = x["bank_statement"];
+  const read = {
+    slip_net_salary: num(x["salary_slip"]?.["net_salary"]?.value),
+    form16_annual: num(x["form16"]?.["gross_total_income"]?.value),
+    bank: bank
+      ? {
+          months: num(bank["months_analyzed"]?.value),
+          avg_monthly_balance: num(bank["avg_monthly_balance"]?.value),
+          avg_salary: num(bank["avg_salary"]?.value),
+          salary_count: num(bank["salary_count"]?.value) ?? 0,
+          emi_total: num(bank["emi_total"]?.value) ?? 0,
+          bounce_count: num(bank["bounce_count"]?.value) ?? 0,
+        }
+      : null,
+  };
+  const { error } = await supabase.rpc("fn_staff_customer_run_checks", {
+    p_application_id: applicationId,
+    p_read: read,
+  });
+  if (error) throw new Error(message(error));
+}
