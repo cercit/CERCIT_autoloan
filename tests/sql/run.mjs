@@ -2363,6 +2363,143 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 32. Income and bank detail (054)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("income and bank detail");
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub, email) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, email, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  const appOf = (pan) => one(`select a.id, a.application_id, a.customer_id, a.declared_net_salary from applications a join customers c on c.id = a.customer_id
+                              where c.pan_hash = fn_pii_hash($1) and exists (select 1 from bureau_reports b where b.application_id = a.id)`, [pan]);
+  const app27 = await appOf("ABCPR1234F");
+  const app30 = await appOf("BKRPK4321L");
+  const home30 = (await one("select exists (select 1 from bureau_accounts where application_id = $1 and product in ('HOME','PROPERTY') and status = 'ACTIVE' and ownership in ('INDIVIDUAL','JOINT')) as v", [app30.id])).v;
+  const snapshot = (id) => one(`select md5(coalesce((select string_agg(row(pay_month, gross, net, pf, tds, esi, employer_loan_recovery, lop_days, arrears)::text, '|' order by pay_month)
+                                                     from salary_slips where application_id = $1), '')
+                                         || coalesce((select string_agg(row(month, salary_credit, salary_day, emi_debits, bounces, avg_balance)::text, '|' order by month)
+                                                     from bank_monthly_summary where application_id = $1), '')
+                                         || coalesce((select row(assessment_year, gross_total_income, house_property_income)::text from form16_part_b where application_id = $1), '')) as h`, [id]);
+
+  // Simulation on the section 27 application (two bureaus on file).
+  const sim = (await one("select fn_simulate_income_detail($1, '2026-10-15') as v", [app27.id])).v;
+  const counts = await one(`select (select count(*) from salary_slips where application_id = $1)::int as slips,
+                                   (select count(*) from form16_part_b where application_id = $1)::int as f16,
+                                   (select count(*) from bank_monthly_summary where application_id = $1)::int as months,
+                                   (select min(pay_month)::text from salary_slips where application_id = $1) as first_slip,
+                                   (select max(pay_month)::text from salary_slips where application_id = $1) as last_slip,
+                                   (select assessment_year from form16_part_b where application_id = $1) as ay`, [app27.id]);
+  t.equal("simulation: 3 slips ending last month, one Form 16 for FY 2025-26, 6 bank months",
+    [sim.simulated, sim.version, counts], [true, "income-sim-v1", { slips: 3, f16: 1, months: 6, first_slip: "2026-07-01", last_slip: "2026-09-01", ay: "2026-27" }]);
+  t.equal("simulation runs once", (await one("select fn_simulate_income_detail($1, '2026-10-15') as v", [app27.id])).v.simulated, false);
+  const h1 = (await snapshot(app27.id)).h;
+  await db.query("delete from salary_slips where application_id = $1; ", [app27.id]);
+  await db.query("delete from bank_monthly_summary where application_id = $1", [app27.id]);
+  await db.query("delete from form16_part_b where application_id = $1", [app27.id]);
+  await db.query("select fn_simulate_income_detail($1, '2026-10-15')", [app27.id]);
+  t.equal("the same PAN always gets the same slips, Form 16 and bank months", (await snapshot(app27.id)).h, h1);
+
+  const coh = await one(`select (select bool_and(abs(net - net) = 0 and abs(net - gross + pf + professional_tax + tds + esi + employer_loan_recovery + other_deductions) <= 1)
+                                   from salary_slips where application_id = $1) as nets_add_up,
+                                (select bool_and(abs(net - $2::numeric) / $2::numeric <= 0.06) from salary_slips where application_id = $1 and lop_days = 0 and arrears = 0) as near_anchor,
+                                (select bool_and(emi_debits = coalesce((select instalment_emi from bureau_summary where application_id = $1 and bureau = 'COMBINED'), 0))
+                                   from bank_monthly_summary where application_id = $1) as emi_from_bureau,
+                                (select bool_and(salary_credit = (select net from salary_slips s where s.application_id = $1 and s.pay_month = b.month))
+                                   from bank_monthly_summary b where b.application_id = $1 and salary_credit > 0
+                                     and exists (select 1 from salary_slips s where s.application_id = $1 and s.pay_month = b.month)) as salary_matches_slip`,
+    [app27.id, app27.declared_net_salary]);
+  t.equal("simulated numbers hang together: slips add up, net near the declared salary, bank EMIs = bureau EMIs, salary credit = slip net",
+    coh, { nets_add_up: true, near_anchor: true, emi_from_bureau: true, salary_matches_slip: true });
+
+  await t.rejects("a slip whose deductions do not add up is refused",
+    () => db.query("insert into salary_slips (application_id, pay_month, gross, net, source) values ($1, '2026-01-01', 100000, 90000, 'STAFF')", [app30.id]), /ck_salary_slips_net/);
+  await t.rejects("months are stored as the 1st",
+    () => db.query("insert into salary_slips (application_id, pay_month, gross, net, source) values ($1, '2026-01-15', 1000, 1000, 'STAFF')", [app30.id]), /ck_salary_slips_month/);
+  await t.rejects("a Form 16 year must look like 2026-27",
+    () => db.query("insert into form16_part_b (application_id, assessment_year, gross_total_income, source) values ($1, '2026', 1, 'STAFF')", [app30.id]), /ck_form16_part_b_ay/);
+
+  // Hand-made detail on the section 30 application: the credit checks must use it.
+  const before = (await one("select fn_reading_summary($1) as v", [app30.id])).v;
+  for (const [m, net] of [["2026-07-01", 50000], ["2026-08-01", 52000], ["2026-09-01", 90000]]) {
+    await db.query("insert into salary_slips (application_id, pay_month, gross, net, source) values ($1, $2, $3, $3, 'STAFF')", [app30.id, m, net]);
+  }
+  await db.query("insert into form16_part_b (application_id, assessment_year, gross_total_income, house_property_income, source) values ($1, '2026-27', 840000, -180000, 'STAFF')", [app30.id]);
+  for (const [m, sal, day, bounce, bal] of [["2026-08-01", 70000, 1, 0, 40000], ["2026-09-01", 70000, 9, 1, 3000]]) {
+    await db.query(`insert into bank_monthly_summary (application_id, month, salary_credit, salary_day, emi_debits, bounces, avg_balance, min_balance_breaches, source)
+                    values ($1, $2, $3, $4, 8000, $5, $6, $7, 'STAFF')`, [app30.id, m, sal, day, bounce, bal, bal < 5000 ? 5 : 0]);
+  }
+  const s30 = (await one("select fn_income_summary($1) as v", [app30.id])).v;
+  t.equal("summary: median slip, spread, consecutive months, Form 16 monthly, house-property loss, bank means",
+    [s30.slip_months, s30.slip_net_salary, s30.slip_net_spread_pct, s30.slips_consecutive, s30.form16_monthly, s30.house_property_loss,
+     s30.bank.months, s30.bank.avg_salary, s30.bank.salary_count, s30.bank.salary_day_spread, s30.bank.emi_total, s30.bank.bounce_count, s30.bank.avg_monthly_balance],
+    [3, 52000, 76.9, true, 70000, 180000, 2, 70000, 2, 8, 8000, 1, 21500]);
+  const after = (await one("select fn_reading_summary($1) as v", [app30.id])).v;
+  t.equal("the credit checks now read the detail tables, not the single reading",
+    [before.slip_net_salary, after.slip_net_salary, after.form16_annual, after.bank.months], [60000, 52000, 840000, 2]);
+
+  await db.query("set role authenticated");
+  await as(OFFICER, "o@t.in");
+  const st = (await one("select status from applications where id = $1", [app30.id])).status;
+  if (["UNDER_ASSESSMENT", "UNDER_REVIEW"].includes(st)) {
+    await db.query("select fn_staff_customer_run_checks($1, '{}')", [app30.application_id]);
+    await operator();
+    const ia = await one("select salary_slip_salary, bank_credit_salary, form16_annual_income from income_assessments where application_id = $1 order by created_at desc limit 1", [app30.id]);
+    t.equal("an officer's credit check uses the slip median, bank average and Form 16",
+      [Number(ia.salary_slip_salary), Number(ia.bank_credit_salary), Number(ia.form16_annual_income)], [52000, 70000, 840000]);
+    await db.query("set role authenticated");
+    await as(OFFICER, "o@t.in");
+  } else {
+    t.equal(`section 30 application is open for a credit check (status ${st})`, false, true);
+  }
+
+  const d30 = (await one("select fn_staff_income_detail($1) as v", [app30.application_id])).v;
+  const codes = d30.flags.map((f) => f.code);
+  t.equal("officers see slips, Form 16, bank months and plain-word flags",
+    [d30.detail, d30.slips.length, d30.bank_months.length, d30.form16.assessment_year,
+     codes.includes("SLIP_BANK_GAP"), codes.includes("BOUNCES"), codes.includes("LOW_BALANCE"), codes.includes("SALARY_IRREGULAR"),
+     codes.includes("HIDDEN_HOME_LOAN") === !home30],
+    [true, 3, 2, "2026-27", true, true, true, true, true]);
+  t.equal("an application with no income detail says so", (await one("select fn_staff_income_detail(application_id) as v from applications where origin = 'STAFF' limit 1")).v, { detail: false });
+  await t.rejects("officers cannot read the income tables directly", () => db.query("select * from salary_slips"), /permission denied/);
+  await t.rejects("or run the simulation", () => db.query("select fn_simulate_income_detail($1, current_date)", [app30.id]), /permission denied/);
+  await t.rejects("or write readings", () => db.query("select fn_record_income_detail($1, 'FORM16', '{}')", [app30.application_id]), /permission denied/);
+
+  await as(DEMO, "demo@t.in");
+  await t.rejects("the demo login cannot read a real customer's income", () => db.query("select fn_staff_income_detail($1)", [app27.application_id]), /application not found/);
+  await as(CUST, "asha.r@example.com");
+  await t.rejects("customers cannot call it", () => db.query("select fn_staff_income_detail($1)", [app27.application_id]), /permission denied|no active cercit user/);
+
+  // A reader's slip (service key).
+  await operator();
+  await db.query("select fn_record_income_detail($1, 'SALARY_SLIP', $2)", [app30.application_id, JSON.stringify({ pay_period: "October 2026", gross: 95000, net: 81000, employer_name: "Acme" })]);
+  const rd = await one("select source, gross, net from salary_slips where application_id = $1 and pay_month = '2026-10-01'", [app30.id]);
+  t.equal("a reader's slip is stored by its pay month, even with deductions missing", rd, { source: "READER", gross: 95000, net: 81000 });
+
+  // 054 on a database that stopped at 053, twice.
+  {
+    const { readFileSync } = await import("node:fs");
+    const { db: old } = await migratedDb({ upTo: 53 });
+    const sql054 = readFileSync(new URL("../../sql/054_income_bank_detail.sql", import.meta.url), "utf8");
+    await old.exec(sql054);
+    await old.exec(sql054);
+    const r = (await old.query("select (select count(*) from pg_policies where policyname = 'real_customers_need_pii' and tablename in ('salary_slips','form16_part_b','bank_monthly_summary'))::int as p, fn_income_sim_version() as v")).rows[0];
+    t.equal("054 is safe to re-run on a 053 database", r, { p: 3, v: "income-sim-v1" });
+    await old.close();
+  }
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
