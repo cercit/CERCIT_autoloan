@@ -2568,6 +2568,54 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 34. Synthetic loans with repayment history (056)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("synthetic loans");
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 120) as v");
+  const toDisburse = (await one("select count(*)::int as n from applications where origin = 'SYNTHETIC' and status = 'APPROVED' and approval_stage = 'FINAL'")).n;
+  const d1 = (await one("select fn_synthetic_disburse(1000) as v")).v;
+  const d2 = (await one("select fn_synthetic_disburse(1000) as v")).v;
+  t.equal("every final approval is disbursed once; a re-run adds nothing", [d1.disbursed === toDisburse, d1.disbursed > 0, d2.disbursed, d2.synthetic_loans], [true, true, 0, d1.disbursed]);
+  const integrity = await one(`select
+      count(*) filter (where a.status <> 'DISBURSED')::int as app_not_disbursed,
+      count(*) filter (where l.disbursed_on > current_date - interval '2 months' or l.disbursed_on < current_date - interval '28 months')::int as odd_seasoning,
+      count(*) filter (where abs((select sum(principal_due) from loan_installments i where i.loan_id = l.id) - l.disbursed_amount) > 1)::int as schedule_off,
+      count(*) filter (where (select count(*) from loan_installments i where i.loan_id = l.id) <> l.tenure_months)::int as wrong_count,
+      count(*) filter (where a.final_decision_at::date >= l.disbursed_on)::int as decided_after_disbursal,
+      count(*) filter (where exists (select 1 from loan_installments i where i.loan_id = l.id and i.due_date <= current_date
+                                     and not exists (select 1 from loan_repayments p where p.installment_id = i.id)))::int as due_without_attempt
+    from loan_accounts l join applications a on a.id = l.application_id where a.origin = 'SYNTHETIC'`);
+  t.equal("loans are seasoned 3-27 calendar months, schedules repay the loan, every due instalment has a payment attempt",
+    integrity, { app_not_disbursed: 0, odd_seasoning: 0, schedule_off: 0, wrong_count: 0, decided_after_disbursal: 0, due_without_attempt: 0 });
+  const late = await one(`select count(*)::int as loans, count(*) filter (where worst > 0)::int as any_late from (
+      select l.id, max(coalesce(s.days_late, current_date - s.due_date)) as worst
+      from loan_accounts l cross join lateral fn_loan_installment_status(l.id) s
+      join applications a on a.id = l.application_id where a.origin = 'SYNTHETIC' group by l.id) x`);
+  t.equal("most loans pay on time; some have a short delay", late.any_late > 0 && late.any_late < late.loans * 0.6, true);
+  const h1 = (await one("select md5(string_agg(row(l.loan_account_no, p.paid_on, p.amount, p.outcome)::text, '|' order by l.loan_account_no, p.reference_no)) as h from loan_repayments p join loan_accounts l on l.id = p.loan_id where l.loan_account_no like 'SYNL%'")).h;
+  const purged = (await one("select fn_synthetic_purge() as v")).v;
+  await one("select fn_synthetic_generate(1, 120) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  const h2 = (await one("select md5(string_agg(row(l.loan_account_no, p.paid_on, p.amount, p.outcome)::text, '|' order by l.loan_account_no, p.reference_no)) as h from loan_repayments p join loan_accounts l on l.id = p.loan_id where l.loan_account_no like 'SYNL%'")).h;
+  t.equal("the same customers get the same repayment history", h2, h1);
+  t.equal("the purge removes the loans too", [purged.loans_removed, d1.disbursed], [d1.disbursed, purged.loans_removed]);
+  const p2 = (await one("select fn_synthetic_purge() as v")).v;
+  t.equal("and leaves nothing synthetic behind",
+    [(await one("select count(*)::int as n from loan_accounts where loan_account_no like 'SYNL%'")).n, (await one("select count(*)::int as n from applications where origin = 'SYNTHETIC'")).n, p2.removed > 0],
+    [0, 0, true]);
+  await db.query("set role authenticated");
+  await asApi("authenticated", "22222222-2222-2222-2222-222222222222");
+  await t.rejects("website logins cannot disburse synthetic loans", () => db.query("select fn_synthetic_disburse(1)"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
