@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { AppShell, LabelValue, SectionCard } from "@/components/app-shell";
 import { BureauDetailCard } from "@/components/bureau-detail";
+import { IncomeDetailCard } from "@/components/income-detail";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,12 +32,14 @@ import {
   caseAction,
   fileLink,
   getBureauDetail,
+  getIncomeDetail,
   getCaseChecks,
   getCustomerCase,
   getDocumentChecks,
   rerunDocumentChecks,
   runCreditChecks,
   type BureauDetail,
+  type IncomeDetail,
   type CaseAction,
   type CaseChecks,
   type CaseDocument,
@@ -138,6 +141,7 @@ function CaseView() {
   const [checks, setChecks] = useState<CaseChecks | null>(null);
   const [docChecks, setDocChecks] = useState<DocumentChecks | null>(null);
   const [bureau, setBureau] = useState<BureauDetail | null>(null);
+  const [income, setIncome] = useState<IncomeDetail | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -146,6 +150,8 @@ function CaseView() {
       setDocChecks(await getDocumentChecks(id).catch(() => null));
       // Two-bureau detail (sql/053). Missing before 053 runs: the card then shows nothing.
       setBureau(await getBureauDetail(id).catch(() => null));
+      // Income and bank detail (sql/054). Missing before 054 runs: no card.
+      setIncome(await getIncomeDetail(id).catch(() => null));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -282,6 +288,7 @@ function CaseView() {
         <div className="min-w-0 space-y-4 lg:col-span-2">
           {checks?.recommendation && <CreditChecksCard checks={checks} />}
           {bureau?.detail && <BureauDetailCard data={bureau} />}
+          {income?.detail && <IncomeDetailCard data={income} />}
           <SectionCard
             title="Documents"
             description={

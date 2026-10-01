@@ -564,6 +564,98 @@ export async function getBureauDetail(applicationId: string): Promise<BureauDeta
   return data as BureauDetail;
 }
 
+// --- Income and bank detail (sql/054) ------------------------------------------
+
+export interface IncomeSlip {
+  pay_month: string;
+  employer_name: string | null;
+  gross: number;
+  basic: number | null;
+  pf: number;
+  professional_tax: number;
+  tds: number;
+  esi: number;
+  employer_loan_recovery: number;
+  other_deductions: number;
+  net: number;
+  lop_days: number;
+  arrears: number;
+  source: "READER" | "SIMULATED" | "STAFF";
+}
+
+export interface IncomeForm16 {
+  assessment_year: string;
+  employer_name: string | null;
+  employer_tan: string | null;
+  income_under_salaries: number | null;
+  house_property_income: number;
+  deduction_80e: number;
+  gross_total_income: number;
+  taxable_income: number | null;
+  net_tax: number | null;
+  signature_valid: boolean | null;
+  source: string;
+}
+
+export interface IncomeBankMonth {
+  month: string;
+  salary_credit: number;
+  salary_day: number | null;
+  emi_debits: number;
+  emi_debit_count: number;
+  bounces: number;
+  avg_balance: number | null;
+  min_balance_breaches: number;
+  cash_deposits: number;
+  closing_balance: number | null;
+  source: string;
+}
+
+export interface IncomeSummary {
+  slip_months?: number;
+  slip_net_salary?: number;
+  slip_net_spread_pct?: number;
+  slips_consecutive?: boolean;
+  employer_loan_recovery?: number;
+  form16_annual?: number;
+  form16_monthly?: number;
+  form16_ay?: string;
+  house_property_loss?: number;
+  bank?: {
+    months: number;
+    avg_monthly_balance?: number;
+    avg_salary?: number;
+    salary_count: number;
+    emi_total: number;
+    bounce_count: number;
+    salary_day_spread?: number;
+    min_balance_breaches: number;
+  };
+}
+
+export interface IncomeFlag {
+  code: string;
+  severity: "info" | "warning" | "danger";
+  text: string;
+}
+
+export interface IncomeDetail {
+  detail: boolean;
+  summary?: IncomeSummary;
+  slips?: IncomeSlip[];
+  form16?: IncomeForm16 | null;
+  bank_months?: IncomeBankMonth[];
+  flags?: IncomeFlag[];
+}
+
+export async function getIncomeDetail(applicationId: string): Promise<IncomeDetail> {
+  const { data, error } = await supabase.rpc("fn_staff_income_detail", {
+    p_application_id: applicationId,
+  });
+  if (error) throw new Error(message(error));
+  return data as IncomeDetail;
+}
+
 // --- Automatic document checks (sql/052) ---------------------------------------
 
 export type CheckResult = "PASS" | "FAIL" | "UNREAD" | "WAITING";
