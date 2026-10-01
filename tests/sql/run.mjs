@@ -2500,6 +2500,74 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 33. Synthetic customers (055)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("synthetic customers");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+
+  // Income check fix: Form 16 (gross) is no longer compared with take-home pay.
+  const fixed = await one(`select income_variance_pct, form16_annual_income, eligible_net_salary from income_assessments ia
+                           join applications a on a.id = ia.application_id join customers c on c.id = a.customer_id
+                           where c.pan_hash = fn_pii_hash('BKRPK4321L') order by ia.created_at desc limit 1`);
+  t.equal("the income check records Form 16 but does not compare gross with take-home",
+    [Number(fixed.form16_annual_income) > 0, Number(fixed.eligible_net_salary) <= 52000], [true, true]);
+
+  const r1 = (await one("select fn_synthetic_generate(1, 40) as v")).v;
+  const r2 = (await one("select fn_synthetic_generate(1, 40) as v")).v;
+  t.equal("a batch makes its customers once; re-running skips them", [r1.made, r1.skipped, r2.made, r2.skipped], [40, 0, 0, 40]);
+  const shape = await one(`select count(*)::int as apps,
+      count(*) filter (where a.status not in ('DRAFT','SUBMITTED','APPROVED','REJECTED','UNDER_REVIEW'))::int as odd_status,
+      count(*) filter (where a.status not in ('DRAFT','SUBMITTED') and (select count(*) from bureau_reports b where b.application_id = a.id) <> 1)::int as not_one_bureau_row,
+      count(*) filter (where a.status not in ('DRAFT','SUBMITTED') and not exists (select 1 from recommendations r where r.application_id = a.id))::int as no_recommendation,
+      count(*) filter (where a.status <> 'DRAFT' and not exists (select 1 from salary_slips s where s.application_id = a.id))::int as no_slips,
+      count(*) filter (where a.status = 'DRAFT' and exists (select 1 from bureau_reports b where b.application_id = a.id))::int as draft_pulled,
+      count(*) filter (where not exists (select 1 from vehicles v where v.application_id = a.id))::int as no_car,
+      count(*) filter (where a.application_id !~ '^SYN[0-9]{7}$')::int as bad_id
+    from applications a where a.origin = 'SYNTHETIC'`);
+  t.equal("every synthetic application went through its stage's steps",
+    shape, { apps: 40, odd_status: 0, not_one_bureau_row: 0, no_recommendation: 0, no_slips: 0, draft_pulled: 0, no_car: 0, bad_id: 0 });
+  const people = await one(`select count(*) filter (where email !~ '@synthetic\\.invalid$')::int as real_email,
+      count(*) filter (where substr(fn_pii_decrypt(pan_enc), 4, 1) <> 'X')::int as real_pan,
+      count(*) filter (where fn_pii_decrypt(mobile_enc) !~ '^5550')::int as real_mobile,
+      count(*) filter (where age_at_application < 25)::int as under_25
+    from customers where id in (select customer_id from applications where origin = 'SYNTHETIC')`);
+  t.equal("nobody synthetic can be mistaken for a real person", people, { real_email: 0, real_pan: 0, real_mobile: 0, under_25: 0 });
+  const decided = await one(`select count(*) filter (where status = 'APPROVED')::int as approved, count(*) filter (where status = 'REJECTED')::int as rejected,
+      count(*) filter (where status = 'UNDER_REVIEW')::int as referred from applications where origin = 'SYNTHETIC'`);
+  t.equal("the engine decides them all three ways", decided.approved > 0 && decided.rejected >= 0 && decided.referred > 0, true);
+
+  await db.query("set role authenticated");
+  await as(DEMO);
+  t.equal("the demo login sees synthetic applications in the list",
+    (await one("select count(*)::int as n from fn_list_applications() where application_id like 'SYN%'")).n > 0, true);
+  await as(OFFICER);
+  t.equal("they stay out of the real customers' queue",
+    (await one("select fn_staff_customer_queue('ALL') as v")).v.rows.filter((r) => r.application_id.startsWith("SYN")).length, 0);
+  await t.rejects("website logins cannot run the generator", () => db.query("select fn_synthetic_generate(9, 1)"), /permission denied/);
+  await t.rejects("or the purge", () => db.query("select fn_synthetic_purge()"), /permission denied/);
+
+  await operator();
+  const purged = (await one("select fn_synthetic_purge() as v")).v;
+  const left = await one(`select (select count(*) from applications where origin = 'SYNTHETIC')::int as apps,
+                                 (select count(*) from customers where email like '%@synthetic.invalid')::int as customers,
+                                 (select count(*) from applications where origin <> 'SYNTHETIC')::int > 0 as others_kept`);
+  t.equal("the purge removes every synthetic record and nothing else", [purged.removed, left], [40, { apps: 0, customers: 0, others_kept: true }]);
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
