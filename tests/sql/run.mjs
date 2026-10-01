@@ -209,7 +209,8 @@ const asOperator = () => asApi("", "");
   await t.rejects("move live start date", () => db.query("update policy_versions set effective_from = now() where id = $1", [base.id]), /cannot change/);
   await t.rejects("new version not starting as draft", () => db.query("insert into policy_versions (version_code, status, rationale) values ('x1', 'ACTIVE', 'x')"), /must start as DRAFT/);
 
-  // A draft
+  // A draft. It is approved below to start on 1 Oct 2099, far in the future, so it
+  // is never the version in force today; later sections expect 2026.08 to be.
   const draft = await one("insert into policy_versions (version_code, base_version_id, rationale, authored_by, tier) values ('2026.10', $1, 'Raise Category C loading', $2, 'MATERIAL') returning id", [base.id, A]);
   await db.query("insert into policy_parameters (policy_version_id, param_key, value) select $1, param_key, value from policy_parameters where policy_version_id = $2", [draft.id, base.id]);
   await db.query("insert into policy_documents (policy_version_id, document) select $1, document from policy_documents where policy_version_id = $2", [draft.id, base.id]);
@@ -228,9 +229,9 @@ const asOperator = () => asApi("", "");
   await t.rejects("author reviews own change", () => db.query("insert into policy_change_reviews (change_request_id, reviewer_id, decision) values ($1, $2, 'APPROVE')", [cr.id, A]), /cannot review/);
   await t.ok("another person reviews", () => db.query("insert into policy_change_reviews (change_request_id, reviewer_id, decision) values ($1, $2, 'APPROVE')", [cr.id, B]));
 
-  await t.rejects("author approves own version", () => db.query("update policy_versions set status = 'APPROVED', approved_by = $2, approved_at = now(), effective_from = '2026-10-01T00:00:00+05:30' where id = $1", [draft.id, A]), /four_eyes/);
-  await t.rejects("approval without approver", () => db.query("update policy_versions set status = 'APPROVED', effective_from = '2026-10-01T00:00:00+05:30' where id = $1", [draft.id]), /approval_recorded/);
-  await t.ok("credit head approves", () => db.query("update policy_versions set status = 'APPROVED', approved_by = $2, approved_at = now(), effective_from = '2026-10-01T00:00:00+05:30' where id = $1", [draft.id, B]));
+  await t.rejects("author approves own version", () => db.query("update policy_versions set status = 'APPROVED', approved_by = $2, approved_at = now(), effective_from = '2099-10-01T00:00:00+05:30' where id = $1", [draft.id, A]), /four_eyes/);
+  await t.rejects("approval without approver", () => db.query("update policy_versions set status = 'APPROVED', effective_from = '2099-10-01T00:00:00+05:30' where id = $1", [draft.id]), /approval_recorded/);
+  await t.ok("credit head approves", () => db.query("update policy_versions set status = 'APPROVED', approved_by = $2, approved_at = now(), effective_from = '2099-10-01T00:00:00+05:30' where id = $1", [draft.id, B]));
   await t.rejects("approver changed afterwards", () => db.query("update policy_versions set approved_by = $2 where id = $1", [draft.id, A]), /already recorded/);
 
   // Activation
@@ -238,7 +239,7 @@ const asOperator = () => asApi("", "");
   await t.rejects("overlapping windows", async () => {
     await db.query("begin");
     try {
-      await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = '2026-10-02T00:00:00+05:30' where id = $1", [base.id]);
+      await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = '2099-10-02T00:00:00+05:30' where id = $1", [base.id]);
       await db.query("update policy_versions set status = 'ACTIVE' where id = $1", [draft.id]);
       await db.query("commit");
     } catch (e) {
@@ -248,11 +249,11 @@ const asOperator = () => asApi("", "");
   }, /ex_policy_versions_window/);
   await t.ok("supersede and activate", async () => {
     await db.query("begin");
-    await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = '2026-10-01T00:00:00+05:30' where id = $1", [base.id]);
+    await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = '2099-10-01T00:00:00+05:30' where id = $1", [base.id]);
     await db.query("update policy_versions set status = 'ACTIVE' where id = $1", [draft.id]);
     await db.query("commit");
   });
-  t.equal("new rate in force after 1 Oct", (await one("select fn_policy_param('pricing.loading.cat_c', 'CAR_NEW', '2026-10-15T00:00:00+05:30') as v")).v, 1.5);
+  t.equal("new rate in force after 1 Oct 2099", (await one("select fn_policy_param('pricing.loading.cat_c', 'CAR_NEW', '2099-10-15T00:00:00+05:30') as v")).v, 1.5);
   t.equal("old rate still readable for September", (await one("select fn_policy_param('pricing.loading.cat_c', 'CAR_NEW', '2026-09-15T00:00:00+05:30') as v")).v, 1.25);
   await t.rejects("superseded version reactivated", () => db.query("update policy_versions set status = 'ACTIVE' where id = $1", [base.id]), /cannot move from SUPERSEDED/);
 
@@ -1952,6 +1953,413 @@ const asOperator = () => asApi("", "");
     await as(CUST, "ravi.k@example.com");
     try { await db.query("select * from document_readings"); return "read"; } catch { return "refused"; } finally { await operator(); }
   })(), "refused");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 31. Two bureaus, worst-of (053)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("two bureaus, worst-of");
+  const CUST = "c1c1c1c1-0000-0000-0000-0000000000c1"; // section 26/27 customer, PAN ABCPR1234F
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub, email) => {
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, email, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  const appOf = (pan) => one(`select a.id, a.application_id, a.customer_id from applications a join customers c on c.id = a.customer_id
+                              where c.pan_hash = fn_pii_hash($1) and exists (select 1 from bureau_reports b where b.application_id = a.id)`, [pan]);
+  const app27 = await appOf("ABCPR1234F"); // both bureaus have a record (CIBIL + CRIF)
+  const app30 = await appOf("BKRPK4321L"); // CIBIL only
+  const combined = (id) => one("select * from bureau_summary where application_id = $1 and bureau = 'COMBINED'", [id]);
+
+  // Fixtures go through the same maths path as a stored pull.
+  const grid = (cells = {}) => Array.from({ length: 24 }, (_, i) => cells[i + 1] ?? 0);
+  const acct = (o) => ({ seq: 1, merged_seq: null, lender_raw: "x", lender_code: "X", product_raw: "Personal Loan", product: "PERSONAL",
+    secured: false, revolving: false, corporate: false, account_masked: null, ownership: "INDIVIDUAL", status: "ACTIVE", asset_class: "STD",
+    restructured: false, suit_filed: false, sanctioned: null, credit_limit: null, cash_limit: null, outstanding: 0, overdue: 0, emi: null,
+    frequency: "M", rate_pct: null, tenure_months: null, collateral: null, collateral_value: null, opened_on: "2024-01-10",
+    last_payment_on: null, last_payment_amount: null, closed_on: null, reported_on: "2026-09-30", writeoff_amount: null, settled_amount: null,
+    grid_month: "2026-09-01", dpd: grid(), dpd_max_25_36m: 0, ...o });
+  const fixture = async (heads, accts, enqs = []) => (await db.query(
+    `select s.* from fn_bureau_combine_arrays(
+       array(select x from jsonb_populate_recordset(null::bureau_summary, $1) x),
+       array(select x from jsonb_populate_recordset(null::bureau_accounts, $2) x),
+       array(select x from jsonb_populate_recordset(null::bureau_enquiries, $3) x), '2026-10-01') c
+     cross join lateral unnest(c.summaries) s`, [JSON.stringify(heads), JSON.stringify(accts), JSON.stringify(enqs)])).rows;
+  const groups = async (accts) => (await one(
+    "select count(distinct m.merged_seq)::int as n from unnest(fn_bureau_match(array(select x from jsonb_populate_recordset(null::bureau_accounts, $1) x))) m",
+    [JSON.stringify(accts)])).n;
+  const seedRun = async (seed) => (await db.query(
+    `select s.* from fn_bureau_sim_raw($1, current_date, 75000) r
+     cross join lateral fn_bureau_combine_arrays(r.heads, r.accounts, r.enquiries, current_date) c
+     cross join lateral unnest(c.summaries) s`, [seed])).rows;
+
+  // The simulation over 400 literal seeds, kept for the shape and worst-of checks.
+  await db.query(`create temp table sim31 as
+    select g, s.* from generate_series(1, 400) g
+    cross join lateral fn_bureau_sim_raw('dist-' || g, current_date, 75000) r
+    cross join lateral fn_bureau_combine_arrays(r.heads, r.accounts, r.enquiries, current_date) c
+    cross join lateral unnest(c.summaries) s`);
+
+  t.equal("two bureaus pulled, CIBIL plus one other, and a combined row",
+    (await db.query("select bureau from bureau_summary where application_id = $1 order by bureau = 'COMBINED', bureau <> 'CIBIL', bureau", [app27.id])).rows.map((r) => r.bureau),
+    ["CIBIL", "CRIF", "COMBINED"]);
+  t.equal("still one engine row, named as before",
+    await one("select count(*)::int as n, min(bureau_name) as name, min(report_raw_path) as path, min(bureau_count)::int as bureaus from bureau_reports where application_id = $1", [app27.id]),
+    { n: 1, name: "CIBIL-SIMULATED", path: "simulated:bureau-sim-v2", bureaus: 2 });
+
+  const engineCols = `score, active_accounts, total_outstanding::int, total_monthly_emi::int, dpd_max_12m, dpd_max_24m, dpd_30_count_24m,
+    dpd_60_plus_flag, enquiry_count_90d, writeoff_count_5y, settled_count_5y, credit_utilization_pct::text, oldest_account_months,
+    no_hit, score_source, bureau_count, report_ref, consent_id, valid_until::text`;
+  const combinedCols = `score, active_accounts, total_outstanding, monthly_obligation, dpd_max_12m, dpd_max_24m, dpd_30_count_24m,
+    dpd_60_plus_flag, enquiry_count_90d, writeoff_count_5y, settled_count_5y, credit_utilization_pct::text, oldest_account_months,
+    no_hit, score_source, bureau_count, report_ref, consent_id, valid_until::text`;
+  for (const app of [app27, app30]) {
+    const e = await one(`select ${engineCols} from bureau_reports where application_id = $1`, [app.id]);
+    const c = await one(`select ${combinedCols} from bureau_summary where application_id = $1 and bureau = 'COMBINED'`, [app.id]);
+    t.equal(`the engine row is the COMBINED summary (${app.application_id})`, Object.values(e), Object.values(c));
+  }
+
+  const c27 = await combined(app27.id);
+  const c30 = await combined(app30.id);
+  const scoreOf = async (id, cibil) => (await one(`select score from bureau_summary where application_id = $1 and ${cibil ? "bureau = 'CIBIL'" : "bureau not in ('CIBIL', 'COMBINED')"}`, [id])).score;
+  const noCibil = (await one("select g from generate_series(1, 400) g where (fn_sim_bytes('cibil-none-' || g, 'c0'))[1] between 8 and 12 limit 1")).g;
+  const nc = await seedRun(`cibil-none-${noCibil}`);
+  const ncOther = nc.find((s) => s.bureau !== "CIBIL" && s.bureau !== "COMBINED");
+  const ncComb = nc.find((s) => s.bureau === "COMBINED");
+  t.equal("the score is CIBIL's when CIBIL has a record, else the other bureau's",
+    [c27.score === (await scoreOf(app27.id, true)), c27.score_source, c30.score === (await scoreOf(app30.id, true)), c30.score_source,
+     nc.find((s) => s.bureau === "CIBIL").no_hit, ncComb.score === ncOther.score, ncComb.score_source === ncOther.bureau],
+    [true, "CIBIL", true, "CIBIL", true, true, true]);
+
+  // COMBINED is never better than either bureau, on stored pulls and the 400 simulated ones.
+  const worstOf = (src, key) => one(`
+    with per as (
+      select ${key} as k, max(dpd_max_3m) d3, max(dpd_max_6m) d6, max(dpd_max_12m) d12, max(dpd_max_24m) d24, max(dpd_max_36m) d36,
+             max(dpd_30_count_24m) c30, bool_or(dpd_60_plus_flag) f60, max(writeoff_count_5y) wo, max(settled_count_5y) st,
+             max(enquiry_count_90d) e90, sum(enquiry_count_90d) e90s, max(active_accounts) aa, sum(active_accounts) aas
+      from ${src} where bureau <> 'COMBINED' and not no_hit group by 1)
+    select count(*)::int as n,
+           count(*) filter (where not (c.dpd_max_3m >= p.d3 and c.dpd_max_6m >= p.d6 and c.dpd_max_12m >= p.d12 and c.dpd_max_24m >= p.d24
+                                       and c.dpd_max_36m >= p.d36 and c.dpd_30_count_24m >= p.c30 and (c.dpd_60_plus_flag or not p.f60)
+                                       and c.writeoff_count_5y >= p.wo and c.settled_count_5y >= p.st
+                                       and c.enquiry_count_90d between p.e90 and p.e90s and c.active_accounts between p.aa and p.aas))::int as worse
+    from per p join ${src} c on ${key.replace(/^/, "c.")} = p.k and c.bureau = 'COMBINED'`);
+  const ws = await worstOf("bureau_summary", "application_id");
+  const wsim = await worstOf("sim31", "g");
+  t.equal("the combined row is never better than either bureau", [ws.n >= 2, ws.worse, wsim.n > 300, wsim.worse], [true, 0, true, 0]);
+
+  const oblig = await one(`select
+      count(*) filter (where monthly_obligation is distinct from instalment_emi + revolving_obligation)::int as bad_sum,
+      count(*) filter (where s.bureau <> 'COMBINED' and not s.no_hit and (
+        s.revolving_obligation is distinct from (select round(0.05 * coalesce(sum(a.outstanding), 0)) from bureau_accounts a
+          where a.application_id = s.application_id and a.bureau = s.bureau and a.revolving and not a.corporate
+            and a.status = 'ACTIVE' and a.ownership in ('INDIVIDUAL', 'JOINT'))
+        or s.instalment_emi is distinct from (select coalesce(sum(fn_bureau_monthly_emi(a.emi, a.frequency)), 0) from bureau_accounts a
+          where a.application_id = s.application_id and a.bureau = s.bureau and not a.revolving
+            and a.status = 'ACTIVE' and a.ownership in ('INDIVIDUAL', 'JOINT'))))::int as bad_parts,
+      (select count(*) from sim31 where monthly_obligation is distinct from instalment_emi + revolving_obligation)::int as bad_sim
+    from bureau_summary s`);
+  t.equal("monthly obligation = EMIs + 5% of card and overdraft balances", oblig, { bad_sum: 0, bad_parts: 0, bad_sim: 0 });
+
+  await t.rejects("every account carries a 24-month grid", () => db.query(
+    `insert into bureau_accounts select * from jsonb_populate_record(null::bureau_accounts,
+       (select to_jsonb(a) || jsonb_build_object('seq', 99, 'dpd', to_jsonb((a.dpd)[1:23])) from bureau_accounts a where a.application_id = $1 limit 1))`,
+    [app27.id]), /ck_bureau_accounts_dpd/);
+
+  const snap = (id) => one(`select (select count(*) from bureau_summary where application_id = $1)::int as s,
+      (select count(*) from bureau_accounts where application_id = $1)::int as a,
+      (select count(*) from bureau_enquiries where application_id = $1)::int as e,
+      (select count(*) from bureau_reports where application_id = $1)::int as b,
+      (select md5(string_agg(b::text, '' order by b.id)) from bureau_reports b where application_id = $1) as h`, [id]);
+  const before = await snap(app30.id);
+  await db.query("set role authenticated");
+  await as(OFFICER, "o@t.in");
+  await db.query("select fn_staff_customer_run_checks($1, '{}'::jsonb)", [app30.application_id]);
+  await operator();
+  t.equal("re-running the credit checks adds nothing", [before.s > 0, await snap(app30.id)], [true, before]);
+
+  await t.rejects("a second v2 engine row is refused", () => db.query(
+    "insert into bureau_reports (application_id, customer_id, bureau_name, report_raw_path) select application_id, customer_id, 'CIBIL-SIMULATED', 'simulated:bureau-sim-v2' from bureau_reports where application_id = $1",
+    [app27.id]), /ux_bureau_reports_one_v2/);
+
+  const pv = (await one("select fn_simulated_bureau($1) as v", [app27.customer_id])).v;
+  t.equal("the preview matches what was stored", [pv.hit, pv.score, pv.version, pv.bureaus.length, pv.score_source], [true, c27.score, 2, 2, "CIBIL"]);
+
+  t.equal("lender names match through aliases",
+    await one(`select fn_lender_key('HDFC Bank Ltd.') as a, fn_lender_key('Bankers Trust') as b, fn_lender_code('Housing Development Finance Corporation') as c,
+                      fn_lender_code('UTI Bank') as d, left(fn_lender_code('Shiny New Lender'), 1) as e`),
+    { a: "hdfc", b: "bankerstrust", c: "HDFC", d: "AXIS", e: "~" });
+
+  // The same HDFC car loan on both bureaus, an Experian-only consumer loan, a corporate card and a loan the customer only guarantees.
+  const twoHeads = [{ bureau: "CIBIL", no_hit: false, score: 760 }, { bureau: "EXPERIAN", no_hit: false, score: 748 }];
+  const autoC = acct({ bureau: "CIBIL", seq: 1, lender_raw: "HDFC Bank", lender_code: "HDFC", product_raw: "Auto Loan (Personal)", product: "AUTO",
+    secured: true, sanctioned: 500000, outstanding: 400000, emi: 10400, tenure_months: 60, opened_on: "2024-01-10" });
+  const autoE = acct({ bureau: "EXPERIAN", seq: 1, lender_raw: "HDFC Bk", lender_code: "HDFC", product_raw: "Auto Loan", product: "AUTO",
+    secured: true, sanctioned: 504000, outstanding: 401000, emi: 10450, tenure_months: 60, opened_on: "2024-01-25", dpd: grid({ 3: 30 }) });
+  const merged = (await fixture(twoHeads, [autoC, autoE,
+    acct({ bureau: "EXPERIAN", seq: 2, lender_raw: "Bajaj Finance", lender_code: "BAJAJ", product_raw: "Consumer Durable Loan", product: "CONSUMER",
+      sanctioned: 60000, outstanding: 20000, emi: 5400, tenure_months: 12, opened_on: "2026-03-05" }),
+    acct({ bureau: "CIBIL", seq: 2, lender_raw: "ICICI Bank", lender_code: "ICICI", product_raw: "Corporate Credit Card", product: "CORP_CARD",
+      revolving: true, corporate: true, credit_limit: 200000, outstanding: 80000, opened_on: "2023-05-01" }),
+    acct({ bureau: "CIBIL", seq: 3, lender_raw: "SBI", lender_code: "SBI", ownership: "GUARANTOR", sanctioned: 300000, outstanding: 150000,
+      emi: 9000, tenure_months: 48, opened_on: "2023-02-01", dpd: grid({ 5: 60 }) }),
+  ])).find((s) => s.bureau === "COMBINED");
+  t.equal("the same loan on two bureaus counts once",
+    [merged.active_loans, merged.dpd_max_3m, merged.dpd_60_plus_flag, merged.guarantor_accounts, merged.one_bureau_accounts,
+     merged.corporate_cards, merged.monthly_obligation, merged.revolving_obligation],
+    [2, 30, true, 1, 3, 1, 10450 + 5400, 0]);
+
+  const cardA = acct({ bureau: "CIBIL", lender_code: "AXIS", product: "CARD", revolving: true, credit_limit: 100000, opened_on: "2022-03-01" });
+  const cardB = acct({ bureau: "CRIF", lender_code: "AXIS", product: "CARD", revolving: true, credit_limit: 150000, opened_on: "2022-03-11" });
+  t.equal("matching tolerances",
+    [await groups([autoC, { ...autoE, opened_on: "2024-02-19" }]),
+     await groups([autoC, { ...autoE, sanctioned: 515000 }]),
+     await groups([cardA, cardB]),
+     await groups([{ ...autoC, account_masked: "XXXXXXXX1234" }, { ...autoE, account_masked: "XXXXXXXX9999" }]),
+     await groups([autoC, autoE])],
+    [2, 2, 1, 2, 1]);
+
+  t.equal("a microfinance personal loan is a personal loan",
+    await one(`select (select product from fn_bureau_product('CRIF', 'Microfinance  Personal Loan')) as mf,
+                      (select product || ':' || corporate || ':' || revolving from fn_bureau_product('CIBIL', 'Corporate Credit Card')) as corp,
+                      (select product from fn_bureau_product('EXPERIAN', 'Something Unheard Of')) as other`),
+    { mf: "PERSONAL", corp: "CORP_CARD:true:true", other: "OTHER" });
+  t.equal("the 5% is one named number", [Number((await one("select fn_bureau_revolving_rate() as r")).r), (await one("select fn_bureau_revolving_in_foir() as v")).v], [0.05, true]);
+
+  const older = (await fixture([{ bureau: "CIBIL", no_hit: false, score: 720 }],
+    [acct({ bureau: "CIBIL", lender_code: "SBI", sanctioned: 200000, outstanding: 50000, emi: 6000, dpd_max_25_36m: 60 })])).find((s) => s.bureau === "COMBINED");
+  t.equal("the 36-month window comes from the older months", [older.dpd_max_36m, older.dpd_max_24m, older.dpd_60_plus_flag], [60, 0, true]);
+
+  // A loan still open on one bureau is still owed when the other reports it settled or written off;
+  // the settlement and the write-off still count as bad marks.
+  const liveHeads = [{ bureau: "CIBIL", no_hit: false, score: 705 }, { bureau: "EXPERIAN", no_hit: false, score: 690 }];
+  const live = await fixture(liveHeads, [
+    acct({ bureau: "CIBIL", seq: 1, lender_code: "HDFC", product_raw: "Auto Loan (Personal)", product: "AUTO", secured: true,
+      sanctioned: 500000, outstanding: 300000, emi: 9000, tenure_months: 60, opened_on: "2024-01-10" }),
+    acct({ bureau: "EXPERIAN", seq: 1, lender_code: "HDFC", product_raw: "Auto Loan", product: "AUTO", secured: true, status: "SETTLED",
+      asset_class: "SUB", sanctioned: 500000, outstanding: 0, emi: 9000, tenure_months: 60, opened_on: "2024-01-12",
+      closed_on: "2026-06-30", settled_amount: 250000 }),
+    acct({ bureau: "CIBIL", seq: 2, lender_code: "AXIS", product_raw: "Credit Card", product: "CARD", revolving: true,
+      credit_limit: 100000, outstanding: 40000, opened_on: "2022-03-01" }),
+    acct({ bureau: "EXPERIAN", seq: 2, lender_code: "AXIS", product_raw: "Credit Card", product: "CARD", revolving: true, status: "WRITTEN_OFF",
+      asset_class: "LSS", credit_limit: 100000, outstanding: 45000, opened_on: "2022-03-05", closed_on: "2026-05-31", writeoff_amount: 45000 }),
+  ]);
+  const liveC = live.find((s) => s.bureau === "COMBINED");
+  const liveCibil = live.find((s) => s.bureau === "CIBIL");
+  t.equal("a loan open on one bureau stays owed when the other says settled or written off",
+    [liveC.active_loans, liveC.active_cards, liveC.active_accounts, liveC.total_outstanding, liveC.instalment_emi, liveC.revolving_obligation,
+     liveC.monthly_obligation, liveC.settled_count_5y, liveC.writeoff_count_5y, liveC.dpd_60_plus_flag,
+     liveC.active_accounts >= liveCibil.active_accounts && liveC.monthly_obligation >= liveCibil.monthly_obligation],
+    [1, 1, 2, 345000, 9000, 2250, 11250, 1, 1, true, true]);
+
+  // One bureau, two accounts reported to different months: the older grid's last months are not lost.
+  const lag = await fixture([{ bureau: "CIBIL", no_hit: false, score: 730 }], [
+    acct({ bureau: "CIBIL", seq: 1, lender_code: "SBI", sanctioned: 200000, outstanding: 50000, emi: 6000 }),
+    acct({ bureau: "CIBIL", seq: 2, lender_code: "ICICI", sanctioned: 100000, outstanding: 20000, emi: 3000, grid_month: "2026-07-01",
+      reported_on: "2026-07-31", dpd: grid({ 23: 30, 24: 60 }) }),
+  ]);
+  const lagCibil = lag.find((s) => s.bureau === "CIBIL");
+  const lagC = lag.find((s) => s.bureau === "COMBINED");
+  t.equal("a lagging grid's oldest months still count",
+    [lagCibil.dpd_max_24m, lagCibil.dpd_max_36m, lagCibil.dpd_60_plus_flag, lagC.dpd_max_36m, lagC.dpd_60_plus_flag],
+    [0, 60, true, 60, true]);
+
+  // Cards with no limit stay out of utilisation; same-day enquiries on one bureau stay two;
+  // the combined on-time share is never better than a bureau's.
+  const misc = await fixture(liveHeads, [
+    acct({ bureau: "CIBIL", seq: 1, lender_code: "AXIS", product_raw: "Credit Card", product: "CARD", revolving: true,
+      credit_limit: 100000, outstanding: 50000, opened_on: "2022-03-01", dpd: grid(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 13, 30]))) }),
+    acct({ bureau: "CIBIL", seq: 2, lender_code: "SBI", product_raw: "Credit Card", product: "CARD", revolving: true,
+      credit_limit: null, outstanding: 30000, opened_on: "2023-06-01" }),
+    acct({ bureau: "EXPERIAN", seq: 1, lender_code: "KOTAK", product_raw: "Personal Loan", product: "PERSONAL",
+      sanctioned: 100000, outstanding: 40000, emi: 4000, opened_on: "2025-02-01" }),
+  ], [
+    { bureau: "CIBIL", seq: 1, enquired_on: "2026-09-10", lender_raw: "HDFC Bank", lender_code: "HDFC", purpose: "AUTO" },
+    { bureau: "CIBIL", seq: 2, enquired_on: "2026-09-10", lender_raw: "HDFC Bank", lender_code: "HDFC", purpose: "AUTO" },
+    { bureau: "EXPERIAN", seq: 1, enquired_on: "2026-09-10", lender_raw: "HDFC Bk", lender_code: "HDFC", purpose: "AUTO" },
+  ]);
+  const miscC = misc.find((s) => s.bureau === "COMBINED");
+  const miscCibil = misc.find((s) => s.bureau === "CIBIL");
+  t.equal("cards with no limit stay out of utilisation",
+    [miscCibil.card_balance, miscCibil.card_limit, Number(miscCibil.credit_utilization_pct), miscCibil.total_outstanding, miscCibil.revolving_obligation],
+    [50000, 100000, 50, 80000, 4000]);
+  t.equal("the same enquiry on both bureaus counts once, two on one bureau stay two",
+    [miscCibil.enquiry_count_90d, miscC.enquiry_count_90d], [2, 2]);
+  t.equal("the combined on-time share is never better than a bureau's",
+    [Number(miscCibil.on_time_pct_24m), Number(misc.find((s) => s.bureau === "EXPERIAN").on_time_pct_24m), Number(miscC.on_time_pct_24m)],
+    [75, 100, 75]);
+
+  // A bare application: no consent, then a stored per-bureau fixture combined in place (as a real bureau feed would).
+  const bare = (await one(`insert into applications (application_id, customer_id, status, origin, declared_net_salary)
+                           select 'T31-BARE-0001', customer_id, 'SUBMITTED', 'STAFF', 50000 from applications where origin = 'STAFF' order by created_at limit 1
+                           returning id`)).id;
+  await t.rejects("no consent, no pull", () => db.query("select fn_bureau_pull_simulated($1, null)", [bare]), /consent/);
+  await db.query(`insert into customer_consents (customer_id, application_id, purpose, version, body_sha256)
+                  select customer_id, id, 'BUREAU_PULL', '2026-09-v1', repeat('a', 64) from applications where id = $1`, [bare]);
+  await db.query(`insert into bureau_summary (application_id, bureau, report_ref, pulled_at, raw_key, grid_month, no_hit, score, computed_at)
+                  values ($1, 'CIBIL', 'TEST-ZEN-1', now(), 'simulated:bureau-sim-v2', '2026-09-01', false, 712, now())`, [bare]);
+  await db.query("insert into bureau_accounts select * from jsonb_populate_record(null::bureau_accounts, $1)", [JSON.stringify(acct({
+    application_id: bare, bureau: "CIBIL", lender_raw: "Zenith Microcredit Pvt Ltd", lender_code: "~zenithmicrocred", product_raw: "Consumer Loan",
+    product: "CONSUMER", status: "CLOSED", closed_on: "2026-08-15", sanctioned: 40000, emi: 3600, tenure_months: 12, opened_on: "2025-08-10",
+    dpd: grid({ 2: 30 }) }))]);
+  // An open loan whose EMI the bureau left out.
+  await db.query("insert into bureau_accounts select * from jsonb_populate_record(null::bureau_accounts, $1)", [JSON.stringify(acct({
+    application_id: bare, bureau: "CIBIL", seq: 2, lender_raw: "SBI", lender_code: "SBI", sanctioned: 150000, outstanding: 90000, emi: null }))]);
+  const zc = (await one("select fn_bureau_combine($1) as v", [bare])).v;
+  const zd = (await one("select fn_bureau_detail_json($1) as v", [bare])).v;
+  const zComb = zd.summaries[zd.summaries.length - 1];
+  t.equal("a cancelled-licence lender is flagged, its bad marks still count",
+    [zc.engine_row_written, zd.accounts[0].lender_code, zd.accounts[0].licence_cancelled, zComb.stale_lender_accounts, zComb.dpd_max_12m,
+     zd.engine.dpd_max_12m, zd.flags.map((f) => f.code).includes("LICENCE_CANCELLED_LENDER")],
+    [true, "ZENFIN", true, 1, 30, 30, true]);
+  t.equal("an open loan with no EMI reported is pointed out",
+    [zd.flags.map((f) => f.code).includes("EMI_NOT_REPORTED"), zd.accounts.find((a) => a.lender_code === "SBI")?.emi_not_reported,
+     zd.accounts.find((a) => a.lender_code === "ZENFIN")?.emi_not_reported, zComb.active_loans, zComb.instalment_emi],
+    [true, true, false, 1, 0]);
+  await db.query("delete from customer_consents where application_id = $1", [bare]);
+  await db.query("delete from bureau_reports where application_id = $1", [bare]);
+  await db.query("delete from applications where id = $1", [bare]);
+  t.equal("deleting the application clears its bureau detail",
+    await one(`select (select count(*) from bureau_summary where application_id = $1)::int as s, (select count(*) from bureau_accounts where application_id = $1)::int as a,
+                      (select count(*) from bureau_enquiries where application_id = $1)::int as e`, [bare]),
+    { s: 0, a: 0, e: 0 });
+
+  const noHit = (await one("select g from generate_series(1, 400) g where (fn_sim_bytes('nohit-' || g, 'c0'))[1] < 8 limit 1")).g;
+  const nh = (await seedRun(`nohit-${noHit}`)).find((s) => s.bureau === "COMBINED");
+  t.equal("no record on both bureaus leaves every engine field empty",
+    [nh.no_hit, nh.bureau_count, nh.score, nh.monthly_obligation, nh.dpd_max_12m], [true, 2, null, null, null]);
+
+  const shape = await one(`select
+      100.0 * count(*) filter (where bureau = 'COMBINED' and no_hit) / count(*) filter (where bureau = 'COMBINED') as nohit,
+      avg(score) filter (where bureau = 'CIBIL' and not no_hit) as cibil_mean,
+      100.0 * count(*) filter (where bureau = 'COMBINED' and score_gap > 50) / nullif(count(*) filter (where bureau = 'COMBINED' and score_gap is not null), 0) as gap,
+      (select 100 * percentile_cont(0.5) within group (order by monthly_obligation / 75000.0) from sim31 where bureau = 'COMBINED' and not no_hit) as share
+    from sim31`);
+  const [nohit, mean, gap, share] = [shape.nohit, shape.cibil_mean, shape.gap, shape.share].map(Number);
+  t.equal("the simulation's shape",
+    [nohit >= 1 && nohit <= 6, mean >= 712 && mean <= 738, gap >= 1 && gap <= 10, share >= 3 && share <= 25],
+    [true, true, true, true]);
+
+  const staffApp = (await one(`select a.application_id from applications a join bureau_reports b on b.application_id = a.id
+                               where a.origin = 'STAFF' and b.bureau_name = 'CIBIL' order by a.created_at limit 1`)).application_id;
+  await db.query("set role authenticated");
+  await as(DEMO, "demo@t.in");
+  await t.rejects("the demo login cannot read a real customer's bureau detail", () => db.query("select fn_staff_bureau_detail($1)", [app27.application_id]), /application not found/);
+  const sample = (await one("select fn_staff_bureau_detail($1) as v", [staffApp])).v;
+  t.equal("the demo login still sees sample applications", [sample.detail, sample.engine.bureau_name, sample.summaries.length], [false, "CIBIL", 0]);
+
+  await as(OFFICER, "o@t.in");
+  const d = (await one("select fn_staff_bureau_detail($1) as v", [app27.application_id])).v;
+  t.equal("officers read both bureaus side by side",
+    [d.detail, d.summaries.length, d.summaries[0].bureau, d.summaries[2].bureau, d.accounts.length > 0, d.accounts.every((a) => a.dpd.length === 24),
+     Array.isArray(d.differences), Array.isArray(d.flags), d.engine.bureau_name, d.rules.revolving_rate],
+    [true, 3, "CIBIL", "COMBINED", true, true, true, true, "CIBIL-SIMULATED", 0.05]);
+  await t.rejects("internal bureau functions are closed to the website roles (pull)", () => db.query("select fn_bureau_pull_simulated($1, null)", [app27.id]), /permission denied/);
+  await t.rejects("internal bureau functions are closed to the website roles (preview)", () => db.query("select fn_simulated_bureau($1)", [app27.customer_id]), /permission denied/);
+
+  await as(CUST, "asha.r@example.com");
+  await t.rejects("customers cannot call the detail function", () => db.query("select fn_staff_bureau_detail($1)", [app27.application_id]), /permission denied|no active cercit user/);
+
+  const tables = ["bureau_lenders", "lender_aliases", "bureau_product_map", "bureau_summary", "bureau_accounts", "bureau_enquiries"];
+  const direct = [];
+  for (const [sub, email] of [[CUST, "asha.r@example.com"], [OFFICER, "o@t.in"]]) {
+    for (const tb of tables) {
+      await db.query("set role authenticated");
+      await as(sub, email);
+      try { await db.query(`select * from ${tb} limit 1`); direct.push("read"); } catch { direct.push("refused"); } finally { await operator(); }
+    }
+  }
+  t.equal("nobody reads the bureau tables directly", direct, Array(12).fill("refused"));
+  await operator();
+
+  // Turning the 5% off: stored rows keep the switch they were worked out under, so they still
+  // pass their check (and can be restored); anything worked out afterwards leaves the 5% out.
+  {
+    const cardOnly = [acct({ bureau: "CIBIL", lender_code: "AXIS", product_raw: "Credit Card", product: "CARD", revolving: true,
+      credit_limit: 100000, outstanding: 60000, opened_on: "2022-03-01" }),
+      acct({ bureau: "CIBIL", seq: 2, lender_code: "SBI", sanctioned: 200000, outstanding: 50000, emi: 6000 })];
+    let flipped;
+    await db.query("begin");
+    try {
+      await db.query("create or replace function fn_bureau_revolving_in_foir() returns boolean language sql immutable parallel safe set search_path = public as $$ select false $$");
+      const kept = await one(`select count(*)::int as n, count(*) filter (where revolving_counted and monthly_obligation > instalment_emi)::int as with5
+                              from bureau_summary where monthly_obligation is not null`);
+      await db.query("update bureau_summary set computed_at = computed_at");
+      await db.query("create temp table bs31 as select * from bureau_summary where application_id = $1 and bureau = 'COMBINED'", [app27.id]);
+      await db.query("delete from bureau_summary where application_id = $1 and bureau = 'COMBINED'", [app27.id]);
+      await db.query("insert into bureau_summary select * from bs31");
+      const fresh = (await fixture([{ bureau: "CIBIL", no_hit: false, score: 760 }], cardOnly)).find((s) => s.bureau === "COMBINED");
+      await db.query("select fn_bureau_combine($1)", [app27.id]);
+      const redone = await one("select revolving_counted, monthly_obligation = instalment_emi as without5 from bureau_summary where application_id = $1 and bureau = 'COMBINED'", [app27.id]);
+      flipped = [kept.n > 0, kept.with5 > 0, fresh.revolving_counted, fresh.revolving_obligation, fresh.monthly_obligation, redone];
+    } catch (e) {
+      flipped = ["error", e.message.split("\n")[0]];
+    } finally {
+      await db.query("rollback");
+    }
+    const back = (await fixture([{ bureau: "CIBIL", no_hit: false, score: 760 }], cardOnly)).find((s) => s.bureau === "COMBINED");
+    t.equal("turning the 5% off keeps stored rows valid and leaves it out of new figures",
+      [flipped, back.revolving_counted, back.monthly_obligation],
+      [[true, true, false, 3000, 6000, { revolving_counted: false, without5: true }], true, 9000]);
+  }
+
+  // No record at either bureau: the engine runs (it used to stop on an unset rate row) and a person decides.
+  {
+    const nh = (await one(`insert into applications (application_id, customer_id, status, origin, declared_net_salary)
+                           select 'T31-NOHIT-0001', customer_id, 'SUBMITTED', 'STAFF', 60000 from applications where origin = 'STAFF' order by created_at limit 1
+                           returning id`)).id;
+    await db.query(`insert into bureau_summary (application_id, bureau, report_ref, pulled_at, raw_key, grid_month, no_hit, score, computed_at)
+                    values ($1, 'CIBIL', 'TEST-NH-1', now(), 'simulated:bureau-sim-v2', '2026-09-01', true, null, now()),
+                           ($1, 'EXPERIAN', 'TEST-NH-2', now(), 'simulated:bureau-sim-v2', '2026-09-01', true, null, now())`, [nh]);
+    const pulled = (await one("select fn_bureau_combine($1) as v", [nh])).v;
+    let assessed;
+    await t.ok("a no-hit application assesses without error", async () => {
+      assessed = (await one("select fn_assess_application($1) as v", [nh])).v;
+    });
+    const after = await one(`select a.status, (select recommendation from recommendations where application_id = a.id order by generated_at desc limit 1) as rec,
+                                    (select decision from credit_decisions where application_id = a.id and decided_by = 'SYSTEM' order by decided_at desc limit 1) as dec
+                             from applications a where a.id = $1`, [nh]);
+    t.equal("a no-hit application is referred to a person, never approved",
+      [pulled.no_hit, assessed?.policy?.decision, assessed?.recommendation?.decision,
+       (assessed?.recommendation?.risk_factors ?? []).some((f) => f.rule_id === "MISSING_DATA" && f.reason_code === "MISSING_DATA"),
+       after.status, after.rec, after.dec],
+      [true, "MAYBE", "MAYBE", true, "UNDER_REVIEW", "MAYBE", "MAYBE"]);
+  }
+
+  // 053 on a database that stopped at 052, twice.
+  {
+    const { readFileSync } = await import("node:fs");
+    const { db: old } = await migratedDb({ upTo: 52 });
+    const q1 = async (sql) => (await old.query(sql)).rows[0];
+    // Two v1-style simulated reports (one with no record), as 048/052 wrote them.
+    await old.query(`update bureau_reports set bureau_name = 'CIBIL-SIMULATED', report_raw_path = 'simulated',
+                       score = case when id = (select min(id::text)::uuid from bureau_reports) then null else score end
+                     where id in (select id from bureau_reports order by id limit 2)`);
+    const cols = `id, application_id, customer_id, bureau_name, score, score_date, active_accounts, total_outstanding, total_monthly_emi, dpd_max_12m,
+                  dpd_max_24m, dpd_30_count_24m, dpd_60_plus_flag, enquiry_count_90d, writeoff_count_5y, settled_count_5y, credit_utilization_pct,
+                  oldest_account_months, report_raw_path, extracted_at, created_at`;
+    const md5 = `select md5(string_agg(row(${cols})::text, '|' order by id)) as h, count(*)::int as n from bureau_reports`;
+    const pre = await q1(md5);
+    const sql053 = readFileSync(new URL("../../sql/053_bureau_detail.sql", import.meta.url), "utf8");
+    await old.exec(sql053);
+    await old.exec(sql053);
+    const post = await q1(md5);
+    const seeds = await q1("select (select count(*) from bureau_lenders)::int as l, (select count(*) from lender_aliases)::int as a, (select count(*) from bureau_product_map)::int as p");
+    const flags = await q1(`select count(*) filter (where no_hit is not null)::int as flagged, count(*) filter (where report_raw_path = 'simulated')::int as v1,
+                                   count(*) filter (where no_hit is distinct from (score is null) and report_raw_path = 'simulated')::int as wrong from bureau_reports`);
+    t.equal("053 is safe to re-run on a 052 database", [post, seeds, flags], [pre, { l: 13, a: 38, p: 20 }, { flagged: 2, v1: 2, wrong: 0 }]);
+    await old.close();
+  }
+  await db.query("drop table sim31");
   failures += t.report();
 }
 

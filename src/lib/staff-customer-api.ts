@@ -219,6 +219,8 @@ export interface CaseChecks {
     settled_count_5y: number | null;
     credit_utilization_pct: number | null;
     oldest_account_months: number | null;
+    /** Set for two-bureau (053) pulls, where total_monthly_emi is the monthly obligation. */
+    bureau_count?: number | null;
     created_at: string;
   } | null;
   bank: {
@@ -297,6 +299,269 @@ export async function runCreditChecks(applicationId: string): Promise<void> {
     p_read: read,
   });
   if (error) throw new Error(message(error));
+}
+
+// --- Credit bureau detail: two bureaus side by side (sql/053) -------------------
+
+export type BureauCode = "CIBIL" | "EXPERIAN" | "CRIF" | "EQUIFAX";
+
+export type BureauProduct =
+  | "AUTO"
+  | "HOME"
+  | "PROPERTY"
+  | "PERSONAL"
+  | "CONSUMER"
+  | "EDUCATION"
+  | "TWO_WHEELER"
+  | "GOLD"
+  | "CARD"
+  | "CORP_CARD"
+  | "OVERDRAFT"
+  | "OTHER";
+
+/** The bureau_reports row the engine reads. For a 053 pull it holds the COMBINED figures. */
+export interface BureauEngineRow {
+  bureau_name: string;
+  score: number | null;
+  score_date: string | null;
+  active_accounts: number | null;
+  total_outstanding: number | null;
+  /** For a 053 pull: COMBINED.monthly_obligation (EMIs + 5% of cards and overdrafts). */
+  total_monthly_emi: number | null;
+  dpd_max_12m: number | null;
+  dpd_max_24m: number | null;
+  dpd_30_count_24m: number | null;
+  dpd_60_plus_flag: boolean | null;
+  enquiry_count_90d: number | null;
+  writeoff_count_5y: number | null;
+  settled_count_5y: number | null;
+  credit_utilization_pct: number | null;
+  oldest_account_months: number | null;
+  report_raw_path: string | null;
+  extracted_at: string | null;
+  created_at: string;
+  // New in 053; null on older rows.
+  report_ref: string | null;
+  pulled_at: string | null;
+  valid_until: string | null;
+  consent_id: string | null;
+  no_hit: boolean | null;
+  score_source: BureauCode | null;
+  bureau_count: number | null;
+}
+
+/**
+ * One bureau's figures, or the COMBINED worst-of row. On a bureau with no record
+ * (no_hit) every measure is null.
+ */
+export interface BureauSummary {
+  bureau: BureauCode | "COMBINED";
+  report_ref: string | null;
+  pulled_at: string | null;
+  valid_until: string | null;
+  consent_id: string | null;
+  raw_key: string | null;
+  /** Month of dpd[0], 'YYYY-MM-01'. */
+  grid_month: string | null;
+  no_hit: boolean;
+  score: number | null;
+  score_source: BureauCode | null;
+  bureau_count: number | null;
+  /** COMBINED only, when both bureaus have a record. */
+  score_gap: number | null;
+  score_gap_flag: boolean | null;
+  active_loans: number | null;
+  active_cards: number | null;
+  active_overdrafts: number | null;
+  /** Loans + personal cards + overdrafts. */
+  active_accounts: number | null;
+  closed_accounts: number | null;
+  /** Shown, not counted. */
+  corporate_cards: number | null;
+  /** Guarantor + authorised-user accounts; not counted. */
+  guarantor_accounts: number | null;
+  loan_balance: number | null;
+  loan_sanctioned: number | null;
+  card_balance: number | null;
+  card_limit: number | null;
+  credit_utilization_pct: number | null;
+  total_outstanding: number | null;
+  overdue_amount: number | null;
+  instalment_emi: number | null;
+  /** 5% of counted card and overdraft balances. */
+  revolving_obligation: number | null;
+  monthly_obligation: number | null;
+  /** Whether revolving_obligation was inside monthly_obligation when this row was worked out. */
+  revolving_counted: boolean;
+  /** Display only; those EMIs are still counted. */
+  emi_ending_3m: number | null;
+  dpd_max_3m: number | null;
+  dpd_max_6m: number | null;
+  dpd_max_12m: number | null;
+  dpd_max_24m: number | null;
+  dpd_max_36m: number | null;
+  dpd_30_count_24m: number | null;
+  dpd_60_plus_flag: boolean | null;
+  minor_dpd_months_7to12: number | null;
+  on_time_pct_24m: number | null;
+  sma0_count: number | null;
+  sma1_count: number | null;
+  sma2_count: number | null;
+  sub_count: number | null;
+  dbt_count: number | null;
+  lss_count: number | null;
+  secured_count: number | null;
+  unsecured_count: number | null;
+  secured_balance: number | null;
+  unsecured_balance: number | null;
+  opened_6m: number | null;
+  opened_12m: number | null;
+  restructured_count: number | null;
+  writeoff_count_5y: number | null;
+  settled_count_5y: number | null;
+  suit_count: number | null;
+  stale_lender_accounts: number | null;
+  enquiry_count_30d: number | null;
+  enquiry_count_90d: number | null;
+  enquiry_count_12m: number | null;
+  unsecured_enquiry_90d: number | null;
+  auto_enquiry_30d: number | null;
+  oldest_account_months: number | null;
+  one_bureau_accounts: number | null;
+  computed_at: string;
+}
+
+/** One bureau's copy of an account. The same loan on both bureaus shares merged_seq. */
+export interface BureauAccount {
+  bureau: BureauCode;
+  seq: number;
+  merged_seq: number | null;
+  /** As the bureau prints it. */
+  lender_raw: string;
+  /** Starts with '~' when the name is not in lender_aliases. */
+  lender_code: string;
+  product_raw: string;
+  product: BureauProduct;
+  secured: boolean;
+  revolving: boolean;
+  corporate: boolean;
+  account_masked: string | null;
+  ownership: "INDIVIDUAL" | "JOINT" | "GUARANTOR" | "AUTHORISED";
+  status: "ACTIVE" | "CLOSED" | "WRITTEN_OFF" | "SETTLED";
+  asset_class: "STD" | "SMA0" | "SMA1" | "SMA2" | "SUB" | "DBT" | "LSS";
+  restructured: boolean;
+  suit_filed: boolean;
+  sanctioned: number | null;
+  credit_limit: number | null;
+  cash_limit: number | null;
+  outstanding: number;
+  overdue: number;
+  /** In the account's own frequency. */
+  emi: number | null;
+  frequency: "M" | "B" | "Q" | "H" | "Y" | "F" | "W";
+  rate_pct: number | null;
+  tenure_months: number | null;
+  collateral: string | null;
+  collateral_value: number | null;
+  opened_on: string;
+  last_payment_on: string | null;
+  last_payment_amount: number | null;
+  closed_on: string | null;
+  reported_on: string;
+  writeoff_amount: number | null;
+  settled_amount: number | null;
+  /** Month of dpd[0], 'YYYY-MM-01'. */
+  grid_month: string;
+  /** Days late, 24 months, newest first; -1 = not reported. */
+  dpd: number[];
+  /** Worst in the 12 months before the grid; -1 = none reported. */
+  dpd_max_25_36m: number;
+  // Worked out by the reader.
+  lender_name: string;
+  licence_cancelled: boolean;
+  /** Null for cards and overdrafts. */
+  monthly_emi: number | null;
+  counted_in_obligation: boolean;
+  /** The monthly EMI, or 5% of the balance for a counted card or overdraft; 0 when not counted. */
+  obligation: number;
+  /** An open loan with no EMI on this bureau's copy: it adds 0 to the obligation. */
+  emi_not_reported: boolean;
+}
+
+export interface BureauEnquiry {
+  bureau: BureauCode;
+  seq: number;
+  enquired_on: string;
+  lender_raw: string;
+  lender_code: string;
+  purpose: BureauProduct;
+  purpose_raw: string | null;
+  amount: number | null;
+  lender_name: string;
+  also_on_other_bureau: boolean;
+}
+
+export interface BureauDifference {
+  code:
+    "NO_RECORD_ONE_BUREAU" | "SCORE_GAP" | "ACCOUNT_ONE_BUREAU" | "STATUS_DIFFERS" | "DPD_DIFFERS";
+  text: string;
+  bureau: BureauCode | null;
+  merged_seq: number | null;
+  /** SCORE_GAP {gap}; ACCOUNT_ONE_BUREAU {lender, product}; STATUS_DIFFERS / DPD_DIFFERS {<BUREAU>: value}. */
+  detail: Record<string, string | number> | null;
+}
+
+/** Display only; never engine rules. */
+export interface BureauFlag {
+  code:
+    | "NO_HIT_BOTH"
+    | "SCORE_FROM_SECOND_BUREAU"
+    | "LICENCE_CANCELLED_LENDER"
+    | "RESTRUCTURED"
+    | "OVERDUE"
+    | "AUTO_ENQUIRY_30D"
+    | "CREDIT_HUNGRY"
+    | "THIN_FILE"
+    | "EMI_NOT_REPORTED";
+  text: string;
+}
+
+/** The policy switches the figures were worked out under. */
+export interface BureauRules {
+  sim_version: string;
+  score_rule: string;
+  score_gap_flag_points: number;
+  revolving_rate: number;
+  revolving_in_foir: boolean;
+  guarantor_counted: boolean;
+  corporate_cards_counted: boolean;
+  emi_ending_3m_in_foir: boolean;
+  licence_cancelled_marks_count: boolean;
+  no_hit_both: string;
+}
+
+export interface BureauDetail {
+  /** True only when a two-bureau (053) pull exists; older cases are false with empty lists. */
+  detail: boolean;
+  engine: BureauEngineRow | null;
+  /** CIBIL, then the other bureau, then COMBINED last. */
+  summaries: BureauSummary[];
+  /** Ordered by merged_seq, CIBIL copy first. */
+  accounts: BureauAccount[];
+  /** Newest first. */
+  enquiries: BureauEnquiry[];
+  differences: BureauDifference[];
+  flags: BureauFlag[];
+  rules: BureauRules;
+}
+
+/** Both bureaus, the combined figures, accounts and enquiries for one application. */
+export async function getBureauDetail(applicationId: string): Promise<BureauDetail> {
+  const { data, error } = await supabase.rpc("fn_staff_bureau_detail", {
+    p_application_id: applicationId,
+  });
+  if (error) throw new Error(message(error));
+  return data as BureauDetail;
 }
 
 // --- Automatic document checks (sql/052) ---------------------------------------

@@ -33,9 +33,25 @@ Order matters: each file assumes the ones above it are already in.
 | 033 | `033_server_engine_decisions.sql` | ✅ 20 Sep 2026 | The AWS rules engine can decide one application: facts for a single case, a record of every answer it gives, and — once the `server_engine` switch is on — that answer becomes the case's decision |
 | 034 | `034_demo_users.sql` | ✅ 21 Sep 2026 | Three demo accounts with their roles: demo1 (credit officer), demo2 (credit manager), demo_admin (admin). No passwords here; a login created in Supabase links itself to its role row by email |
 | 035 | `035_history_order.sql` | ✅ 21 Sep 2026 | Policy history keeps the order things happened in, even when two steps land in the same instant |
+| 053 | `053_bureau_detail.sql` | ☐ not yet run on Supabase | Two bureaus per credit check (CIBIL plus one other), with every account, a 24-month late-payment grid and every enquiry; the same loan on both is matched through lender names and counted once; bad marks take the worse of the two; monthly obligation is EMIs plus 5% of card and overdraft balances. The engine still reads one row per application, still named CIBIL-SIMULATED; older reports and their decisions are kept. Also fixes the engine for a customer with no record at either bureau: it used to stop with an error, now the case goes to a person (D6). Run after 052, and again after any re-run of 004, 031, 048 or 052. Afterwards check: 13 lenders, 38 lender names, 20 product names, and no application with two bureau_reports rows. See "053 notes" below |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.
+
+## 053 notes
+
+- **Generator batch size.** Locally, a batch of 500 synthetic applications took
+  about 45 seconds for the bureau pull step alone. Supabase's Postgres is faster
+  than the local test database, but if the SQL Editor times out, run the
+  generator in batches of 250.
+- **Database versions.** The local test database is PostgreSQL 18 (PGlite);
+  Supabase runs 15 or 17. 053 is written to avoid anything newer than 15, but
+  it has only been run on 18, so a difference would show up only on Supabase:
+  read the SQL Editor's output rather than assuming a local pass carries over.
+- **Engine functions.** 053 redefines `fn_run_policy_engine` (from 004) and
+  `fn_generate_recommendation` (from 031) to stop the no-record crash.
+  Re-running 004 or 031 afterwards brings the crash back; run 053 again after
+  them.
 
 ## The encryption key (012)
 

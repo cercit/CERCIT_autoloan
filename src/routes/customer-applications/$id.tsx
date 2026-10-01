@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { AppShell, LabelValue, SectionCard } from "@/components/app-shell";
+import { BureauDetailCard } from "@/components/bureau-detail";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,11 +30,13 @@ import {
   STATUS_TEXT,
   caseAction,
   fileLink,
+  getBureauDetail,
   getCaseChecks,
   getCustomerCase,
   getDocumentChecks,
   rerunDocumentChecks,
   runCreditChecks,
+  type BureauDetail,
   type CaseAction,
   type CaseChecks,
   type CaseDocument,
@@ -134,12 +137,15 @@ function CaseView() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [checks, setChecks] = useState<CaseChecks | null>(null);
   const [docChecks, setDocChecks] = useState<DocumentChecks | null>(null);
+  const [bureau, setBureau] = useState<BureauDetail | null>(null);
 
   const load = useCallback(async () => {
     try {
       setC(await getCustomerCase(id));
       setChecks(await getCaseChecks(id).catch(() => null));
       setDocChecks(await getDocumentChecks(id).catch(() => null));
+      // Two-bureau detail (sql/053). Missing before 053 runs: the card then shows nothing.
+      setBureau(await getBureauDetail(id).catch(() => null));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -272,8 +278,10 @@ function CaseView() {
       )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+        {/* min-w-0: wide tables scroll inside their cards instead of widening the column on phones. */}
+        <div className="min-w-0 space-y-4 lg:col-span-2">
           {checks?.recommendation && <CreditChecksCard checks={checks} />}
+          {bureau?.detail && <BureauDetailCard data={bureau} />}
           <SectionCard
             title="Documents"
             description={
@@ -908,9 +916,19 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
             ) : (
               <div className="grid gap-3 sm:grid-cols-4">
                 <LabelValue label="Score" value={<span className="tabular-nums">{b.score}</span>} />
+                <LabelValue label="Active accounts" value={b.active_accounts ?? 0} />
                 <LabelValue
-                  label="Active loans"
-                  value={`${b.active_accounts ?? 0}, EMI ${money(b.total_monthly_emi)}`}
+                  label="Monthly obligation"
+                  value={
+                    <>
+                      {money(b.total_monthly_emi)}
+                      {b.bureau_count != null && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          EMIs plus 5% of card and overdraft balances
+                        </span>
+                      )}
+                    </>
+                  }
                 />
                 <LabelValue
                   label="Worst late payment (12 m)"
