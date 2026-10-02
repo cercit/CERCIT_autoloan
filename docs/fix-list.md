@@ -29,6 +29,12 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 |---|---|---|---|---|
 | C1 | **Audit Log is empty for everyone live**: it reads `audit_trail`, which doesn't exist. Point it at `audit_events` (with the privacy rule for real customers) and show errors instead of an empty page | `src/lib/api.ts` `getAuditLog` | M | maybe SQL |
 | C2 | **Pages fall back to sample data on an error**, so fake cases can look real: Applications list, one application, bureau report, rate grid, employers. Show the error instead; keep samples for sample mode only | `src/lib/api.ts` | M | — |
+| C4 | **Applications is slow to open** (reported by Sameer 2 Oct). Likely causes, to measure first:
+(1) the list loads all ~2,012 cases at once, 2,000 of them synthetic, with no paging;
+(2) it then asks for engine decisions by sending all 2,012 IDs in one request, which makes a very long address and may fail;
+(3) each row is checked one by one in the browser;
+(4) opening one case makes about 6 separate calls (case, bureau, bank, timeline, extractions, transitions).
+Fix: page the list (e.g. 50 at a time, with search done in the database), fold the engine decision into `fn_list_applications`, and load the case's tabs only when opened. Measure before and after | `src/lib/api.ts` `getApplications`, `fn_list_applications`, `src/routes/applications/` | M | SQL |
 | C3 | Three old capitalised roles (ADMIN, CREDIT_OFFICER, STATE_HEAD) are still in the roles table: switched off, no rights, no users. Remove them or mark them retired | `roles` table | S | SQL |
 
 ## D. Practice logins for visitors (needs Sameer's go on the design)
@@ -57,7 +63,7 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 ## Suggested order
 
 1. **A1–A4 and B4:** quick, visible, no SQL.
-2. **C1 and C2:** stop showing empty or fake data.
+2. **C1, C2 and C4:** stop showing empty or fake data, and make Applications fast.
 3. **B1 and B3:** the menu and buttons follow rights.
 4. **B2, B5 and C3:** one SQL step.
 5. **D1–D3:** practice logins, after the "go".
