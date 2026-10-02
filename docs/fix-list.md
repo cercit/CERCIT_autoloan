@@ -35,6 +35,7 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 (3) each row is checked one by one in the browser;
 (4) opening one case makes about 6 separate calls (case, bureau, bank, timeline, extractions, transitions).
 Fix: page the list (e.g. 50 at a time, with search done in the database), fold the engine decision into `fn_list_applications`, and load the case's tabs only when opened. Measure before and after | `src/lib/api.ts` `getApplications`, `fn_list_applications`, `src/routes/applications/` | M | SQL |
+| C5 | **Application Review never loads on the live site** (reported by Sameer 2 Oct). Cause (checked read-only against the live database): the page reads the `customers` and `obligation_details` tables directly, but signed-in staff have no read right on either; both were locked down for privacy (PII encryption and the customer privacy rules). The request fails; the code then looks for the case in the sample data, finds nothing, and the page stays on "Loading application…" with no error. Fix: one staff function (like `fn_list_applications`) that returns the case with masked PAN and mobile and keeps the real-customer rule, and a clear error message instead of endless loading. Check the bureau, bank and timeline tabs for the same problem | `src/lib/api.ts` `getApplication`, `src/routes/applications/$id/index.tsx`, new SQL function | M | SQL |
 | C3 | Three old capitalised roles (ADMIN, CREDIT_OFFICER, STATE_HEAD) are still in the roles table: switched off, no rights, no users. Remove them or mark them retired | `roles` table | S | SQL |
 
 ## D. Practice logins for visitors (needs Sameer's go on the design)
@@ -69,7 +70,7 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 ## Suggested order
 
 1. **A1–A4 and B4:** quick, visible, no SQL.
-2. **C1, C2 and C4:** stop showing empty or fake data, and make Applications fast.
+2. **C5, C1, C2 and C4:** make Application Review open, stop showing empty or fake data, and make Applications fast. C5 first: the page is unusable today.
 3. **B1 and B3:** the menu and buttons follow rights.
 4. **B2, B5 and C3:** one SQL step.
 5. **D1–D3:** practice logins, after the "go".
