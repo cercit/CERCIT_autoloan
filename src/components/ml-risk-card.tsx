@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RiskScoreExplainer } from "@/components/risk-score-explainer";
 import { buildRiskFeatures, buildPolicyInput } from "@/lib/ml-features";
 import { computeRiskScore, type RiskScoreResult } from "@/lib/risk-score-model";
+import { CHALLENGER_VERSION } from "@/lib/onnx-inference";
 import { evaluatePolicy, POLICY_RULES } from "@/lib/policy-rule-engine";
 import type { Application, BureauReport, BankStatementSummary } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -23,14 +24,20 @@ export function MlRiskCard({
   const policy = useMemo(() => evaluatePolicy(buildPolicyInput(app, features)), [app, features]);
   const [result, setResult] = useState<RiskScoreResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [challenger, setChallenger] = useState<RiskScoreResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setResult(null);
     setError(null);
+    setChallenger(null);
     computeRiskScore(features)
       .then((r) => { if (!cancelled) setResult(r); })
-      .catch((e) => { if (!cancelled) setError(e?.message ?? "scoring failed"); });
+      .catch((e) => { if (!cancelled) setError(e?.message ?? "scoring failed"); })
+      // after the approved score, so the two never compete for the model runner
+      .then(() => computeRiskScore(features, CHALLENGER_VERSION))
+      .then((r) => { if (!cancelled && r) setChallenger(r); })
+      .catch(() => undefined);
     return () => { cancelled = true; };
   }, [features]);
 
@@ -45,6 +52,16 @@ export function MlRiskCard({
         <RiskScoreExplainer result={result} />
       ) : (
         <Skeleton className="h-64 w-full" />
+      )}
+
+      {result && challenger && (
+        <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          Retrained model ({challenger.modelVersion}, not yet signed off): grade{" "}
+          <span className="font-semibold text-foreground">{challenger.grade}</span>, chance of 30+ days late{" "}
+          <span className="font-semibold text-foreground">{(challenger.defaultProbability * 100).toFixed(1)}%</span>
+          {challenger.grade !== result.grade ? ` (approved model says ${result.grade})` : ", same grade as the approved model"}.
+          Shown for comparison only; it does not change the decision.
+        </p>
       )}
 
       <div className="panel">

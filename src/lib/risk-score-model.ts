@@ -1,12 +1,13 @@
 /**
  * ML Risk Scoring Model
  *
- * Week 3: scoring runs through the trained XGBoost model (public/models/cercit-risk-v1.onnx)
- * via onnxruntime-web. The older hand-weighted logistic simulation is kept at the bottom
+ * Week 3: scoring runs through the trained XGBoost model (public/models/<version>.onnx)
+ * via onnxruntime-web. v1 is the approved score; v2 (retrained Oct 2026 on the platform's
+ * own synthetic customers) runs beside it as a challenger until it is signed off. The older hand-weighted logistic simulation is kept at the bottom
  * as `computeRiskScoreLegacy` for side-by-side comparison only.
  */
 
-import { loadModelMeta, predictBadProbability, isBrowser } from "./onnx-inference";
+import { loadModelMeta, predictBadProbability, isBrowser, MODEL_VERSION } from "./onnx-inference";
 
 export interface RiskFeatures {
   bureauScore: number; // 300-900
@@ -126,20 +127,21 @@ function toRow(f: RiskFeatures): number[] {
  * browser or if the model fails to load.
  */
 export async function computeRiskScore(
-  rawFeatures: Partial<Record<keyof RiskFeatures, unknown>>
+  rawFeatures: Partial<Record<keyof RiskFeatures, unknown>>,
+  version: string = MODEL_VERSION
 ): Promise<RiskScoreResult> {
   const f = normalizeFeatures(rawFeatures);
   if (!isBrowser()) return computeRiskScoreLegacy(f);
 
   try {
-    const meta = await loadModelMeta();
+    const meta = await loadModelMeta(version);
     const actual = toRow(f);
     const rows: number[][] = [actual];
     for (const k of FEATURE_ORDER) {
       const cf = { ...f, [k]: meta.featureMeans[k] ?? f[k] };
       rows.push(toRow(cf));
     }
-    const probs = await predictBadProbability(rows);
+    const probs = await predictBadProbability(rows, version);
     const p = probs[0] ?? 0;
 
     const contributions: FeatureContribution[] = FEATURE_ORDER.map((k, i): FeatureContribution => {
@@ -163,6 +165,7 @@ export async function computeRiskScore(
       source: "xgboost-onnx",
     };
   } catch (err) {
+    if (version !== MODEL_VERSION) throw err; // a challenger that fails to load is simply not shown
     console.warn("[risk-score-model] ONNX scoring failed, using legacy formula", err);
     return computeRiskScoreLegacy(f);
   }

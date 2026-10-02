@@ -1,0 +1,192 @@
+{
+  "model": "cercit-risk-v2",
+  "label": "bad30",
+  "trainedAt": "2026-10-02T06:42:33.864462+00:00",
+  "features": [
+    "bureauScore",
+    "dpd30",
+    "dpd60",
+    "dpd90",
+    "dpdWriteOff",
+    "enquiryVelocity",
+    "bounceCount",
+    "salaryRegularity",
+    "employerTier",
+    "cashWithdrawalRatio",
+    "ltvPercent",
+    "foirPercent",
+    "tenureMonths",
+    "age",
+    "govtEmployee",
+    "employmentYears",
+    "ccServicingPattern",
+    "freeIncomeRatio"
+  ],
+  "inputName": "features",
+  "outputNames": [
+    "label",
+    "probabilities"
+  ],
+  "metrics": {
+    "auc": 0.7407,
+    "pr_auc": 0.1519,
+    "brier": 0.0146,
+    "test_rows": 4249,
+    "test_positive_rate": 0.016
+  },
+  "bandBadRates": {
+    "A": {
+      "count": 2819,
+      "badRate": 0.0078
+    },
+    "B": {
+      "count": 863,
+      "badRate": 0.0174
+    },
+    "C": {
+      "count": 357,
+      "badRate": 0.0112
+    },
+    "D": {
+      "count": 156,
+      "badRate": 0.0833
+    },
+    "E": {
+      "count": 54,
+      "badRate": 0.2593
+    }
+  },
+  "shap": {
+    "baseValue": -4.133371829986572,
+    "importance": [
+      {
+        "feature": "bureauScore",
+        "meanAbsShap": 0.4923
+      },
+      {
+        "feature": "freeIncomeRatio",
+        "meanAbsShap": 0.244
+      },
+      {
+        "feature": "dpd90",
+        "meanAbsShap": 0.2379
+      },
+      {
+        "feature": "employerTier",
+        "meanAbsShap": 0.1475
+      },
+      {
+        "feature": "bounceCount",
+        "meanAbsShap": 0.1356
+      },
+      {
+        "feature": "ltvPercent",
+        "meanAbsShap": 0.127
+      },
+      {
+        "feature": "ccServicingPattern",
+        "meanAbsShap": 0.1057
+      },
+      {
+        "feature": "foirPercent",
+        "meanAbsShap": 0.0976
+      },
+      {
+        "feature": "employmentYears",
+        "meanAbsShap": 0.0647
+      },
+      {
+        "feature": "cashWithdrawalRatio",
+        "meanAbsShap": 0.0604
+      },
+      {
+        "feature": "age",
+        "meanAbsShap": 0.0424
+      },
+      {
+        "feature": "tenureMonths",
+        "meanAbsShap": 0.0215
+      },
+      {
+        "feature": "enquiryVelocity",
+        "meanAbsShap": 0.0149
+      },
+      {
+        "feature": "govtEmployee",
+        "meanAbsShap": 0.0072
+      },
+      {
+        "feature": "dpd30",
+        "meanAbsShap": 0.0
+      },
+      {
+        "feature": "dpd60",
+        "meanAbsShap": 0.0
+      },
+      {
+        "feature": "dpdWriteOff",
+        "meanAbsShap": 0.0
+      },
+      {
+        "feature": "salaryRegularity",
+        "meanAbsShap": 0.0
+      }
+    ]
+  },
+  "featureMeans": {
+    "bureauScore": 722.174,
+    "dpd30": 0.047,
+    "dpd60": 0.013,
+    "dpd90": 0.047,
+    "dpdWriteOff": 0.004,
+    "enquiryVelocity": 0.33,
+    "bounceCount": 0.131,
+    "salaryRegularity": 5.929,
+    "employerTier": 3.143,
+    "cashWithdrawalRatio": 1.486,
+    "ltvPercent": 91.982,
+    "foirPercent": 39.946,
+    "tenureMonths": 65.916,
+    "age": 39.978,
+    "govtEmployee": 0.201,
+    "employmentYears": 6.527,
+    "ccServicingPattern": 1.76,
+    "freeIncomeRatio": 60.085
+  },
+  "source": "synthetic customers from the platform's own generator (055); features worked out from bureau, bank and salary detail; outcomes drawn with v1's risk formula -- no real portfolio",
+  "comparedWithV1": {
+    "testRows": 4249,
+    "actualBadRate": 0.016,
+    "v1": {
+      "auc": 0.7536,
+      "brier": 0.0155,
+      "avgPredicted": 0.0131
+    },
+    "v2": {
+      "auc": 0.7407,
+      "brier": 0.0146,
+      "avgPredicted": 0.0169
+    },
+    "bestPossibleAuc": 0.7641,
+    "byEngineDecision": {
+      "APPROVE": {
+        "files": 1942,
+        "actualBadRate": 0.0093,
+        "v1Predicted": 0.0043,
+        "v2Predicted": 0.0064
+      },
+      "MAYBE": {
+        "files": 1499,
+        "actualBadRate": 0.0113,
+        "v1Predicted": 0.01,
+        "v2Predicted": 0.0151
+      },
+      "REJECT": {
+        "files": 808,
+        "actualBadRate": 0.0408,
+        "v1Predicted": 0.0398,
+        "v2Predicted": 0.0456
+      }
+    }
+  }
+}

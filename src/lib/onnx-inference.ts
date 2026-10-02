@@ -5,7 +5,10 @@
 
 import type { InferenceSession } from "onnxruntime-web";
 
+/** The approved model whose score officers see. Matches the ACTIVE row in model_versions. */
 export const MODEL_VERSION = "cercit-risk-v1";
+/** Retrained model shown beside it until it is signed off (champion / challenger). */
+export const CHALLENGER_VERSION = "cercit-risk-v2";
 const ORT_VERSION = "1.20.1";
 
 export interface ModelMeta {
@@ -21,60 +24,63 @@ export interface ModelMeta {
   featureMeans: Record<string, number>;
 }
 
-let sessionPromise: Promise<InferenceSession> | null = null;
-let metaPromise: Promise<ModelMeta> | null = null;
+const sessions = new Map<string, Promise<InferenceSession>>();
+const metas = new Map<string, Promise<ModelMeta>>();
 
-function modelBase(): string {
+function modelBase(version: string): string {
   const base = (import.meta.env?.BASE_URL as string | undefined) ?? "/";
-  return `${base.replace(/\/$/, "")}/models/${MODEL_VERSION}`;
+  return `${base.replace(/\/$/, "")}/models/${version}`;
 }
 
 export function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof fetch === "function";
 }
 
-export function loadModelMeta(): Promise<ModelMeta> {
-  if (!metaPromise) {
-    metaPromise = fetch(`${modelBase()}.meta.json`).then((r) => {
+export function loadModelMeta(version: string = MODEL_VERSION): Promise<ModelMeta> {
+  let p = metas.get(version);
+  if (!p) {
+    p = fetch(`${modelBase(version)}.meta.json`).then((r) => {
       if (!r.ok) throw new Error(`model meta fetch failed: ${r.status}`);
       return r.json() as Promise<ModelMeta>;
     });
+    metas.set(version, p);
+    p.catch(() => metas.delete(version));
   }
-  return metaPromise;
+  return p;
 }
 
-async function loadSession(): Promise<InferenceSession> {
-  if (!sessionPromise) {
-    sessionPromise = (async () => {
+function loadSession(version: string): Promise<InferenceSession> {
+  let p = sessions.get(version);
+  if (!p) {
+    p = (async () => {
       const ort = await import("onnxruntime-web");
       ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
       ort.env.wasm.numThreads = 1;
-      return ort.InferenceSession.create(`${modelBase()}.onnx`, {
+      return ort.InferenceSession.create(`${modelBase(version)}.onnx`, {
         executionProviders: ["wasm"],
       });
     })();
-    sessionPromise.catch(() => {
-      sessionPromise = null;
-    });
+    sessions.set(version, p);
+    p.catch(() => sessions.delete(version));
   }
-  return sessionPromise;
+  return p;
 }
 
 // ort-web wasm sessions reject overlapping run() calls, so every inference waits its turn
 let queue: Promise<unknown> = Promise.resolve();
 
 /** Returns P(bad) for each row. Rows must follow meta.features order. */
-export function predictBadProbability(rows: number[][]): Promise<number[]> {
-  const next = queue.then(() => runInference(rows));
+export function predictBadProbability(rows: number[][], version: string = MODEL_VERSION): Promise<number[]> {
+  const next = queue.then(() => runInference(rows, version));
   queue = next.catch(() => undefined);
   return next;
 }
 
-async function runInference(rows: number[][]): Promise<number[]> {
+async function runInference(rows: number[][], version: string): Promise<number[]> {
   if (rows.length === 0) return [];
   const [session, meta, ort] = await Promise.all([
-    loadSession(),
-    loadModelMeta(),
+    loadSession(version),
+    loadModelMeta(version),
     import("onnxruntime-web"),
   ]);
   const width = meta.features.length;
@@ -93,10 +99,10 @@ async function runInference(rows: number[][]): Promise<number[]> {
   return result;
 }
 
-export function isModelReady(): boolean {
-  return sessionPromise !== null;
+export function isModelReady(version: string = MODEL_VERSION): boolean {
+  return sessions.has(version);
 }
 
-export function warmUpModel(): void {
-  if (isBrowser()) void loadSession().catch(() => undefined);
+export function warmUpModel(version: string = MODEL_VERSION): void {
+  if (isBrowser()) void loadSession(version).catch(() => undefined);
 }
