@@ -6,9 +6,10 @@
 import type { InferenceSession } from "onnxruntime-web";
 
 /** The approved model whose score officers see. Matches the ACTIVE row in model_versions. */
-export const MODEL_VERSION = "cercit-risk-v1";
-/** Retrained model shown beside it until it is signed off (champion / challenger). */
-export const CHALLENGER_VERSION = "cercit-risk-v2";
+/** v2 approved 2 Oct 2026 (sql/057); v1 stays in public/models for old decisions. */
+export const MODEL_VERSION = "cercit-risk-v2";
+/** A retrained model shown beside it until it is signed off (champion / challenger). None now. */
+export const CHALLENGER_VERSION: string | null = null;
 const ORT_VERSION = "1.20.1";
 
 export interface ModelMeta {

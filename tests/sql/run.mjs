@@ -721,10 +721,10 @@ const asOperator = () => asApi("", "");
   const app = { id: submitted.application_uuid, application_id: submitted.application_id };
   const rec = await one(`select pv.version_code, r.version_basis, r.model_version, r.rules_snapshot
     from recommendations r left join policy_versions pv on pv.id = r.policy_version_id where r.application_id = $1`, [app.id]);
-  t.equal("the recommendation records the version in force", [rec.version_code, rec.version_basis, rec.model_version], ["2026.08", "RECORDED", "cercit-risk-v1"]);
+  t.equal("the recommendation records the version in force", [rec.version_code, rec.version_basis, rec.model_version], ["2026.08", "RECORDED", "cercit-risk-v2"]);
   const dec = await one(`select d.id, pv.version_code, d.version_basis, d.model_version, d.rules_snapshot
     from credit_decisions d left join policy_versions pv on pv.id = d.policy_version_id where d.application_id = $1`, [app.id]);
-  t.equal("the system decision records it too", [dec.version_code, dec.version_basis, dec.model_version], ["2026.08", "RECORDED", "cercit-risk-v1"]);
+  t.equal("the system decision records it too", [dec.version_code, dec.version_basis, dec.model_version], ["2026.08", "RECORDED", "cercit-risk-v2"]);
   const snap = await one("select jsonb_array_length(rules) as n from rule_set_snapshots where rules_sha256 = $1", [dec.rules_snapshot]);
   t.equal("the exact rule set used is kept", snap?.n > 0, true);
 
@@ -732,10 +732,10 @@ const asOperator = () => asApi("", "");
   const forged = await one(`insert into credit_decisions (application_id, recommendation_id, decision, decided_by, policy_version_id, model_version, version_basis)
     select $1, r.id, 'APPROVE', 'SYSTEM', null, null, 'ASSUMED' from recommendations r where r.application_id = $1
     returning version_basis, model_version, policy_version_id is not null as has_version`, [app.id]);
-  t.equal("values supplied on insert are replaced", forged, { version_basis: "RECORDED", model_version: "cercit-risk-v1", has_version: true });
+  t.equal("values supplied on insert are replaced", forged, { version_basis: "RECORDED", model_version: "cercit-risk-v2", has_version: true });
   await db.query("update credit_decisions set version_basis = 'ASSUMED', model_version = null, officer_remarks = 'note' where id = $1", [dec.id]);
   const kept = await one("select version_basis, model_version, officer_remarks from credit_decisions where id = $1", [dec.id]);
-  t.equal("an edit cannot rewrite them", kept, { version_basis: "RECORDED", model_version: "cercit-risk-v1", officer_remarks: "note" });
+  t.equal("an edit cannot rewrite them", kept, { version_basis: "RECORDED", model_version: "cercit-risk-v2", officer_remarks: "note" });
 
   // A decision dated before any approved version records none, rather than guessing
   const early = await one(`insert into credit_decisions (application_id, recommendation_id, decision, decided_by, decided_at)
@@ -2613,6 +2613,26 @@ const asOperator = () => asApi("", "");
   await t.rejects("website logins cannot disburse synthetic loans", () => db.query("select fn_synthetic_disburse(1)"), /permission denied/);
   await db.query("reset role");
   await asOperator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 35. Risk model v2 becomes the approved model (057)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("risk model v2");
+  await asOperator();
+  const rows = (await db.query("select model_version, status, effective_to is not null as ended from model_versions order by effective_from")).rows;
+  t.equal("v1 is retired with an end date and v2 is the one active model", rows,
+    [{ model_version: "cercit-risk-v1", status: "RETIRED", ended: true }, { model_version: "cercit-risk-v2", status: "ACTIVE", ended: false }]);
+  const at = await one(`select fn_model_version_at('2026-09-20') as before_switch, fn_model_version_at() as now,
+                               fn_model_version_at('2026-07-01') as before_any`);
+  t.equal("decisions keep the model that was in force on their date", at,
+    { before_switch: "cercit-risk-v1", now: "cercit-risk-v2", before_any: null });
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../../sql/057_risk_model_v2.sql", import.meta.url), "utf8"));
+  t.equal("running 057 again changes nothing",
+    (await db.query("select model_version, status, effective_to is not null as ended from model_versions order by effective_from")).rows, rows);
   failures += t.report();
 }
 

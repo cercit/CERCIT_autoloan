@@ -35,7 +35,7 @@ export function MlRiskCard({
       .then((r) => { if (!cancelled) setResult(r); })
       .catch((e) => { if (!cancelled) setError(e?.message ?? "scoring failed"); })
       // after the approved score, so the two never compete for the model runner
-      .then(() => computeRiskScore(features, CHALLENGER_VERSION))
+      .then(() => (CHALLENGER_VERSION ? computeRiskScore(features, CHALLENGER_VERSION) : null))
       .then((r) => { if (!cancelled && r) setChallenger(r); })
       .catch(() => undefined);
     return () => { cancelled = true; };

@@ -1,6 +1,8 @@
 # Risk model v2: retrained on the platform's own customers
 
-Trained 2 Oct 2026. Status: **challenger**. Officers still see v1's score; v2's grade shows under it, marked "for comparison only". It changes nothing until it is signed off.
+Trained 2 Oct 2026. Status: **approved 2 Oct 2026**, the model officers see. The app switched in the same push as `sql/057_risk_model_v2.sql`, which records v2 against every decision from the moment it runs. v1 stays in `public/models/` because older decisions name it.
+
+A five-fold check across all 16,995 files (three shuffles) confirmed the grades run in order: A 0.7% went 30+ days late, B 1.2%, C 2.9%, D 9.5%, E 30.3%. The B/C swap on the single test split below was chance.
 
 ## Why retrain
 
@@ -32,14 +34,13 @@ In plain words:
 ## Known limits
 
 - The outcomes come from a formula, not real repayments. The model can at best relearn that formula; this is a demo of the method, not evidence about real borrowers.
-- v2's grade C carries a lower late rate (1.1%) than grade B (1.7%) on the test files. With 357 files in C that is noise, but grades should run in order before v2 is approved.
+- On the single test split, grade C showed a lower late rate (1.1%) than grade B (1.7%). The five-fold check above shows that was chance.
 - The 628 seasoned loans on Supabase (056) aren't used. Their late payments follow one simple rule (score below 700 or FOIR above 50), and 628 loans give about 20 late payers, too few to learn from.
 - The live score still reads the older application fields through `buildRiskFeatures`. The bureau and bank detail added in 053/054 isn't wired into it yet.
 
-## To approve v2
+## Approval
 
-1. Decide which matters more for officers: v1's slightly better ordering, or v2's more honest percentages.
-2. If v2: one SQL step retires v1 in `model_versions` and makes v2 active (I'll write it then), and `MODEL_VERSION` in `src/lib/onnx-inference.ts` becomes `cercit-risk-v2`. Both go together, so every decision records the model that actually scored it.
+Chosen by the product owner on 2 Oct 2026 for its better-calibrated percentages, since the grades are cut on them. `approved_by` stays empty until the model sign-off workflow exists. To run a future challenger beside it, set `CHALLENGER_VERSION` in `src/lib/onnx-inference.ts`.
 
 ## Re-running
 
