@@ -432,7 +432,7 @@ function Dashboard() {
             <p className="py-8 text-center text-sm text-muted-foreground">Loading trend data...</p>
           )}
         </SectionCard>
-        <SectionCard title="Portfolio Quality" description="Current book">
+        <SectionCard title="Portfolio Quality" description="Disbursed loans by days overdue today">
           {portfolio ? (
             <PortfolioQuality metrics={portfolio} />
           ) : (

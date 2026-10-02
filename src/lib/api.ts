@@ -1596,64 +1596,71 @@ export async function getDecisionTrend(): Promise<DecisionTrendPoint[]> {
 // -- Task 70: Portfolio metrics --------------------------------------------------
 
 export type PortfolioMetrics = {
-  avgCibilScore: number;
-  avgFoir: number;
-  avgLtv: number;
-  npaPredictionRate: number;
-  riskDistribution: { name: string; value: number; color: string }[];
+  /** false when this login may not see the book (officers see only their own cases) */
+  available: boolean;
+  message?: string;
+  loans: number;
+  principalLeft: number;
+  loansOverdue: number;
+  par30Pct: number | null;
+  /** loans by days overdue today */
+  buckets: { name: string; value: number; color: string }[];
 };
 
+const BUCKET_COLORS: Record<string, string> = {
+  Current: "#22c55e",
+  "1-30": "#eab308",
+  "31-60": "#f97316",
+  "61-90": "#ef4444",
+  "90+": "#b91c1c",
+};
+
+const bucketColor = (name: string): string => BUCKET_COLORS[name] ?? "#94a3b8";
+
+// The dashboard's "Portfolio quality" box: a summary of fn_staff_loan_portfolio (058).
+// It used to average columns the applications table does not have, so it showed zeros live.
 export async function getPortfolioMetrics(): Promise<PortfolioMetrics> {
   if (!isSupabaseConfigured || isDemoMode()) {
     return {
-      avgCibilScore: 712,
-      avgFoir: 42.3,
-      avgLtv: 78.5,
-      npaPredictionRate: 3.2,
-      riskDistribution: [
-        { name: "Low Risk", value: 62, color: "#22c55e" },
-        { name: "Medium Risk", value: 25, color: "#eab308" },
-        { name: "High Risk", value: 13, color: "#ef4444" },
+      available: true,
+      loans: 628,
+      principalLeft: 482_000_000,
+      loansOverdue: 9,
+      par30Pct: 0.6,
+      buckets: [
+        { name: "Current", value: 619, color: bucketColor("Current") },
+        { name: "1-30", value: 5, color: bucketColor("1-30") },
+        { name: "31-60", value: 2, color: bucketColor("31-60") },
+        { name: "61-90", value: 1, color: bucketColor("61-90") },
+        { name: "90+", value: 1, color: bucketColor("90+") },
       ],
     };
   }
-  const { data, error } = await supabase
-    .from("applications")
-    .select("cibil_score, foir, ltv_ex_showroom")
-    .in("status", ["APPROVED", "DISBURSED"]);
-  if (error || !data || data.length === 0) {
+  const { data, error } = await supabase.rpc("fn_staff_loan_portfolio");
+  if (error || !data) {
     return {
-      avgCibilScore: 0,
-      avgFoir: 0,
-      avgLtv: 0,
-      npaPredictionRate: 0,
-      riskDistribution: [],
+      available: false,
+      message: /permission/i.test(error?.message ?? "")
+        ? "The loan book is open to credit managers, credit heads, compliance and admins."
+        : "The loan book could not be loaded.",
+      loans: 0,
+      principalLeft: 0,
+      loansOverdue: 0,
+      par30Pct: null,
+      buckets: [],
     };
   }
-  const rows = data as any[];
-  const avg = (arr: number[]) =>
-    arr.reduce((s, v) => s + v, 0) / arr.length;
-  const scores = rows
-    .map((r) => r.cibil_score ?? 0)
-    .filter((v: number) => v > 0);
-  const foirs = rows.map((r) => r.foir ?? 0).filter((v: number) => v > 0);
-  const ltvs = rows
-    .map((r) => r.ltv_ex_showroom ?? 0)
-    .filter((v: number) => v > 0);
-  const low = rows.filter((r) => (r.cibil_score ?? 0) >= 750).length;
-  const high = rows.filter((r) => (r.cibil_score ?? 0) < 650).length;
-  const med = rows.length - low - high;
+  const book = data as {
+    totals: { loans: number; principal_left: number; loans_overdue: number; par_30_pct: number | null };
+    buckets: { bucket: string; loans: number }[];
+  };
   return {
-    avgCibilScore: Math.round(avg(scores)),
-    avgFoir: Math.round(avg(foirs) * 10) / 10,
-    avgLtv: Math.round(avg(ltvs) * 10) / 10,
-    npaPredictionRate:
-      Math.round((high / rows.length) * 100 * 10) / 10,
-    riskDistribution: [
-      { name: "Low Risk", value: low, color: "#22c55e" },
-      { name: "Medium Risk", value: med, color: "#eab308" },
-      { name: "High Risk", value: high, color: "#ef4444" },
-    ],
+    available: true,
+    loans: book.totals.loans,
+    principalLeft: Number(book.totals.principal_left),
+    loansOverdue: book.totals.loans_overdue,
+    par30Pct: book.totals.par_30_pct,
+    buckets: book.buckets.map((b) => ({ name: b.bucket, value: b.loans, color: bucketColor(b.bucket) })),
   };
 }
 
