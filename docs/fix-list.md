@@ -52,6 +52,12 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 | E1 | **The live risk score still reads the older application fields.** Feed it the new bureau and bank detail (053, 054) the model was trained on | `src/lib/ml-features.ts`, a feature RPC | M | maybe SQL |
 | E2 | The local export of synthetic customers slows down as it grows (34 s for the first batch, about 11 min by batch 36). Find the slow query in the generator before the next big run | `sql/055`, PGlite | S | — |
 
+## G. New features
+
+| # | Feature | Where | Size | Needs |
+|---|---|---|---|---|
+| G1 | **Save today's settings as the defaults, and reset all settings in one click** (asked by Sameer 2 Oct). It covers settings only, never applications, customers, documents, loans or their statuses.<br>**Saved:** the switches, Document checks (automation, which documents are accepted on their own, every check's on/must-pass/limit/if-it-fails), organisation and security settings, rate grid and employer-category pricing, bureau switches (5% card rule and the rest), roles and their rights, and the active risk model.<br>**How:** a `settings_baselines` table holds a named snapshot; the first is "Defaults 2 Oct 2026". "Reset to defaults" is admin only, needs a typed confirmation, shows what will change before it changes anything, and writes one audit entry.<br>**Credit policy versions** are approved history and can't be overwritten; a reset puts the baseline back through the approval flow as a new version, or through the emergency route, per Sameer's call. | new migration, Organisation page (button), audit | L | SQL + 1 decision |
+
 ## F. Not bugs: production notes only (no work now)
 
 - **R16:** the continue link while the SMS code is simulated.
@@ -68,5 +74,6 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 4. **B2, B5 and C3:** one SQL step.
 5. **D1–D3:** practice logins, after the "go".
 6. **E1 and E2.**
+7. **G1:** settings defaults and reset. Best done after D, so the practice roles are in the saved defaults.
 
 The detail behind A–C is in `rights-and-visibility-audit-2026-10-02.md`.
