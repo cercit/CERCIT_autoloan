@@ -1,1 +1,4 @@
 pymupdf==1.24.10
+# QR finding for Aadhaar masking (R18). 2.2.0 is the newest with a manylinux2014 build;
+# OpenCV was tried and pushed the function past the 250 MB Lambda limit.
+zxing-cpp==2.2.0

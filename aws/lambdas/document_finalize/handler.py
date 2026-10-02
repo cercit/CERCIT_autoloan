@@ -9,7 +9,8 @@ POST /finalize. This function:
      an unlocked copy. The password is used once, in memory; it is never
      logged, stored or returned.
   3. masks an Aadhaar number (first 8 digits blacked out, last 4 left) before
-     the file is kept, as the RBI KYC Master Direction asks (amended 29 May 2019)
+     the file is kept, as the RBI KYC Master Direction asks (amended 29 May 2019).
+     The QR code is blacked out too: on older cards it carries the full number (R18)
   4. moves the file into its document folder (which starts the document
      readers), deletes every version of the incoming copy, and registers it with
      the customer's own sign-in, so the database's ownership checks still apply.
@@ -26,6 +27,7 @@ import pymupdf as fitz
 from botocore.config import Config
 
 import face_match
+import qr_mask
 
 from shared.supabase_client import can_see_customer_data, customer_can_upload, customer_register_document, valid_application_id
 
@@ -207,11 +209,24 @@ def _ocr_words(image: bytes) -> list[tuple[str, tuple[float, float, float, float
     return out
 
 
+def _qr_rects_pdf(page) -> list:
+    """QR codes on a PDF page, in page coordinates."""
+    pix = page.get_pixmap(dpi=150)
+    W, H = page.rect.width, page.rect.height
+    return [fitz.Rect(x0 * W, y0 * H, x1 * W, y1 * H) * page.derotation_matrix
+            for x0, y0, x1, y1 in qr_mask.find_qr_boxes(pix)]
+
+
 def mask_aadhaar_pdf(doc) -> int:
     count = 0
     for page in list(doc)[:OCR_PAGES]:
         words = [(w[4], (w[0], w[1], w[2], w[3])) for w in page.get_text("words")]
         rects = [fitz.Rect(r) for r in _mask_rects(words)]
+        try:
+            qr_rects = _qr_rects_pdf(page)
+        except Exception as e:  # noqa: BLE001 — a QR we cannot look for must not stop the upload
+            print(f"qr check skipped: {type(e).__name__}")
+            qr_rects = []
         if not rects:  # scanned page, or the number is inside an image
             pix = page.get_pixmap(dpi=200)
             png = pix.tobytes("png")
@@ -221,6 +236,7 @@ def mask_aadhaar_pdf(doc) -> int:
             W, H = page.rect.width, page.rect.height
             for x0, y0, x1, y1 in _mask_rects(_ocr_words(png)):
                 rects.append(fitz.Rect(x0 * W, y0 * H, x1 * W, y1 * H) * page.derotation_matrix)
+        rects += qr_rects
         for r in rects:
             page.add_redact_annot(r + (-2, -2, 2, 2), fill=(0, 0, 0))
         if rects:
@@ -240,6 +256,10 @@ def mask_aadhaar_image(data: bytes, ctype: str) -> tuple[bytes, int]:
         small.shrink(1)
         ocr = small.tobytes("jpg", jpg_quality=85)
     rects = _mask_rects(_ocr_words(ocr))
+    try:
+        rects += qr_mask.find_qr_boxes(pix)
+    except Exception as e:  # noqa: BLE001 — a QR we cannot look for must not stop the upload
+        print(f"qr check skipped: {type(e).__name__}")
     if not rects:
         return data, 0
     pad = max(2, pix.width // 200)
