@@ -21,7 +21,7 @@ Order matters: each file assumes the ones above it are already in.
 | 022 | `022_service_role_policy_read.sql` | ✅ 17 Sep 2026 | Lets the AWS rules engine read the policy in force; no write rights |
 | 021 | `021_draft_policy_2026_09.sql` | ✅ 17 Sep 2026 | The unified rules stored as draft 2026.09 (not live until approved) |
 | 023 | `023_policy_change_workflow.sql` | ✅ 18 Sep 2026 | Propose, withdraw, approve, reject a policy change, and the job that makes an approved version live on its date |
-| 024 | `024_policy_draft_editing.sql` | ☐ | Start a draft from the version in force, change its settings, discard it; read a version's settings with their limits |
+| 024 | `024_policy_draft_editing.sql` | ☐ checked 2 Oct: not live (PGRST202); handed over to run | Start a draft from the version in force, change its settings, discard it; read a version's settings with their limits |
 | 025 | `025_policy_impact_check.sql` | ✅ 18 Sep 2026 | Hands recent applications to the rules engine so a proposed change can be run beside the live one, and keeps the result |
 | 026 | `026_policy_facts_keep_nulls.sql` | ✅ 18 Sep 2026 | Keeps unknown facts present as null, so an application with a missing figure is still checked |
 | 027 | `027_impact_and_activation_fixes.sql` | ✅ 18 Sep 2026 | Review fixes: two changes due at once no longer jam activation; facts say "not known" instead of guessing; impact figures can only be written by the rules engine |
