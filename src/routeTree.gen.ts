@@ -23,6 +23,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyLoanRouteImport } from './routes/my-loan'
 import { Route as OrganisationRouteImport } from './routes/organisation'
 import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as RateGridRouteImport } from './routes/rate-grid'
 import { Route as RolesRouteImport } from './routes/roles'
 import { Route as UsersRouteImport } from './routes/users'
@@ -106,6 +107,11 @@ const OrganisationRoute = OrganisationRouteImport.update({
 const PolicyRulesRoute = PolicyRulesRouteImport.update({
   id: '/policy-rules',
   path: '/policy-rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RateGridRoute = RateGridRouteImport.update({
@@ -196,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
+  '/portfolio': typeof PortfolioRoute
   '/rate-grid': typeof RateGridRoute
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
@@ -226,6 +233,7 @@ export interface FileRoutesByTo {
   '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
+  '/portfolio': typeof PortfolioRoute
   '/rate-grid': typeof RateGridRoute
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
@@ -257,6 +265,7 @@ export interface FileRoutesById {
   '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
+  '/portfolio': typeof PortfolioRoute
   '/rate-grid': typeof RateGridRoute
   '/roles': typeof RolesRoute
   '/users': typeof UsersRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/my-loan'
     | '/organisation'
     | '/policy-rules'
+    | '/portfolio'
     | '/rate-grid'
     | '/roles'
     | '/users'
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/my-loan'
     | '/organisation'
     | '/policy-rules'
+    | '/portfolio'
     | '/rate-grid'
     | '/roles'
     | '/users'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/my-loan'
     | '/organisation'
     | '/policy-rules'
+    | '/portfolio'
     | '/rate-grid'
     | '/roles'
     | '/users'
@@ -380,6 +392,7 @@ export interface RootRouteChildren {
   MyLoanRoute: typeof MyLoanRoute
   OrganisationRoute: typeof OrganisationRoute
   PolicyRulesRoute: typeof PolicyRulesRoute
+  PortfolioRoute: typeof PortfolioRoute
   RateGridRoute: typeof RateGridRoute
   RolesRoute: typeof RolesRoute
   UsersRoute: typeof UsersRoute
@@ -494,6 +507,13 @@ declare module '@tanstack/react-router' {
       path: '/policy-rules'
       fullPath: '/policy-rules'
       preLoaderRoute: typeof PolicyRulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rate-grid': {
@@ -612,6 +632,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyLoanRoute: MyLoanRoute,
   OrganisationRoute: OrganisationRoute,
   PolicyRulesRoute: PolicyRulesRoute,
+  PortfolioRoute: PortfolioRoute,
   RateGridRoute: RateGridRoute,
   RolesRoute: RolesRoute,
   UsersRoute: UsersRoute,

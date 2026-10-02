@@ -765,3 +765,57 @@ export async function setAutoRule(change: AutoRuleChange): Promise<AutoRules> {
   if (error) throw new Error(message(error));
   return data as AutoRules;
 }
+
+// ---------------------------------------------------------------------------
+// Loan portfolio (058): how the disbursed book is paying today
+// ---------------------------------------------------------------------------
+
+export type PortfolioBucket = { bucket: string; loans: number; principal_left: number };
+export type PortfolioMonth = { month: string; due: number; bounced: number; bounce_pct: number };
+export type PortfolioVintage = {
+  quarter: string;
+  loans: number;
+  disbursed: number;
+  avg_months_on_book: number;
+  ever_30_plus: number;
+  ever_30_plus_pct: number;
+};
+export type PortfolioBand = { band: string; loans: number; ever_30_plus: number; ever_30_plus_pct: number | null };
+export type PortfolioRecommendation = { recommendation: string; loans: number; ever_30_plus: number; ever_30_plus_pct: number };
+export type PortfolioLoan = {
+  loan_account_no: string;
+  application_id: string | null;
+  synthetic: boolean;
+  disbursed_on: string;
+  dpd_now: number;
+  overdue_amount: number;
+  principal_left: number;
+  emi: number;
+  bureau_score: number | null;
+};
+export type LoanPortfolio = {
+  as_of: string;
+  includes_real: boolean;
+  totals: {
+    loans: number;
+    synthetic: number;
+    disbursed: number;
+    principal_left: number;
+    overdue_amount: number;
+    loans_overdue: number;
+    ever_30_plus: number;
+    par_30_pct: number | null;
+  };
+  buckets: PortfolioBucket[];
+  bounces_by_month: PortfolioMonth[];
+  vintages: PortfolioVintage[];
+  by_score_band: PortfolioBand[];
+  by_recommendation: PortfolioRecommendation[];
+  attention: PortfolioLoan[];
+};
+
+export async function getLoanPortfolio(): Promise<LoanPortfolio> {
+  const { data, error } = await supabase.rpc("fn_staff_loan_portfolio");
+  if (error) throw new Error(message(error));
+  return data as LoanPortfolio;
+}

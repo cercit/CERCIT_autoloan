@@ -2636,6 +2636,63 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 36. Loan portfolio view (058)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("loan portfolio");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 120) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  const synthLoans = (await one("select count(*)::int as n from loan_accounts l join applications a on a.id = l.application_id where a.origin = 'SYNTHETIC'")).n;
+  const allLoans = (await one("select count(*)::int as n from loan_accounts where disbursed_on <= current_date")).n;
+
+  await as(ADMIN);
+  const p = (await one("select fn_staff_loan_portfolio() as v")).v;
+  const bucketSum = p.buckets.reduce((s, b) => s + b.loans, 0);
+  t.equal("every loan lands in exactly one overdue bucket", [bucketSum, p.totals.loans, p.buckets.map((b) => b.bucket)],
+    [p.totals.loans, p.includes_real ? allLoans : synthLoans, ["Current", "1-30", "31-60", "61-90", "90+"]]);
+  t.equal("vintages and score bands add up to the same book",
+    [p.vintages.reduce((s, v) => s + v.loans, 0), p.by_score_band.reduce((s, b) => s + b.loans, 0)], [p.totals.loans, p.totals.loans]);
+
+  // one loan checked by hand against the installment status the credit rules use
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  const late = await one(`select l.id, l.loan_account_no, max(current_date - s.due_date) as dpd
+    from loan_accounts l cross join lateral fn_loan_installment_status(l.id) s
+    where s.due_date < current_date and s.cleared_on is null group by l.id, l.loan_account_no order by 3 desc limit 1`);
+  await as(ADMIN);
+  const row = p.attention.find((a) => a.loan_account_no === late?.loan_account_no);
+  t.equal("the most overdue loan shows its days overdue as the repayment history says",
+    late ? [row?.dpd_now, p.attention[0].dpd_now >= row?.dpd_now] : [undefined, true], late ? [Number(late.dpd), true] : [undefined, true]);
+  t.equal("bounce rates are percentages of instalments due", p.bounces_by_month.every((m) => m.bounced <= m.due && m.bounce_pct >= 0 && m.bounce_pct <= 100), true);
+
+  await as(DEMO);
+  const d = (await one("select fn_staff_loan_portfolio() as v")).v;
+  t.equal("the public demo login sees the synthetic book only", [d.includes_real, d.totals.loans, d.totals.synthetic], [false, synthLoans, synthLoans]);
+  await as(OFFICER);
+  await t.rejects("an officer, who sees only their own cases, cannot read the whole book", () => db.query("select fn_staff_loan_portfolio()"), /permission|denied|not allowed|42501/i);
+  await db.query("set role anon");
+  await t.rejects("nor can the public", () => db.query("select fn_staff_loan_portfolio()"), /permission denied/);
+
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

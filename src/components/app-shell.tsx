@@ -16,6 +16,7 @@ import {
   Users2,
   X,
   Inbox,
+  Wallet,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -53,6 +54,7 @@ const nav: {
   { to: "/applications", label: "Applications", icon: ClipboardList, badge: 12 },
   { to: "/customer-applications", label: "Customer applications", icon: Inbox },
   { to: "/approvals", label: "Approvals", icon: ClipboardCheck, creditControl: true },
+  { to: "/portfolio", label: "Loan portfolio", icon: Wallet },
   { to: "/policy-rules", label: "Policy Rules", icon: Settings2 },
   { to: "/document-checks", label: "Document checks", icon: FileCheck2 },
   { to: "/employers", label: "Employer Master", icon: Building2 },
