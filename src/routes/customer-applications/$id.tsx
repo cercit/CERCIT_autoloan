@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { AppShell, LabelValue, SectionCard } from "@/components/app-shell";
 import { BureauDetailCard } from "@/components/bureau-detail";
+import { EngineReasons } from "@/components/engine-reasons";
 import { IncomeDetailCard } from "@/components/income-detail";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -900,9 +901,13 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
   const r = checks.recommendation!;
   const money = (v: number | null | undefined) =>
     v === null || v === undefined ? "not read" : inr(Number(v));
-  const factors = Array.isArray(r.risk_factors)
-    ? (r.risk_factors as unknown[]).map((f) => (typeof f === "string" ? f : JSON.stringify(f)))
-    : [];
+  const declared = checks.declared_existing_emis;
+  const obligation = b?.total_monthly_emi ?? null;
+  // more than 10% (and ₹1,000) above what the customer declared: worth a word with them
+  const hidden =
+    obligation !== null && declared !== null && declared !== undefined
+      ? Number(obligation) - Number(declared)
+      : 0;
   return (
     <SectionCard
       title="Credit checks"
@@ -925,13 +930,18 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
                 <LabelValue label="Score" value={<span className="tabular-nums">{b.score}</span>} />
                 <LabelValue label="Active accounts" value={b.active_accounts ?? 0} />
                 <LabelValue
-                  label="Monthly obligation"
+                  label="Monthly payments on bureau"
                   value={
                     <>
                       {money(b.total_monthly_emi)}
                       {b.bureau_count != null && (
                         <span className="block text-xs font-normal text-muted-foreground">
-                          EMIs plus 5% of card and overdraft balances
+                          Loan EMIs, plus 5% of card and overdraft balances. This is what FOIR counts.
+                        </span>
+                      )}
+                      {hidden > 1000 && hidden > Number(declared) * 0.1 && (
+                        <span className="block text-xs font-medium text-warning-foreground dark:text-warning">
+                          {inr(hidden)} more than the customer declared
                         </span>
                       )}
                     </>
@@ -975,7 +985,17 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
               <LabelValue label="Declared" value={money(i.declared_net_salary)} />
               <LabelValue label="Salary slip" value={money(i.salary_slip_salary)} />
               <LabelValue label="Bank salary credits" value={money(i.bank_credit_salary)} />
-              <LabelValue label="Form 16 (÷12)" value={money(i.form16_monthly_equiv)} />
+              <LabelValue
+                label="Form 16 (÷12)"
+                value={
+                  <>
+                    {money(i.form16_monthly_equiv)}
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      Gross pay, before PF and tax. Shown, not compared.
+                    </span>
+                  </>
+                }
+              />
             </div>
             <p
               className={cn(
@@ -983,7 +1003,7 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
                 i.income_variance_flag && "font-medium text-warning-foreground dark:text-warning",
               )}
             >
-              Counted: {money(i.eligible_net_salary)} (the lowest of these)
+              Counted: {money(i.eligible_net_salary)} (the lowest of declared, slip and bank)
               {i.income_variance_pct !== null
                 ? ` · sources differ by up to ${i.income_variance_pct}%`
                 : ""}
@@ -1019,18 +1039,10 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
             value={r.ltv_calculated !== null ? `${r.ltv_calculated}%` : "—"}
           />
         </div>
-        {(r.summary_text || factors.length > 0) && (
-          <div className="text-sm">
-            {r.summary_text && <p>{r.summary_text}</p>}
-            {factors.length > 0 && (
-              <ul className="mt-1 list-inside list-disc text-muted-foreground">
-                {factors.slice(0, 8).map((f, n) => (
-                  <li key={n}>{f}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+        <div className="space-y-2 border-t border-border pt-3">
+          <EngineReasons factors={r.risk_factors} recommendation={r.recommendation} score={b?.score ?? null} />
+          {r.summary_text && <p className="text-xs text-muted-foreground">{r.summary_text}</p>}
+        </div>
       </div>
     </SectionCard>
   );
