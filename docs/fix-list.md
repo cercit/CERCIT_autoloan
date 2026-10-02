@@ -36,6 +36,8 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 (4) opening one case makes about 6 separate calls (case, bureau, bank, timeline, extractions, transitions).
 Fix: page the list (e.g. 50 at a time, with search done in the database), fold the engine decision into `fn_list_applications`, and load the case's tabs only when opened. Measure before and after | `src/lib/api.ts` `getApplications`, `fn_list_applications`, `src/routes/applications/` | M | SQL |
 | C5 | **Application Review never loads on the live site** (reported by Sameer 2 Oct). Cause (checked read-only against the live database): the page reads the `customers` and `obligation_details` tables directly, but signed-in staff have no read right on either; both were locked down for privacy (PII encryption and the customer privacy rules). The request fails; the code then looks for the case in the sample data, finds nothing, and the page stays on "Loading application…" with no error. Fix: one staff function (like `fn_list_applications`) that returns the case with masked PAN and mobile and keeps the real-customer rule, and a clear error message instead of endless loading. Check the bureau, bank and timeline tabs for the same problem | `src/lib/api.ts` `getApplication`, `src/routes/applications/$id/index.tsx`, new SQL function | M | SQL |
+| C6 | **Loan portfolio doesn't load on the live site** (reported by Sameer 2 Oct). Likely cause: it's too slow. The database stops a signed-in user's request after 8 seconds, and the page replays the repayment history of all 628 loans, one loan at a time, on every visit. A read-only timing check from here also didn't finish. Fix: work out each loan's overdue status once a day (or when a payment is recorded) into a small summary table, and have the page read that. Show a clear error if it still fails. The dashboard's Portfolio quality box uses the same function, so it's fixed with it | `sql/058` `fn_staff_loan_portfolio`, new summary table | M | SQL |
+| C7 | **Policy Rules shows made-up rules on the live site.** "Minimum CIBIL for auto approval 750", "New to credit (-1)" and "Last updated 28 Aug 2026 by Anand Gopal" are sample data. The real rules (e.g. BUR-SCORE-MIN 650) weren't loaded: the read failed or came back empty, and the page fell back to samples without saying so. Edit and Deactivate act on those samples. Fix: load the real rules (and the version in force), remove the fixed "Last updated" line, and show an error instead of samples. Part of C2, listed alone because it's misleading | `src/lib/api.ts` `getMappedPolicyRules`, `src/routes/policy-rules.tsx` | M | maybe SQL |
 | C3 | Three old capitalised roles (ADMIN, CREDIT_OFFICER, STATE_HEAD) are still in the roles table: switched off, no rights, no users. Remove them or mark them retired | `roles` table | S | SQL |
 
 ## D. Practice logins for visitors (needs Sameer's go on the design)
@@ -58,6 +60,7 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 | # | Feature | Where | Size | Needs |
 |---|---|---|---|---|
 | G1 | **Save today's settings as the defaults, and reset all settings in one click** (asked by Sameer 2 Oct). It covers settings only, never applications, customers, documents, loans or their statuses.<br>**Saved:** the switches, Document checks (automation, which documents are accepted on their own, every check's on/must-pass/limit/if-it-fails), organisation and security settings, rate grid and employer-category pricing, bureau switches (5% card rule and the rest), roles and their rights, and the active risk model.<br>**How:** a `settings_baselines` table holds a named snapshot; the first is "Defaults 2 Oct 2026". "Reset to defaults" is admin only, needs a typed confirmation, shows what will change before it changes anything, and writes one audit entry.<br>**Credit policy versions** are approved history and can't be overwritten; a reset puts the baseline back through the approval flow as a new version, or through the emergency route, per Sameer's call. | new migration, Organisation page (button), audit | L | SQL + 1 decision |
+| G2 | **Policy Rules: an on/off switch for each rule, plus a Modify button** (asked by Sameer 2 Oct, with a screenshot). Replace the "Edit / Deactivate" text links with a switch (on = active) and a "Modify" button that opens the rule's limit and action. Changes must go through the policy versioning and approval already built (draft → approve → live on a date), not change the live rule straight away. Only roles with policy.author see the controls; others see the switch read-only. Do after C7, so the page shows real rules | `src/routes/policy-rules.tsx`, the policy draft functions (024) | M | — |
 
 ## F. Not bugs: production notes only (no work now)
 
@@ -70,11 +73,12 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 ## Suggested order
 
 1. **A1–A4 and B4:** quick, visible, no SQL.
-2. **C5, C1, C2 and C4:** make Application Review open, stop showing empty or fake data, and make Applications fast. C5 first: the page is unusable today.
+2. **C5, C6, C7, C1, C2 and C4:** make Application Review open, stop showing empty or fake data, and make Applications fast. C5 first: the page is unusable today.
 3. **B1 and B3:** the menu and buttons follow rights.
 4. **B2, B5 and C3:** one SQL step.
 5. **D1–D3:** practice logins, after the "go".
 6. **E1 and E2.**
-7. **G1:** settings defaults and reset. Best done after D, so the practice roles are in the saved defaults.
+7. **G2:** switches and Modify on Policy Rules (after C7).
+8. **G1:** settings defaults and reset. Best done after D, so the practice roles are in the saved defaults.
 
 The detail behind A–C is in `rights-and-visibility-audit-2026-10-02.md`.
