@@ -183,13 +183,26 @@ function Applications() {
                   className={cn("border-t border-border", i % 2 === 1 && "bg-surface-subtle/60")}
                 >
                   <td className="px-4 py-2.5">
-                    <Link
-                      to="/applications/$id"
-                      params={{ id: app.id }}
-                      className="font-medium whitespace-nowrap text-primary hover:underline"
-                    >
-                      {app.id}
-                    </Link>
+                    {app.origin === "CUSTOMER" ? (
+                      <Link
+                        to="/customer-applications/$id"
+                        params={{ id: app.id }}
+                        className="font-medium whitespace-nowrap text-primary hover:underline"
+                      >
+                        {app.id}
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/applications/$id"
+                        params={{ id: app.id }}
+                        className="font-medium whitespace-nowrap text-primary hover:underline"
+                      >
+                        {app.id}
+                      </Link>
+                    )}
+                    {app.origin === "CUSTOMER" && (
+                      <Pill tone="info" className="ml-1.5 align-middle">Customer</Pill>
+                    )}
                     <p className="text-[11px] text-muted-foreground">{app.submitted}</p>
                   </td>
                   <td className="px-4 py-2.5 whitespace-nowrap">{app.name}</td>
@@ -239,9 +252,15 @@ function Applications() {
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <Button variant="outline" size="sm" asChild>
-                      <Link to="/applications/$id" params={{ id: app.id }}>
-                        View
-                      </Link>
+                      {app.origin === "CUSTOMER" ? (
+                        <Link to="/customer-applications/$id" params={{ id: app.id }}>
+                          View
+                        </Link>
+                      ) : (
+                        <Link to="/applications/$id" params={{ id: app.id }}>
+                          View
+                        </Link>
+                      )}
                     </Button>
                   </td>
                 </tr>

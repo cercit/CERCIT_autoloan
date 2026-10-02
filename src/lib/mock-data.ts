@@ -56,6 +56,8 @@ export type Application = {
   referredBy?: string;
   referralNote?: string;
   engineOutcome?: string;
+  /** CUSTOMER for the customer journey (opens on its own screen); STAFF, SYNTHETIC otherwise */
+  origin?: string;
   policyVersionId?: string;
   rulesSnapshot?: string;
   modelVersion?: string;

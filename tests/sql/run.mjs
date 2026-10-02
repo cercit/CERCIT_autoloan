@@ -2693,6 +2693,44 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 37. Customer applications in the Applications list, filled in (059, R22)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("customer apps in the old list");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  const expect = await one(`select count(*) filter (where status <> 'DRAFT')::int as sent, count(*) filter (where status = 'DRAFT')::int as drafts,
+      count(*) filter (where status <> 'DRAFT' and exists (select 1 from vehicle_quotations q where q.application_id = a.id))::int as with_quote
+    from applications a where origin = 'CUSTOMER'`);
+
+  await as(OFFICER);
+  const seen = await one(`select count(*)::int as n,
+      count(*) filter (where status = 'DRAFT')::int as drafts,
+      count(*) filter (where vehicle_make is not null and ex_showroom_price > 0 and loan_amount_requested > 0)::int as filled
+    from fn_list_applications() where origin = 'CUSTOMER'`);
+  t.equal("staff who may see customers get every sent customer application, and no drafts",
+    [expect.sent > 0, seen.n, seen.drafts], [true, expect.sent, 0]);
+  t.equal("each one with a quotation shows its car, price and loan amount", seen.filled >= expect.with_quote && expect.with_quote > 0, true);
+  t.equal("staff applications are still listed", (await one("select count(*)::int as n from fn_list_applications() where origin is distinct from 'CUSTOMER'")).n > 0, true);
+
+  await as(DEMO);
+  t.equal("the public demo login still sees none of them",
+    (await one("select count(*)::int as n from fn_list_applications() where origin = 'CUSTOMER'")).n, 0);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

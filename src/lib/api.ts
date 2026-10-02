@@ -65,8 +65,10 @@ const applicationRowSchema = z.object({
   ex_showroom_price: z.coerce.number().optional().default(0),
   on_road_price: z.coerce.number().optional().default(0),
   risk_factors: z.array(z.any()).optional().default([]),
+  origin: z.string().nullish(),
 }).transform((row) => ({
   id: row.application_id,
+  origin: row.origin ?? undefined,
   name: row.full_name,
   employer: row.employer_name,
   category: mapCategory(row.cibil_score),
@@ -106,7 +108,10 @@ const applicationRowSchema = z.object({
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapToApplication(row: Record<string, unknown>): Application {
-  return applicationRowSchema.parse(row);
+  // The database sends null for empty fields (a customer case approved in principle has no
+  // car yet); the schema's defaults expect them absent, so a null would fail the whole list.
+  const clean = Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null));
+  return applicationRowSchema.parse(clean);
 }
 
 function mapCategory(cibil: number): "A" | "B" | "C" {
