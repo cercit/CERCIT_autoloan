@@ -12,6 +12,8 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 | A2 | **Bell "4"** comes from sample notifications in the code. Drive it from real events (new customer submissions, referrals waiting, offers accepted), or hide the bell until that exists | `app-shell.tsx` `SAMPLE_NOTIFICATIONS` | M | maybe SQL |
 | A3 | "Prototype data: all figures are illustrative sample records" shows on the live site. Show it only in sample mode | `app-shell.tsx` | S | — |
 | A4 | Dashboard subtitle "Wednesday workload — Chennai Region" is fixed. Use today's day and the user's region, or drop the region | `src/routes/dashboard.tsx` | S | — |
+| A5 | **The search box at the top does nothing.** "Search by name, PAN, application ID…" is an empty box with no search behind it. Make it search cases (ID, name, last 4 of PAN) across both queues, respecting the role's rights | `app-shell.tsx`, a search function | M | SQL |
+| A6 | **"Automated Underwriting: Active" is fixed text** with a pulsing green dot. Tie it to the real switch (document_auto_settings / auto credit checks) so it says Off when automation is off | `app-shell.tsx` | S | — |
 
 ## B. What each role can see and do on the site
 
@@ -69,6 +71,41 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 | G6 | **Audit Log rebuilt: date, time, user and activity, with date filters** (asked by Sameer 2 Oct). The live database already holds 4,103 audit events of 18 types (`audit_events`: when, who, what, which case, details). The page just reads the wrong table (C1).<br>**Columns:** date, time (IST), user (name and role, or "System" / "Customer"), activity in plain words (e.g. "Approved application", "Changed a document rule", "Signed in"), the case it relates to (with a link), and details.<br>**Filters:**<br>- date: today, last 7 days, this month, or a from–to range;<br>- user;<br>- activity type;<br>- case number;<br>- free-text search.<br>**Also:** pages of 50 (the log will grow), newest first, Export CSV of the filtered list, and one combined log that also brings in policy and rate changes, role and user changes, switch changes and case stage changes (they sit in their own history tables today).<br>**Who sees it:** people with audit.view (Admin, Credit Manager, Credit Head, Compliance, Policy Manager). Real-customer rows only for those who may see real customers. Read only: no one can edit or delete an entry | `src/routes/audit-log.tsx`, `src/lib/api.ts` `getAuditLog`, a new `fn_audit_log(filters)` | M | SQL |
 | G7 | **Daily simulation: the book keeps moving by itself** (asked by Sameer 2 Oct). It runs inside Supabase every day with its scheduler (`pg_cron`, available on the project but not yet switched on). Each day:<br>(1) **10 new synthetic leads** come in through the same generator (055) and go through the real journey: some stay drafts, some are submitted, and the rest are assessed by the engine and approved, referred or declined;<br>(2) newly **approved final cases are disbursed** (056 logic), with today as the disbursal date;<br>(3) **every synthetic instalment due today gets a payment**: most are paid on the due date; a few bounce and are paid a few days later; a small share run 31–60 days late; and a few stop paying and become **NPA (90+ days)**, with weaker profiles more likely to slip, as in 056;<br>(4) loans that reach their last instalment close.<br>Fixed seeds per day, so a day can be replayed. It touches only SYNTHETIC records, never real customers. It writes a short daily summary (leads, decisions, disbursals, paid, bounced, late, NPA) and refreshes the portfolio summary (C6).<br>**Marked as simulation everywhere:**<br>- function names start `fn_sim_`, the job is named `cercit-simulation-daily`, and every row it makes has origin SYNTHETIC (SYN… IDs, `@synthetic.invalid` emails, 5550 mobiles);<br>- one switch, `simulation_enabled` (on for cercit), stops it;<br>- a **REMOVE BEFORE REAL USE** note goes in the migration header, the README and a production checklist, with the one-line command to unschedule it and `fn_synthetic_purge()` to remove all its data.<br>For us it stays on, so the live demo always has fresh cases and a moving loan book | new migration (`fn_sim_daily`), `pg_cron` schedule, docs | M | SQL (Sameer switches on pg_cron in Supabase: Database → Extensions) |
 | G8 | **"How cercit works" pack: flow charts, database schema, components** (asked by Sameer 2 Oct). Kept in `behind-the-scenes/how-it-works/`, written for a non-technical reader first, with technical detail underneath:<br>(1) **A flow chart for each stage:** customer onboarding (steps 1–4) → documents and automatic checks → bureau and income checks → policy engine and risk model → officer decision (in principle / final) → offer, agreement, mandate → disbursal → repayments, late and NPA → the daily simulation. Each shows who acts (customer, system, officer, manager), what is checked, the possible outcomes, and which screen and database function does it;<br>(2) **Database schema:** an entity diagram of the main tables grouped by area (customers and applications, documents, bureau, income and bank, decisions and policy, pricing, loans and repayments, users and roles, audit), with what each table holds and how they link, plus a list of every migration 001–059+ and what it added;<br>(3) **Components and platforms:** the website (React, GitHub Pages), the database (Supabase Postgres with its rules and privacy policies), the AWS document service (S3, Lambda, Textract, Rekognition), the risk model (XGBoost → ONNX running in the browser), the policy engine, the simulators (bureau, income, synthetic customers, daily run), and the tests (PGlite SQL tests, Lambda tests). For each: what it does, what it talks to, and where the code lives;<br>(4) **Behind-the-scenes functions:** a plain-English list of the key database functions by stage (what each does, who may call it);<br>(5) one **overview page** linking them all, and a short glossary (FOIR, LTV, DPD, NPA, PAR, no-hit).<br>The diagrams are drawn as Mermaid (renders on GitHub) and generated from the real schema where possible, so they don't drift from the code. Built last, so it includes everything on this list. Optionally also published as a shareable web page | `behind-the-scenes/how-it-works/`, existing `docs/application_flow.md`, `docs/current_state_workflow.md`, `docs/design/` | L | — |
+
+## H. Not checked yet, and suggestions (added 2 Oct)
+
+| # | Item | Why | Size | Needs |
+|---|---|---|---|---|
+| H1 | **Click-through check of every page with each role** (Officer, Manager, Head, Admin, Demo): an automated Playwright run that opens each page as each role and fails on "stuck loading", an error, or sample data on the live site | Would have caught C5, C6, C7 and C9 before Sameer did. Run it after every fix batch | M | test logins |
+| H2 | **Same audit on the customer side**: onboarding steps 1–4, documents, tracking page, My loan (offer, agreement, mandate) | Only the staff side was audited on 2 Oct | M | — |
+| H3 | **Run Supabase's security and performance advisors** (built-in checks for missing rules, open tables and slow queries) and fix what they flag | Free and quick; likely finds more like C5 and C6 | S | — |
+| H4 | **Phone layout check** of the main pages | Visitors will open the demo on phones | S | — |
+| H5 | **Error alerts**: an email when an AWS reader fails or the daily simulation (G7) doesn't run | Today failures are silent until someone notices | S | AWS deploy |
+| H6 | **Data protection basics (DPDP Act)**: delete a real customer's documents and data on request, and set how long documents are kept. Start by deleting Sameer's test documents (to-do item 7) | Real personal data is already in the system (4 customer-journey cases) | M | SQL + AWS |
+| H7 | **Backup**: a weekly export of the settings and policy tables (cheap insurance for G1) | Supabase's free plan keeps only a short backup window | S | — |
+| H8 | **Remove leftover test scripts and sample code** once C2 and C7 are done (mock data used only in sample mode) | Less risk of fake data showing again | S | — |
+
+## Time needed
+
+My working time, building and testing; it doesn't include Sameer running the SQL, giving decisions, or testing on the live site. Roughly:
+
+| Batch | Items | Time |
+|---|---|---|
+| 1. Quick visible fixes | A1–A6, B4 | 3 h |
+| 2. Pages that don't work | C5, C6, C7, C1/G6, C2, C4 | 12 h |
+| 3. Rights on the site | B1, B3, then B2, B5, C3 (one SQL step) | 7 h |
+| 4. Employers and pricing | G4, C9, C8, G3 | 18 h |
+| 5. Rules page controls | G2 | 3 h |
+| 6. Practice logins | D1–D3 | 5 h |
+| 7. Users with passwords and email | G5 | 5 h |
+| 8. Daily simulation | G7 | 4 h |
+| 9. Settings defaults and reset | G1 | 5 h |
+| 10. Model follow-ups | E1, E2 | 5 h |
+| 11. Checks and safety | H1–H8 | 12 h |
+| 12. How-it-works pack | G8 | 6 h |
+| **Total** | | **about 85 hours** |
+
+That's about **10–12 working days** at the usual pace (commit per step, usage limits), or **3 weeks of evenings**. Batches 1–3 (about 22 h, 3 days) make the live site honest and usable, and are worth doing first even if the rest waits.
 
 ## F. Not bugs: production notes only (no work now)
 
