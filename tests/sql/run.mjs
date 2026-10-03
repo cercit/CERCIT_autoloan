@@ -3498,6 +3498,74 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 52. Policy Rules: switch and modify through approval (074, G2)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("rule changes through approval");
+  const PM = "33333333-3333-3333-3333-333333333333";
+  const HEAD = "71717171-0000-0000-0000-000000000001";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  const rule = async (id) => one("select is_active, threshold_value, severity_on_fail from policy_rules where rule_id = $1", [id]);
+  await operator();
+  const before = { score: await rule("BUR-SCORE-MIN"), enq: await rule("BUR-ENQUIRY") };
+
+  await as(OFFICER);
+  await t.rejects("an officer can't change a rule", () => db.query("select fn_policy_rule_draft('BUR-SCORE-MIN', null, '700')"), /permission denied: policy.author/);
+  const ro = (await one("select fn_staff_policy_rules() as v")).v;
+  t.equal("and is told so (read-only switches)", [ro.can_author, ro.can_approve], [false, false]);
+
+  await as(PM);
+  await one("select fn_policy_rule_draft('BUR-SCORE-MIN', null, '700') as v");
+  const d = (await one("select fn_policy_rule_draft('BUR-ENQUIRY', false) as v")).v;
+  const mine = d.changes.filter((c) => c.mine && c.status === "DRAFT");
+  t.equal("both changes sit on the author's draft", mine.map((c) => [c.rule_id, c.threshold_value, c.is_active]).sort(),
+    [["BUR-ENQUIRY", null, false], ["BUR-SCORE-MIN", "700", null]]);
+  await t.rejects("a word where the limit is a number is refused", () => db.query("select fn_policy_rule_draft('BUR-SCORE-MIN', null, 'seven hundred')"), /is a number/);
+  t.equal("nothing changes in the live rules yet", [await rule("BUR-SCORE-MIN"), await rule("BUR-ENQUIRY")], [before.score, before.enq]);
+  const undo = (await one("select fn_policy_rule_draft('BUR-ENQUIRY', true) as v")).v;
+  t.equal("switching it back takes the change off the draft", undo.changes.filter((c) => c.mine && c.rule_id === "BUR-ENQUIRY").length, 0);
+  await one("select fn_policy_rule_draft('BUR-ENQUIRY', false) as v");
+  const versionId = mine[0].version_id;
+  await one("select fn_policy_submit($1, 'Tighter score, enquiry rule off') as v", [versionId]);
+
+  // Earlier sections leave a version live from 2099, so these start later; the date arriving is
+  // stood in for by switching the versions as fn_policy_activate_due does (the rules follow the switch).
+  const goLive = async (id) => {
+    await operator();
+    await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = (select effective_from from policy_versions where id = $1) where status = 'ACTIVE' and product = 'CAR_NEW'", [id]);
+    await db.query("update policy_versions set status = 'ACTIVE' where id = $1", [id]);
+  };
+  await as(HEAD);
+  await one("select fn_policy_approve($1, '2099-12-01T00:00:00+05:30', 'ok') as v", [versionId]);
+  t.equal("approved, it waits for its date", (await one("select status from policy_versions where id = $1", [versionId])).status, "APPROVED");
+  await goLive(versionId);
+  t.equal("live on its date: the engine's rules change", [(await rule("BUR-SCORE-MIN")).threshold_value, (await rule("BUR-ENQUIRY")).is_active], ["700", false]);
+  t.equal("and each change is in the rule history", (await one("select count(*)::int as n from policy_rule_history where policy_version_id = $1", [versionId])).n, 2);
+
+  // put them back the same way
+  await as(PM);
+  await one("select fn_policy_rule_draft('BUR-SCORE-MIN', null, $1) as v", [before.score.threshold_value]);
+  const back = (await one("select fn_policy_rule_draft('BUR-ENQUIRY', true) as v")).v;
+  const backId = back.changes.find((c) => c.mine && c.status === "DRAFT").version_id;
+  await one("select fn_policy_submit($1, 'Back as before') as v", [backId]);
+  await as(HEAD);
+  await one("select fn_policy_approve($1, '2099-12-02T00:00:00+05:30', 'ok') as v", [backId]);
+  await goLive(backId);
+  t.equal("a second approved version puts the rules back", [await rule("BUR-SCORE-MIN"), await rule("BUR-ENQUIRY")], [before.score, before.enq]);
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

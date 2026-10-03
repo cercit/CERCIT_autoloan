@@ -392,6 +392,23 @@ function mapSeverityToAction(
   return "Approve";
 }
 
+/** A rule change on a policy version that isn't live yet (sql/074, G2). */
+export type RuleChange = {
+  version_id: string;
+  version_code: string;
+  status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED";
+  mine: boolean;
+  author: string | null;
+  effective_from: string | null;
+  rule_id: string;
+  is_active: boolean | null;
+  threshold_value: string | null;
+  severity_on_fail: "REJECT" | "MAYBE" | null;
+  before: { is_active: boolean; threshold_value: string; severity_on_fail: string };
+};
+
+export type RuleRaw = { threshold_value: string; threshold_unit: string | null; severity_on_fail: string; name: string };
+
 export type PolicyInForce = {
   versionCode: string;
   effectiveFrom: string | null;
@@ -403,9 +420,13 @@ export async function getMappedPolicyRules(): Promise<{
   rules: Record<string, PolicyRule[]>;
   tabs: string[];
   inForce: PolicyInForce | null;
+  raw: Record<string, RuleRaw>;
+  changes: RuleChange[];
+  canAuthor: boolean;
+  canApprove: boolean;
 }> {
   if (!isSupabaseConfigured || isDemoMode()) {
-    return { rules: mockPolicyRules, tabs: mockPolicyTabs, inForce: null };
+    return { rules: mockPolicyRules, tabs: mockPolicyTabs, inForce: null, raw: {}, changes: [], canAuthor: false, canApprove: false };
   }
 
   // Signed-in staff read the rules through fn_staff_policy_rules (sql/063); an
@@ -413,7 +434,8 @@ export async function getMappedPolicyRules(): Promise<{
   const { data, error } = await supabase.rpc("fn_staff_policy_rules");
   if (error) throw new Error(error.message || "Could not load the credit rules");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const payload = (data ?? {}) as { rules?: any[]; version?: any; last_change?: any };
+  const payload = (data ?? {}) as { rules?: any[]; version?: any; last_change?: any; changes?: RuleChange[]; can_author?: boolean; can_approve?: boolean };
+  const raw: Record<string, RuleRaw> = {};
 
   const grouped: Record<string, PolicyRule[]> = {};
   for (const row of payload.rules ?? []) {
@@ -433,6 +455,7 @@ export async function getMappedPolicyRules(): Promise<{
     };
     if (!grouped[tab]) grouped[tab] = [];
     grouped[tab].push(rule);
+    raw[row.rule_id] = { threshold_value: row.threshold_value, threshold_unit: row.threshold_unit, severity_on_fail: row.severity_on_fail, name: row.rule_name };
   }
 
   const v = payload.version;
@@ -448,20 +471,37 @@ export async function getMappedPolicyRules(): Promise<{
           lastChange: c ? { versionCode: c.version_code, toStatus: c.to_status, at: c.at, by: c.by } : null,
         }
       : null,
+    raw,
+    changes: payload.changes ?? [],
+    canAuthor: Boolean(payload.can_author),
+    canApprove: Boolean(payload.can_approve),
   };
 }
 
-export async function togglePolicyRule(ruleId: string, isActive: boolean): Promise<boolean> {
-  if (!isSupabaseConfigured || isDemoMode()) return true;
-  // Row-level security can refuse an update without raising an error, so a
-  // change only counts if a row actually came back.
-  const { data, error } = await supabase
-    .from("policy_rules")
-    .update({ is_active: isActive })
-    .eq("rule_id", ruleId)
-    .select("rule_id");
-  return !error && (data?.length ?? 0) > 0;
+/** Put a rule change on my draft policy version (sql/074): on/off, a new limit, or what happens if it fails. */
+export async function draftRuleChange(
+  ruleId: string,
+  change: { isActive?: boolean; threshold?: string; severity?: "REJECT" | "MAYBE" },
+): Promise<void> {
+  const { error } = await supabase.rpc("fn_policy_rule_draft", {
+    p_rule_id: ruleId,
+    p_is_active: change.isActive ?? null,
+    p_threshold: change.threshold ?? null,
+    p_severity: change.severity ?? null,
+  });
+  if (error) throw new Error(error.message || "Could not record the change");
 }
+
+export async function removeRuleChange(ruleId: string): Promise<void> {
+  const { error } = await supabase.rpc("fn_policy_rule_draft_remove", { p_rule_id: ruleId });
+  if (error) throw new Error(error.message || "Could not take the change back");
+}
+
+/** Make approved versions whose date has come live (policy approvers; 023). */
+export async function activateDuePolicy(): Promise<void> {
+  await supabase.rpc("fn_policy_activate_due");
+}
+
 
 const rateBandRowSchema = z.object({
   band_label: z.string().optional().default(""),
