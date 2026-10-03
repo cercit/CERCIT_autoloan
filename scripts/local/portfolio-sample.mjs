@@ -4,7 +4,11 @@ import { migratedDb } from "../../tests/sql/harness.mjs";
 const { db } = await migratedDb();
 const op = () => db.query("select set_config('request.jwt.claim.role','',false), set_config('request.jwt.claim.sub','',false), set_config('request.jwt.claims','',false)");
 await op();
-for (let b = 1; b <= 3; b++) await db.query("select fn_synthetic_generate($1, 500)", [b]);
+// analyze after each batch: PGlite never refreshes table statistics itself (E2)
+for (let b = 1; b <= 3; b++) {
+  await db.query("select fn_synthetic_generate($1, 500)", [b]);
+  await db.exec("analyze");
+}
 for (let i = 0; i < 5; i++) await db.query("select fn_synthetic_disburse(1000)");
 const ADMIN = "abababab-0000-0000-0000-0000000000ab";
 await db.query("insert into users (email, full_name, role, auth_user_id) values ('adm@t.in','Admin','admin',$1)", [ADMIN]);

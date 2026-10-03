@@ -24,6 +24,10 @@ await db.query("select set_config('request.jwt.claim.role','',false), set_config
 const t0 = Date.now();
 for (let b = 1; b * BATCH <= TOTAL; b++) {
   const r = (await db.query("select fn_synthetic_generate($1, $2) as v", [b, BATCH])).rows[0].v;
+  // E2: PGlite has no autovacuum, so table statistics never update on their own and the
+  // generator kept query plans made for near-empty tables: each batch took longer than the
+  // last (34 s for the first, about 11 min by batch 36). Refreshing them keeps it flat.
+  await db.exec("analyze");
   console.log(`batch ${b}: made ${r.made} (${Math.round((Date.now() - t0) / 1000)}s)`);
 }
 
