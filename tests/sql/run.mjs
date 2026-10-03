@@ -3620,6 +3620,80 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 54. Settings defaults and reset (076, G1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("settings defaults and reset");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const HEAD = "71717171-0000-0000-0000-000000000001";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  // the defaults saved by 076 were taken when the migration ran; earlier test sections have changed things since,
+  // so this section saves its own defaults and resets to them
+  await as(ADMIN);
+  const list = (await one("select fn_settings_baseline_save('Test defaults') as v")).v;
+  const base = list.find((b) => b.name === "Test defaults");
+  t.equal("an admin saves today's settings, including the first defaults", [list.some((b) => b.name === "Defaults 2 Oct 2026"), base.settings > 100], [true, true]);
+  t.equal("straight after, nothing would change", (await one("select fn_settings_reset_preview($1) as v", [base.id])).v, []);
+
+  await operator();
+  const appCount = (await one("select count(*)::int as n from applications")).n;
+  await db.query("update feature_flags set enabled = true where flag_key = 'kyc_module'");
+  await db.query("update document_check_rules set threshold = 0.5 where doc_type = 'PAN' and check_code = 'NAME_MATCH'");
+  await db.query("update security_settings set value = 9 where setting_key = 'lockout_threshold'");
+  await db.query("update policy_rules set threshold_value = '600' where rule_id = 'BUR-SCORE-MIN'");
+  await db.query("delete from role_permissions where role_code = 'credit_officer' and permission_code = 'report.export'");
+
+  await as(ADMIN);
+  const preview = (await one("select fn_settings_reset_preview($1) as v", [base.id])).v;
+  const how = Object.fromEntries(preview.map((p) => [`${p.area}|${p.item}`, p.how]));
+  t.equal("the preview lists each change and how it is put back",
+    [how["switch|kyc_module"], how["documents|check.PAN.NAME_MATCH"], how["security|lockout_threshold"], how["policy|rule.BUR-SCORE-MIN"],
+     how["roles|credit_officer"]],
+    ["at once", "at once", "at once", "through policy approval", "at once"]);
+  await t.rejects("the reset needs RESET typed", () => db.query("select fn_settings_reset($1, 'yes')", [base.id]), /type RESET/);
+  const r = (await one("select fn_settings_reset($1, 'RESET') as v", [base.id])).v;
+  await operator();
+  t.equal("switches, document checks, security settings and role rights are back at once",
+    [(await one("select enabled from feature_flags where flag_key = 'kyc_module'")).enabled,
+     Number((await one("select threshold from document_check_rules where doc_type = 'PAN' and check_code = 'NAME_MATCH'")).threshold) !== 0.5,
+     (await one("select value from security_settings where setting_key = 'lockout_threshold'")).value !== 9,
+     (await one("select count(*)::int as n from role_permissions where role_code = 'credit_officer' and permission_code = 'report.export'")).n],
+    [false, true, true, 1]);
+  t.equal("the credit policy is NOT changed directly: a version waits for approval",
+    [(await one("select threshold_value from policy_rules where rule_id = 'BUR-SCORE-MIN'")).threshold_value,
+     (await one("select status from policy_versions where version_code = $1", [r.policy_version_for_approval])).status],
+    ["600", "PENDING_APPROVAL"]);
+  t.equal("the admin can't approve it themselves", (await one("select authored_by = (select id from users where auth_user_id = $2) as v from policy_versions where version_code = $1", [r.policy_version_for_approval, ADMIN])).v, true);
+  t.equal("no case, customer or loan is touched", (await one("select count(*)::int as n from applications")).n, appCount);
+  t.equal("one audit entry lists the changes", (await one("select count(*)::int as n from audit_events where event_type = 'SETTINGS_RESET'")).n, 1);
+
+  // tidy: approve the reset version (as the credit head) and make it live, so later sections see the old rules
+  await as(HEAD);
+  const vid = (await one("select id from policy_versions where version_code = $1", [r.policy_version_for_approval])).id;
+  await one("select fn_policy_approve($1, '2099-12-03T00:00:00+05:30', 'reset') as v", [vid]);
+  await operator();
+  await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = '2099-12-03T00:00:00+05:30' where status = 'ACTIVE' and product = 'CAR_NEW'");
+  await db.query("update policy_versions set status = 'ACTIVE' where id = $1", [vid]);
+  t.equal("approved and live, the rule is back", (await one("select threshold_value from policy_rules where rule_id = 'BUR-SCORE-MIN'")).threshold_value, "650");
+
+  await as(OFFICER);
+  await t.rejects("only an admin may reset", () => db.query("select fn_settings_reset($1, 'RESET')", [base.id]), /permission denied: org.manage/);
+  await operator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

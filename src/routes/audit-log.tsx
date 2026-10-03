@@ -97,6 +97,10 @@ const ACTIVITY_TEXT: Record<string, string> = {
   RATE_GRID_APPROVED: "Approved a rate grid",
   RATE_GRID_REJECTED: "Rejected a rate grid",
   RATE_GRID_LIVE: "A rate grid went live",
+  PRACTICE_RESET: "Practice cases reset",
+  SIMULATION_DAY: "Daily simulation ran",
+  SETTINGS_DEFAULTS_SAVED: "Saved settings defaults",
+  SETTINGS_RESET: "Reset settings to defaults",
 };
 
 const activityText = (code: string): string =>
