@@ -25,4 +25,5 @@ What the demo has switched on, or made up, that a real lender's database must no
 |---|---|
 | **Weekly settings backup** (`sql/079`, job `cercit-settings-backup-weekly`, Sundays 01:00 IST) | `SELECT kind, taken_at, row_count FROM settings_backups ORDER BY taken_at DESC LIMIT 3;` shows one from the last 7 days |
 | **Copy outside the database** (`scripts/backup-settings.mjs`, GitHub job "Settings backup", Sundays 01:30 IST) | Add the repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Settings → Secrets → Actions); the job's run page then has a `settings-backup` file, kept 90 days. Without the secrets the job does nothing |
+| **Data past its retention period** (`sql/080`, `docs/data-protection.md`) | `SELECT * FROM fn_retention_due();` on the first of each month; erase each one listed, and empty `fn_erasure_storage_queue()` |
 | **Advisor checks** (`sql/checks/advisor-checks.sql`) | Paste into the SQL editor; every result is empty. Also look at Supabase → Advisors once a month |

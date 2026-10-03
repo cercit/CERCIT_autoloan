@@ -3781,6 +3781,83 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// H6: erase a customer's personal data on request; retention (080)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("personal data erasure");
+  await db.query("reset role");
+  await asOperator();
+  await one("select fn_synthetic_generate(9100, 6) as v");
+  // turn two made-up cases into "real" ones: one with no loan, one with a live loan
+  const apps = (await db.query(`select a.id, a.application_id, a.customer_id from applications a
+                                 where a.origin = 'SYNTHETIC' and exists (select 1 from recommendations r where r.application_id = a.id)
+                                   and exists (select 1 from bureau_accounts b where b.application_id = a.id)
+                                 order by a.created_at desc limit 2`)).rows;
+  const [A, B] = apps;
+  await db.query("update applications set origin = 'CUSTOMER', status = 'REJECTED' where id = $1", [A.id]);
+  await db.query("update applications set origin = 'CUSTOMER', status = 'DISBURSED' where id = $1", [B.id]);
+  await db.query("update customers set email = 'erase.me@example.com' where id = $1", [A.customer_id]);
+  const authId = (await one("insert into auth.users (email) values ('erase.me@example.com') returning id")).id;
+  await db.query("update customers set auth_user_id = $2 where id = $1", [A.customer_id, authId]);
+  await db.query(`insert into customer_addresses (customer_id, address_type, line1, city, state_code, pincode, source)
+                  values ($1, 'CURRENT', '1 Test Street', 'Chennai', (select code from states limit 1), '600001', 'CUSTOMER')`, [A.customer_id]);
+  await db.query(`insert into documents (application_id, doc_type, file_name, file_path, file_hash, file_size_bytes, mime_type, storage_backend, storage_key, upload_status)
+                  values ($1, 'PAN', 'pan.jpg', 'x/pan.jpg', 'abc123', 1000, 'image/jpeg', 'S3', 'applications/' || $2 || '/PAN/front.jpg', 'UPLOADED')`, [A.id, A.application_id]);
+
+  const found = (await one("select fn_erasure_find('Erase.Me@example.com') as v")).v;
+  t.equal("finds the customer by email, ids only", [found.length, found[0].customer_id, Object.keys(found[0]).sort()], [1, A.customer_id, ["applications", "customer_id"]]);
+  const chk = (await one("select fn_erasure_check($1) as v", [A.customer_id])).v;
+  t.equal("a rejected case with no loan can be erased", [chk.erasable, chk.reasons, chk.rows_to_delete.documents >= 1, chk.rows_to_delete.customer_addresses], [true, [], true, 1]);
+
+  // a live loan: refused, and says why
+  const loanNo = "LTEST" + Date.now().toString().slice(-6);
+  await db.query(`insert into loan_accounts (loan_account_no, application_id, customer_id, disbursed_on, disbursed_amount, installment_day, emi_amount, tenure_months, contract_rate_pct, status)
+                  values ($1, $2, $3, current_date - 400, 500000, 5, 11000, 60, 9.9, 'LIVE')`, [loanNo, B.id, B.customer_id]);
+  const live = (await one("select fn_erasure_check($1) as v", [B.customer_id])).v;
+  t.equal("a live loan: refused", [live.erasable, live.reasons.some((r) => /loan is live/.test(r))], [false, true]);
+  await db.query("update loan_accounts set status = 'CLOSED', closed_on = current_date - 30 where loan_account_no = $1", [loanNo]);
+  const kept = (await one("select fn_erasure_check($1) as v", [B.customer_id])).v;
+  t.equal("a loan closed last month: kept 5 years, and it says from when", [kept.erasable, kept.reasons.some((r) => /retention period .* possible from/.test(r))], [false, true]);
+  const reqB = (await one("select fn_erasure_record($1, 'email', 'test') as id", [B.customer_id])).id;
+  await t.rejects("erasing it anyway is refused", () => db.query("select fn_erasure_execute($1, 'ERASE')", [reqB]), /not erased: .*retention/);
+
+  const req = (await one("select fn_erasure_record($1, 'EMAIL', 'asked by email') as id", [A.customer_id])).id;
+  await t.rejects("needs ERASE typed", () => db.query("select fn_erasure_execute($1, 'yes')", [req]), /type ERASE/);
+  const out = (await one("select fn_erasure_execute($1, 'ERASE') as v", [req])).v;
+  t.equal("erased: files queued, rows deleted, sign-in removed", [out.erased.files_queued, out.erased.documents >= 1, out.erased.customer_addresses, out.erased.sign_in_account], [1, true, 1, 1]);
+  const c = await one("select full_name, email, pan_enc, pan_hash, fn_pii_decrypt(mobile_enc) as mobile, mobile_hash, date_of_birth, auth_user_id, first_name from customers where id = $1", [A.customer_id]);
+  t.equal("the customer row is anonymous", [c.full_name, /@erased\.invalid$/.test(c.email), c.pan_enc, c.pan_hash, c.mobile, c.mobile_hash, c.date_of_birth, c.auth_user_id, c.first_name],
+    ["Erased customer", true, null, null, "erased", null, null, null, null]);
+  const left = await one(`select (select count(*) from documents where application_id = $1)::int docs,
+                                 (select count(*) from bureau_accounts where application_id = $1)::int bureau,
+                                 (select count(*) from bank_monthly_summary where application_id = $1)::int bank,
+                                 (select count(*) from salary_slips where application_id = $1)::int slips,
+                                 (select count(*) from applications where id = $1)::int app,
+                                 (select count(*) from recommendations where application_id = $1)::int recs`, [A.id]);
+  t.equal("detail gone; the application and its recommendation kept", [left.docs, left.bureau, left.bank, left.slips, left.app, left.recs > 0], [0, 0, 0, 0, 1, true]);
+  const q = (await db.query("select * from fn_erasure_storage_queue()")).rows;
+  t.equal("the stored file is listed for deletion", q.map((r) => r.storage_key), [`applications/${A.application_id}/PAN/front.jpg`]);
+  t.equal("and marked done once deleted", Number((await one("select fn_erasure_storage_done($1) as n", [[q[0].storage_key]])).n), 1);
+  const audit = await one("select event_detail from audit_events where event_type = 'PERSONAL_DATA_ERASED' order by created_at desc limit 1");
+  t.equal("one audit entry, counts only", [audit.event_detail.request, JSON.stringify(audit.event_detail).includes("erase.me")], [req, false]);
+  const again = (await one("select fn_erasure_check($1) as v", [A.customer_id])).v;
+  t.equal("can't be erased twice", again.reasons, ["already erased"]);
+
+  // retention: listed when past it, ids only
+  await db.query("update loan_accounts set closed_on = current_date - interval '6 years' where loan_account_no = $1", [loanNo]);
+  const due = (await db.query("select * from fn_retention_due()")).rows;
+  t.equal("past retention: listed with the reason", due.filter((r) => r.customer_id === B.customer_id).map((r) => r.reason), ["loan closed over 5 years ago"]);
+  await db.query("select fn_erasure_refuse($1, 'test over')", [reqB]);
+
+  await db.query("set role authenticated");
+  await asApi("authenticated", "dddddddd-0000-0000-0000-00000000dd01");
+  await t.rejects("not from the website", () => db.query("select fn_erasure_find('x@y.z')"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
