@@ -18,7 +18,7 @@ import {
   Inbox,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { BrandLogo } from "@/components/brand";
 import { Pill } from "@/components/status";
@@ -35,6 +35,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { currentUser as sampleUser } from "@/lib/mock-data";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import {
+  getAutomationStatus,
+  getRecentNotifications,
+  getWaitingCount,
+  markNotificationsSeen,
+} from "@/lib/shell-api";
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { getPendingChanges } from "@/lib/policy-api";
 import { getCurrentUser, isDemoMode, requireAuth, roleLabel, signOut } from "@/lib/auth";
@@ -51,7 +58,7 @@ const nav: {
   creditControl?: boolean;
 }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/applications", label: "Applications", icon: ClipboardList, badge: 12 },
+  { to: "/applications", label: "Applications", icon: ClipboardList },
   { to: "/customer-applications", label: "Customer applications", icon: Inbox },
   { to: "/approvals", label: "Approvals", icon: ClipboardCheck, creditControl: true },
   { to: "/portfolio", label: "Loan portfolio", icon: Wallet },
@@ -86,10 +93,26 @@ function useApprovalsWaiting(enabled: boolean) {
   return count;
 }
 
+// Real cases waiting for a person (fix A1; it used to be a fixed "12").
+function useCasesWaiting() {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getWaitingCount().then((n) => {
+      if (!cancelled) setCount(n);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return count;
+}
+
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { enabled: creditControl } = useFeatureStatus("credit_control");
   const waiting = useApprovalsWaiting(creditControl);
+  const casesWaiting = useCasesWaiting();
 
   return (
     <nav className="flex flex-col gap-1">
@@ -97,7 +120,12 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
         .filter((item) => !item.creditControl || creditControl)
         .map((item) => {
           const active = pathname.startsWith(item.to);
-          const badge = item.to === "/approvals" ? waiting : item.badge;
+          const badge =
+            item.to === "/approvals"
+              ? waiting
+              : item.to === "/applications"
+                ? casesWaiting
+                : item.badge;
           return (
             <Link
               key={item.to}
@@ -124,6 +152,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+// Shown only in sample mode; signed-in staff see real events from the audit log (fix A2).
 const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
   {
     id: "1",
@@ -141,23 +170,40 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
     read: false,
   },
-  {
-    id: "3",
-    type: "info",
-    title: "Rate grid updated",
-    message: "New rate card effective from 01 Sep 2026 — Band A now 8.75%",
-    timestamp: new Date(Date.now() - 3 * 3600000).toISOString(),
-    read: false,
-  },
-  {
-    id: "4",
-    type: "error",
-    title: "Bureau fetch failed",
-    message: "CIBIL API timeout for APP-2026-00843 — retry in progress",
-    timestamp: new Date(Date.now() - 5 * 3600000).toISOString(),
-    read: false,
-  },
 ];
+
+function useNotifications() {
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void getRecentNotifications().then((rows) => {
+      if (!cancelled) setItems(rows ?? (isDemoMode() || !isSupabaseConfigured ? SAMPLE_NOTIFICATIONS : []));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const markAllRead = () => {
+    markNotificationsSeen();
+    setItems((xs) => xs.map((x) => ({ ...x, read: true })));
+  };
+  return { items, unread: items.filter((n) => !n.read).length, markAllRead };
+}
+
+// The automation pill follows the real switch (fix A6); hidden when it can't be read.
+function useAutomation() {
+  const [status, setStatus] = useState<{ active: boolean; label: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getAutomationStatus().then((st) => {
+      if (!cancelled) setStatus(st);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return status;
+}
 
 /**
  * Ends the session, then loads the sign-in page fresh. A full page load (not a
@@ -219,6 +265,16 @@ export function AppShell({
   }, [navigate]);
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const notifications = useNotifications();
+  const automation = useAutomation();
+  const [search, setSearch] = useState("");
+  // Fix A5: the box sends the search to the Applications list, which filters on it.
+  const runSearch = (e: FormEvent) => {
+    e.preventDefault();
+    const q = search.trim();
+    if (q) navigate({ to: "/applications", search: { q } } as never);
+  };
+  const sampleData = isDemoMode() || !isSupabaseConfigured;
 
   useKeyboardShortcuts({
     "?": () => setShortcutsOpen((o) => !o),
@@ -261,10 +317,12 @@ export function AppShell({
             Sign out
           </Button>
         </div>
-        <div className="rounded-md bg-sidebar-accent/50 p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-sidebar-accent-foreground">Prototype data</p>
-          <p className="mt-1">All figures are illustrative sample records.</p>
-        </div>
+        {sampleData && (
+          <div className="rounded-md bg-sidebar-accent/50 p-3 text-xs text-muted-foreground">
+            <p className="font-medium text-sidebar-accent-foreground">Prototype data</p>
+            <p className="mt-1">All figures are illustrative sample records.</p>
+          </div>
+        )}
       </aside>
 
       {/* Mobile sidebar overlay: shown when sidebarOpen */}
@@ -307,10 +365,12 @@ export function AppShell({
             Sign out
           </Button>
         </div>
-        <div className="rounded-md bg-sidebar-accent/50 p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-sidebar-accent-foreground">Prototype data</p>
-          <p className="mt-1">All figures are illustrative sample records.</p>
-        </div>
+        {sampleData && (
+          <div className="rounded-md bg-sidebar-accent/50 p-3 text-xs text-muted-foreground">
+            <p className="font-medium text-sidebar-accent-foreground">Prototype data</p>
+            <p className="mt-1">All figures are illustrative sample records.</p>
+          </div>
+        )}
       </aside>
 
       <div data-main-wrapper className="lg:pl-60">
@@ -327,30 +387,50 @@ export function AppShell({
             {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
 
-          <div className="relative hidden max-w-md flex-1 sm:block">
+          <form onSubmit={runSearch} className="relative hidden max-w-md flex-1 sm:block" role="search">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by name, PAN, application ID..."
+              id="global-search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, PAN, application ID... (Enter)"
               className="h-9 pl-9"
-              aria-label="Search"
+              aria-label="Search applications"
             />
-          </div>
+          </form>
 
           <div className="hidden flex-1 items-center justify-center md:flex">
-            <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/8 px-3.5 py-1.5 text-xs font-semibold text-success">
-              <span className="relative flex size-2.5">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-40" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-success" />
+            {automation && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold",
+                  automation.active
+                    ? "border-success/30 bg-success/8 text-success"
+                    : "border-border bg-muted text-muted-foreground",
+                )}
+              >
+                <span className="relative flex size-2.5">
+                  {automation.active && (
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-40" />
+                  )}
+                  <span
+                    className={cn(
+                      "relative inline-flex size-2.5 rounded-full",
+                      automation.active ? "bg-success" : "bg-muted-foreground",
+                    )}
+                  />
+                </span>
+                {automation.label}
               </span>
-              Automated Underwriting: Active
-            </span>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-1 sm:flex-none">
             <ThemeToggle />
             <NotificationDropdown
-              notifications={SAMPLE_NOTIFICATIONS}
-              unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.read).length}
+              notifications={notifications.items}
+              unreadCount={notifications.unread}
+              onMarkAllRead={notifications.markAllRead}
             />
             <div className="ml-1 hidden items-center gap-2 md:flex">
               <span className="flex size-8 items-center justify-center rounded-full bg-primary/12 text-xs font-semibold text-primary">

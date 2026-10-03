@@ -2731,6 +2731,58 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 38. Live figures for the staff page frame (060, fixes A1/A2)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("page frame figures");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 60) as v");
+  const expect = await one(`select
+      count(*) filter (where origin is distinct from 'SYNTHETIC')::int as all_real,
+      count(*) filter (where origin is distinct from 'SYNTHETIC' and origin is distinct from 'CUSTOMER')::int as no_customers,
+      count(*) filter (where origin = 'SYNTHETIC')::int as synthetic
+    from applications where status in ('SUBMITTED','UNDER_ASSESSMENT','UNDER_REVIEW')`);
+  await db.query(`insert into audit_events (application_id, event_type, event_detail, actor_type)
+                  select id, 'APPLICATION_ASSESSED', '{}'::jsonb, 'SYSTEM' from applications where origin = 'SYNTHETIC' limit 3`);
+  await db.query("insert into audit_events (event_type, event_detail, actor_type) values ('USER_CHANGED', '{}'::jsonb, 'USER'), ('LOGIN', '{}'::jsonb, 'USER')");
+
+  await as(ADMIN);
+  const a = (await one("select fn_staff_frame_summary() as v")).v;
+  t.equal("staff who may see customers count every real case waiting, never synthetic ones",
+    [a.waiting, expect.synthetic > 0], [expect.all_real, true]);
+  t.equal("the bell leaves out synthetic cases and sign-ins, and shows staff-login changes to an admin",
+    [a.events.some((e) => e.application_id?.startsWith("SYN")), a.events.some((e) => e.event_type === "LOGIN"),
+     a.events.some((e) => e.event_type === "USER_CHANGED"), a.events.length <= 12], [false, false, true, true]);
+
+  await as(OFFICER);
+  const o = (await one("select fn_staff_frame_summary() as v")).v;
+  t.equal("an officer, who can't view users, doesn't get staff-login events", o.events.some((e) => e.event_type.startsWith("USER_")), false);
+
+  await as(DEMO);
+  const d = (await one("select fn_staff_frame_summary() as v")).v;
+  t.equal("the public demo login counts no real customers' cases", d.waiting, expect.no_customers);
+
+  await db.query("set role anon");
+  await t.rejects("the public can't read it", () => db.query("select fn_staff_frame_summary()"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await db.query("delete from audit_events where event_type in ('USER_CHANGED','LOGIN') and actor_type = 'USER' and application_id is null");
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
