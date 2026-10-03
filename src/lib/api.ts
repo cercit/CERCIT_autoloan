@@ -6,8 +6,6 @@ import {
   policyRules as mockPolicyRules,
   policyTabs as mockPolicyTabs,
   auditLog as mockAuditLog,
-  auditActions as mockAuditActions,
-  users as mockUsers,
   employers as mockEmployers,
   makes as mockMakes,
   mockBureauReport,
@@ -558,64 +556,6 @@ type AuditEntry = {
   details: string;
   ip: string;
 };
-
-export async function getMappedAuditLog(): Promise<{
-  log: AuditEntry[];
-  actions: string[];
-  users: typeof mockUsers;
-}> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return {
-      log: mockAuditLog,
-      actions: mockAuditActions,
-      users: mockUsers,
-    };
-  }
-
-  const [eventsRes, usersRes] = await Promise.all([
-    supabase
-      .from("audit_events")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase.from("users").select("id, full_name"),
-  ]);
-
-  if (eventsRes.error || !eventsRes.data || eventsRes.data.length === 0) {
-    console.error("Failed to fetch audit events:", eventsRes.error);
-    return {
-      log: mockAuditLog,
-      actions: mockAuditActions,
-      users: mockUsers,
-    };
-  }
-
-  const userMap = new Map<string, string>();
-  (usersRes.data ?? []).forEach((u: { id: string; full_name: string }) => {
-    userMap.set(u.id, u.full_name);
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const log: AuditEntry[] = eventsRes.data.map((row: any) => {
-    const detail = row.event_detail ?? {};
-    return {
-      time: formatDateTime(row.created_at),
-      user: row.actor_type === "SYSTEM" ? "System" : (userMap.get(row.actor_id) ?? "Unknown"),
-      action: row.event_type?.replace(/_/g, " ") ?? "",
-      app: detail.application_id
-        ? String(detail.application_id)
-        : "—",
-      details: detail.message
-        ? String(detail.message)
-        : JSON.stringify(detail),
-      ip: row.ip_address ?? "—",
-    };
-  });
-
-  const actions = [...new Set(log.map((e) => e.action))];
-
-  return { log, actions, users: mockUsers };
-}
 
 function formatDateTime(iso: string): string {
   if (!iso) return "";
@@ -1515,37 +1455,86 @@ export async function getApplicationTimeline(
   }));
 }
 
-export interface AuditTrailEntry {
-  id: string;
-  applicationId: string;
-  action: string;
-  performedBy: string;
-  details: string | null;
-  createdAt: string;
-}
+// -- Audit Log (sql/065, fix list C1 + G6) ---------------------------------------
 
-export async function getAuditLog(limit: number = 50): Promise<AuditTrailEntry[]> {
+export type AuditFilters = {
+  from?: string | null;
+  to?: string | null;
+  actor?: string | null;
+  activity?: string | null;
+  caseId?: string | null;
+  search?: string | null;
+  page?: number;
+  pageSize?: number;
+};
+
+export type AuditRow = {
+  id: string;
+  at: string;
+  actorKey: string;
+  actorName: string;
+  actorRole: string | null;
+  activity: string;
+  caseId: string | null;
+  synthetic: boolean;
+  details: Record<string, unknown>;
+};
+
+export type AuditPage = {
+  total: number;
+  page: number;
+  pageSize: number;
+  rows: AuditRow[];
+  activities: string[];
+  users: { key: string; name: string; role: string | null }[];
+};
+
+/**
+ * One page of the combined audit log: case events, policy versions, switches,
+ * case stages and overrides, newest first. Read through fn_audit_log; throws on
+ * an error so the page can say so.
+ */
+export async function getAuditLog(f: AuditFilters = {}): Promise<AuditPage> {
   if (!isSupabaseConfigured || isDemoMode()) {
-    return [
-      { id: "1", applicationId: "202608000001", action: "APPLICATION_SUBMITTED", performedBy: "system", details: null, createdAt: new Date().toISOString() },
-      { id: "2", applicationId: "202608000001", action: "ASSESSMENT_COMPLETED", performedBy: "system", details: "APPROVE at 8.99%", createdAt: new Date().toISOString() },
-      { id: "3", applicationId: "202608000001", action: "OFFICER_APPROVED", performedBy: "demo1@cercit.in", details: "No override", createdAt: new Date().toISOString() },
-    ];
+    const rows: AuditRow[] = mockAuditLog.map((e, i) => ({
+      id: String(i),
+      at: new Date(Date.now() - i * 3600000).toISOString(),
+      actorKey: e.user === "System" ? "SYSTEM" : e.user,
+      actorName: e.user,
+      actorRole: null,
+      activity: e.action.toUpperCase().replace(/ /g, "_"),
+      caseId: e.app === "—" ? null : e.app,
+      synthetic: false,
+      details: { note: e.details },
+    }));
+    return { total: rows.length, page: 1, pageSize: rows.length, rows, activities: [...new Set(rows.map((r) => r.activity))],
+      users: [...new Set(rows.map((r) => r.actorName))].map((n) => ({ key: n === "System" ? "SYSTEM" : n, name: n, role: null })) };
   }
-  const { data, error } = await supabase
-    .from("audit_trail")
-    .select("id, application_id, action, performed_by, details, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error || !data) return [];
-  return data.map((r: any) => ({
-    id: r.id ?? "",
-    applicationId: r.application_id ?? "",
-    action: r.action ?? "",
-    performedBy: r.performed_by ?? "",
-    details: r.details ?? null,
-    createdAt: r.created_at ?? "",
-  }));
+  const { data, error } = await supabase.rpc("fn_audit_log", {
+    p_from: f.from ?? null,
+    p_to: f.to ?? null,
+    p_actor: f.actor ?? null,
+    p_activity: f.activity ?? null,
+    p_case: f.caseId ?? null,
+    p_search: f.search ?? null,
+    p_page: f.page ?? 1,
+    p_page_size: f.pageSize ?? 50,
+  });
+  if (error) throw new Error(error.message || "Could not load the audit log");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = (data ?? {}) as any;
+  return {
+    total: Number(d.total) || 0,
+    page: Number(d.page) || 1,
+    pageSize: Number(d.page_size) || 50,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rows: ((d.rows ?? []) as any[]).map((r) => ({
+      id: r.id, at: r.at, actorKey: r.actor_key, actorName: r.actor_name, actorRole: r.actor_role ?? null,
+      activity: r.activity, caseId: r.case_id ?? null, synthetic: Boolean(r.synthetic), details: r.details ?? {},
+    })),
+    activities: (d.activities ?? []) as string[],
+    users: ((d.users ?? []) as { key: string; name: string; role: string | null }[]),
+  };
 }
 
 // -- Task 69: Decision trend -----------------------------------------------------

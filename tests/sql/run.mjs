@@ -2968,6 +2968,54 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 43. Audit Log: one combined, filtered, read-only log (065, fixes C1 + G6)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("audit log");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 20) as v");
+  const counts = await one(`select (select count(*) from audit_events e left join applications a on a.id = e.application_id)::int as events,
+      (select count(*) from policy_version_events)::int as policy, (select count(*) from feature_flag_history)::int as switches,
+      (select count(*) from application_stage_events)::int as stages, (select count(*) from override_logs)::int as overrides`);
+  const syn = await one("select application_id from applications where origin = 'SYNTHETIC' limit 1");
+
+  await as(ADMIN);
+  const all = (await one("select fn_audit_log() as v")).v;
+  t.equal("one log brings in events, policy, switch, stage and override history",
+    all.total, counts.events + counts.policy + counts.switches + counts.stages + counts.overrides);
+  t.equal("pages of 50, newest first", [all.rows.length, all.rows.every((r, i) => i === 0 || r.at <= all.rows[i - 1].at)], [Math.min(50, all.total), true]);
+  t.equal("policy history is in it", all.activities.includes("POLICY_STATUS"), counts.policy > 0);
+  const byCase = (await one("select fn_audit_log(p_case => $1) as v", [syn.application_id])).v;
+  t.equal("case filter keeps that case only", byCase.total > 0 && byCase.rows.every((r) => r.case_id === syn.application_id && r.synthetic), true);
+  const sys = (await one("select fn_audit_log(p_actor => 'SYSTEM', p_activity => 'APPLICATION_CREATED') as v")).v;
+  t.equal("user and activity filters combine", sys.rows.every((r) => r.actor_key === "SYSTEM" && r.activity === "APPLICATION_CREATED"), true);
+  const future = (await one("select fn_audit_log(p_from => now() + interval '1 day') as v")).v;
+  t.equal("a date range in the future is empty", future.total, 0);
+  const csv = (await one("select fn_audit_log(p_page_size => 100000) as v")).v;
+  t.equal("an export asks for at most 5,000 rows", csv.page_size, 5000);
+
+  await as(OFFICER);
+  await t.rejects("an officer, without audit.view, can't read it", () => db.query("select fn_audit_log()"), /permission denied: audit.view/);
+  await t.rejects("nobody on the website can delete an entry", () => db.query("delete from audit_events"), /permission denied/);
+  await t.rejects("or change one", () => db.query("update audit_events set event_type = 'X'"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

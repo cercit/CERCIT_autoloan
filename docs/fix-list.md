@@ -13,6 +13,7 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 | 3 Oct | **C6:** Loan portfolio and the dashboard's Portfolio quality box load fast: each instalment's status is stored and refreshed only when a payment arrives; locally 155 loans went from 1.1 s to 0.02 s (the old way grew with the square of the book, so about 18 s at 628 loans) | `fix(C6)` | No: run 062, then merge |
 | 3 Oct | **C7:** Policy Rules shows the real rules (e.g. Minimum CIBIL score 650) and the version in force; the fixed "Last updated … Anand Gopal" line is gone; an error is shown instead of sample rules | `fix(C7)` | No: run 063, then merge |
 | 3 Oct | **C10:** Dashboard figures are real: one staff function for totals, funnel, trend, first-payment default, my queue, referred cases and activity. Removed the typed-in FPD 1.8% "Elevated", +12% trend, fixed funnel ratios, sample activity feed and AI-confidence numbers; the page no longer loads all 2,000 cases | `fix(C10)` | No: run 064 (after 062), then merge |
+| 3 Oct | **C1 + G6:** Audit Log rebuilt on the real log (it read a table that doesn't exist): date, time (IST), user and role, activity in plain words, case link, details; filters for today / 7 days / this month / from–to, user, activity, case and text; pages of 50; Export CSV of the filtered list; policy, switch, stage and override history in the same log; entries can't be changed or deleted from the website | `feat(G6)` | No: run 065, then merge |
 
 ## A. Numbers and text that are fake or fixed
 
