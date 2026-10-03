@@ -2917,6 +2917,57 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 42. Dashboard figures through one staff function (064, fixes C10)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("dashboard figures");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 80) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  const expect = await one(`select count(*)::int as total,
+      count(*) filter (where status in ('APPROVED','DISBURSED'))::int as approved,
+      count(*) filter (where status = 'REJECTED')::int as rejected,
+      count(*) filter (where origin = 'SYNTHETIC')::int as synthetic,
+      count(*) filter (where origin is distinct from 'CUSTOMER')::int as no_customers
+    from applications where status <> 'DRAFT'`);
+  const referred = (await one("select count(*)::int as n from applications where status = 'UNDER_REVIEW' and origin is distinct from 'CUSTOMER'")).n;
+
+  await as(ADMIN);
+  const d = (await one("select fn_staff_dashboard(null) as v")).v;
+  t.equal("all-time totals match the applications table, drafts left out",
+    [d.totals.total, d.totals.approved, d.totals.rejected, d.totals.synthetic], [expect.total, expect.approved, expect.rejected, expect.synthetic]);
+  t.equal("the funnel only narrows", [d.funnel.sent >= d.funnel.bureau, d.funnel.approved >= d.funnel.disbursed, d.funnel.sent === d.totals.total], [true, true, true]);
+  t.equal("the trend has one point per day for 30 days", d.trend.length, 30);
+  t.equal("first-payment default is a share of loans old enough to tell", d.fpd.loans > 0 && d.fpd.defaults <= d.fpd.loans, true);
+  t.equal("exceptions are referred cases, at most 10, each with the rules not met",
+    [d.exceptions.length, d.exceptions.every((x) => x.reason)], [Math.min(10, referred), true]);
+  t.equal("activity leaves out sign-ins", d.activity.every((e) => !["LOGIN", "LOGIN_FAILED"].includes(e.event_type)), true);
+  const recent = (await one("select fn_staff_dashboard(now() - interval '1 day') as v")).v;
+  t.equal("a date range narrows the count and gives the period before", [recent.totals.total <= d.totals.total, recent.totals.prior_total !== null], [true, true]);
+
+  await as(DEMO);
+  const demo = (await one("select fn_staff_dashboard(null) as v")).v;
+  t.equal("the public demo login counts no real customers", demo.totals.total, expect.no_customers);
+  await db.query("set role anon");
+  await t.rejects("the public can't read it", () => db.query("select fn_staff_dashboard(null)"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

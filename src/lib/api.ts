@@ -102,7 +102,11 @@ const applicationRowSchema = z.object({
   exShowroom: row.ex_showroom_price,
   onRoad: row.on_road_price,
   obligations: [],
-  flags: (row.risk_factors as Array<{ message: string }>).map((f) => f.message),
+  // the engine stores every rule it checked; the flags are the ones that failed
+  flags: (row.risk_factors as Array<{ message?: string; rule_name?: string; result?: string }>)
+    .filter((f) => f.result === undefined || f.result === "FAIL")
+    .map((f) => f.message ?? f.rule_name ?? "")
+    .filter(Boolean),
   reasons: [],
 } as Application));
 
@@ -824,112 +828,132 @@ export type DashboardStats = {
   approved: number;
   rejected: number;
   stpRate: number;
-  fpdRisk: number;
-  totalTrend: number;
+  /** first-payment default, % of loans whose first instalment is 30+ days late; null with no loans old enough */
+  fpdRisk: number | null;
+  /** % change in sent applications against the equal period before; null for "all time" or nothing before */
+  totalTrend: number | null;
   avgProcessingDays: number | null;
 };
 
-export async function getDashboardStats(from?: string): Promise<DashboardStats> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return { total: 1248, pending: 150, approved: 1028, rejected: 70, stpRate: 82.4, fpdRisk: 1.8, totalTrend: 12, avgProcessingDays: 1.8 };
-  }
-
-  let query = supabase.from("applications").select("status");
-  if (from) query = query.gte("created_at", from);
-  const { data, error } = await query;
-
-  if (error || !data) {
-    console.error("Failed to fetch stats:", error);
-    return { total: 0, pending: 0, approved: 0, rejected: 0, stpRate: 0, fpdRisk: 0, totalTrend: 0, avgProcessingDays: null };
-  }
-
-  const total = data.length;
-  const approved = data.filter((r) => r.status === "APPROVED").length;
-  const rejected = data.filter((r) => r.status === "REJECTED").length;
-  const pending = total - approved - rejected;
-  const stpRate = total > 0 ? Math.round((approved / total) * 1000) / 10 : 0;
-
-  return { total, pending, approved, rejected, stpRate, fpdRisk: 1.8, totalTrend: 12, avgProcessingDays: null };
-}
-
-export interface DecisionSlice {
+export type DashboardQueueItem = {
+  id: string;
   name: string;
-  value: number;
-  color: string;
-}
+  status: string;
+  since: string;
+  origin: string | null;
+  recommendation: "Approve" | "Maybe" | "Reject" | null;
+};
 
-export async function getDecisionDistribution(): Promise<DecisionSlice[]> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return [
-      { name: "Approved", value: 58, color: "#16A34A" },
-      { name: "Maybe", value: 24, color: "#D97706" },
-      { name: "Rejected", value: 18, color: "#DC2626" },
-    ];
+export type DashboardException = {
+  id: string;
+  name: string;
+  origin: string | null;
+  dealer: string;
+  loanAmount: number;
+  engineScore: number | null;
+  reason: string;
+};
+
+export type DashboardData = {
+  stats: DashboardStats;
+  synthetic: number;
+  funnel: { stage: string; count: number }[];
+  trend: DecisionTrendPoint[];
+  fpdLoans: number;
+  myQueue: DashboardQueueItem[];
+  exceptions: DashboardException[];
+  activity: { id: string; actor: string; eventType: string; applicationId: string | null; timestamp: string }[];
+};
+
+function sampleDashboard(): DashboardData {
+  const trend: DecisionTrendPoint[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    trend.push({ date: d.toISOString().slice(0, 10), approved: 8 + (i % 7), rejected: 1 + (i % 3), review: 3 + (i % 5) });
   }
-  const { data, error } = await supabase.from("credit_decisions").select("decision");
-  if (error || !data || data.length === 0) return [{ name: "No data", value: 1, color: "#94A3B8" }];
-  const counts: Record<string, number> = {};
-  for (const row of data as any[]) {
-    const d = row.decision || "Unknown";
-    counts[d] = (counts[d] || 0) + 1;
-  }
-  const colorMap: Record<string, string> = {
-    APPROVE: "#16A34A",
-    MAYBE: "#D97706",
-    REJECT: "#DC2626",
+  const sample = mockApplications.slice(0, 6);
+  return {
+    stats: { total: 1248, pending: 150, approved: 1028, rejected: 70, stpRate: 82.4, fpdRisk: 1.8, totalTrend: 12, avgProcessingDays: 1.8 },
+    synthetic: 0,
+    funnel: [
+      { stage: "Submitted", count: 1248 },
+      { stage: "Documents in", count: 1148 },
+      { stage: "Bureau pulled", count: 1078 },
+      { stage: "Approved", count: 1028 },
+      { stage: "Disbursed", count: 966 },
+    ],
+    trend,
+    fpdLoans: 628,
+    myQueue: sample.slice(0, 3).map((a) => ({ id: a.id, name: a.name, status: a.status, since: a.submitted, origin: null, recommendation: a.recommendation })),
+    exceptions: sample.map((a, i) => ({ id: a.id, name: a.name, origin: null, dealer: a.dealer.split(",")[0] ?? "", loanAmount: a.loanAmount,
+      engineScore: [68, 42, 55, 71, 38, 62][i] ?? null, reason: a.flags[0] ?? "Income verification" })),
+    activity: sample.slice(0, 5).map((a, i) => ({ id: `s${i}`, actor: i % 2 ? "System" : "Rajeev Menon", eventType: i % 2 ? "APPLICATION_ASSESSED" : "OFFICER_DECISION",
+      applicationId: a.id, timestamp: new Date(Date.now() - (i + 1) * 40 * 60000).toISOString() })),
   };
-  return Object.entries(counts).map(([name, value]) => ({
-    name: name.charAt(0) + name.slice(1).toLowerCase(),
-    value,
-    color: colorMap[name] || "#94A3B8",
-  }));
 }
 
-export async function getDashboardTat(from?: string) {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    const { tatData } = await import("./mock-data");
-    return tatData;
-  }
+/**
+ * Every dashboard figure in one call: fn_staff_dashboard (sql/064). Signed-in
+ * staff can't read the applications table, so the figures come from the
+ * database function, with the same real-customer rule as the lists. Throws on
+ * an error; the page shows it.
+ */
+export async function getDashboard(from?: string): Promise<DashboardData> {
+  if (!isSupabaseConfigured || isDemoMode()) return sampleDashboard();
 
-  let query = supabase
-    .from("applications")
-    .select("created_at, updated_at, status")
-    .in("status", ["APPROVED", "REJECTED"])
-    .order("created_at", { ascending: false })
-    .limit(500);
-  if (from) query = query.gte("created_at", from);
-  const { data, error } = await query;
+  const { data, error } = await supabase.rpc("fn_staff_dashboard", { p_from: from ?? null });
+  if (error) throw new Error(error.message || "Could not load the dashboard");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = (data ?? {}) as any;
+  const t = d.totals ?? {};
+  const decided = Number(t.decided) || 0;
+  const total = Number(t.total) || 0;
+  const prior = t.prior_total == null ? null : Number(t.prior_total);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tat = (d.tat ?? []) as any[];
+  const tatCases = tat.reduce((sum, w) => sum + (Number(w.cases) || 0), 0);
+  const tatHours = tat.reduce((sum, w) => sum + (Number(w.cases) || 0) * (Number(w.avg_hours) || 0), 0);
+  const f = d.funnel ?? {};
+  const rec = (r: string | null | undefined) => (r ? mapDecision(r) : null);
 
-  if (error || !data || data.length === 0) {
-    const { tatData } = await import("./mock-data");
-    return tatData;
-  }
-
-  // Group by ISO week
-  const weekMap: Record<string, { sum: number; count: number }> = {};
-  for (const app of data as any[]) {
-    const created = new Date(app.created_at);
-    const updated = new Date(app.updated_at);
-    const tatMinutes = (updated.getTime() - created.getTime()) / 60000;
-
-    // ISO week label (e.g., "W35")
-    const weekNum = Math.ceil(((created.getTime() - new Date(created.getFullYear(), 0, 1).getTime()) / 86400000 + created.getDay() + 1) / 7);
-    const weekLabel = `W${weekNum}`;
-
-    if (!weekMap[weekLabel]) weekMap[weekLabel] = { sum: 0, count: 0 };
-    weekMap[weekLabel].sum += tatMinutes;
-    weekMap[weekLabel].count += 1;
-  }
-
-  // Sort weeks and take last 4
-  const result = Object.entries(weekMap)
-    .sort(([a], [b]) => parseInt(a.slice(1)) - parseInt(b.slice(1)))
-    .slice(-4)
-    .map(([week, v]) => ({ week, minutes: Math.round(v.sum / v.count) }));
-
-  return result.length > 0 ? result : (await import("./mock-data")).tatData;
+  return {
+    stats: {
+      total,
+      pending: Number(t.pending) || 0,
+      approved: Number(t.approved) || 0,
+      rejected: Number(t.rejected) || 0,
+      stpRate: decided > 0 ? Math.round((Number(t.straight_through) / decided) * 1000) / 10 : 0,
+      fpdRisk: d.fpd?.pct == null ? null : Number(d.fpd.pct),
+      totalTrend: prior && prior > 0 ? Math.round(((total - prior) / prior) * 100) : null,
+      avgProcessingDays: tatCases > 0 ? Math.round((tatHours / tatCases / 24) * 10) / 10 : null,
+    },
+    synthetic: Number(t.synthetic) || 0,
+    funnel: [
+      { stage: "Submitted", count: Number(f.sent) || 0 },
+      { stage: "Documents in", count: Number(f.documents) || 0 },
+      { stage: "Bureau pulled", count: Number(f.bureau) || 0 },
+      { stage: "Approved", count: Number(f.approved) || 0 },
+      { stage: "Disbursed", count: Number(f.disbursed) || 0 },
+    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    trend: ((d.trend ?? []) as any[]).map((p) => ({ date: p.date, approved: p.approved, rejected: p.rejected, review: p.review })),
+    fpdLoans: Number(d.fpd?.loans) || 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    myQueue: ((d.my_queue ?? []) as any[]).map((q) => ({
+      id: q.application_id, name: q.full_name ?? "", status: q.status, since: q.since, origin: q.origin ?? null, recommendation: rec(q.recommendation),
+    })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    exceptions: ((d.exceptions ?? []) as any[]).map((x) => ({
+      id: x.application_id, name: x.full_name ?? "", origin: x.origin ?? null, dealer: x.dealer_name ?? "",
+      loanAmount: Number(x.loan_amount) || 0, engineScore: x.engine_score == null ? null : Number(x.engine_score), reason: x.reason ?? "",
+    })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    activity: ((d.activity ?? []) as any[]).map((e) => ({
+      id: e.id, actor: e.actor ?? "System", eventType: e.event_type, applicationId: e.application_id ?? null, timestamp: e.created_at,
+    })),
+  };
 }
-
 
 export async function getEmployers() {
   if (!isSupabaseConfigured || isDemoMode()) return mockEmployers;
@@ -1532,48 +1556,6 @@ export type DecisionTrendPoint = {
   rejected: number;
   review: number;
 };
-
-export async function getDecisionTrend(): Promise<DecisionTrendPoint[]> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    const points: DecisionTrendPoint[] = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      points.push({
-        date: d.toISOString().slice(0, 10),
-        approved: Math.floor(Math.random() * 15) + 5,
-        rejected: Math.floor(Math.random() * 5) + 1,
-        review: Math.floor(Math.random() * 8) + 2,
-      });
-    }
-    return points;
-  }
-  const since = new Date();
-  since.setDate(since.getDate() - 30);
-  const { data, error } = await supabase
-    .from("applications")
-    .select("status, updated_at")
-    .gte("updated_at", since.toISOString())
-    .in("status", ["APPROVED", "REJECTED", "REVIEW"]);
-  if (error || !data) return [];
-  const byDate = new Map<string, DecisionTrendPoint>();
-  for (const row of data as any[]) {
-    const date = (row.updated_at as string).slice(0, 10);
-    const existing = byDate.get(date) ?? {
-      date,
-      approved: 0,
-      rejected: 0,
-      review: 0,
-    };
-    if (row.status === "APPROVED") existing.approved++;
-    else if (row.status === "REJECTED") existing.rejected++;
-    else existing.review++;
-    byDate.set(date, existing);
-  }
-  return Array.from(byDate.values()).sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
-}
 
 // -- Task 70: Portfolio metrics --------------------------------------------------
 

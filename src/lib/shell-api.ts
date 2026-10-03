@@ -64,6 +64,11 @@ const EVENT_TEXT: Record<string, { title: string; type: NotificationItem["type"]
   USER_SUSPENDED: { title: "Staff login suspended", type: "warning" },
 };
 
+/** A logged event said plainly, for the bell and the dashboard's activity feed. */
+export function eventTitle(eventType: string): { title: string; type: NotificationItem["type"] } {
+  return EVENT_TEXT[eventType] ?? { title: eventType.replace(/_/g, " ").toLowerCase(), type: "info" };
+}
+
 const SEEN_KEY = "cercit_notifications_seen_at";
 
 function seenAt(): number {

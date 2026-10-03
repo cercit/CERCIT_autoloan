@@ -9,13 +9,10 @@ import {
 } from "recharts";
 
 import { AppShell, Pill, SectionCard } from "@/components/app-shell";
-import { CategoryBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getApplications, getDashboardStats, getDashboardTat, getDecisionDistribution } from "@/lib/api";
-import { tatData } from "@/lib/mock-data";
-import type { DashboardStats } from "@/lib/api";
-import type { Application } from "@/lib/mock-data";
+import { getDashboard } from "@/lib/api";
+import type { DashboardData, DashboardStats } from "@/lib/api";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SlaTimer } from "@/components/sla-timer";
@@ -23,10 +20,10 @@ import { DecisionTrendChart } from "@/components/decision-trend-chart";
 import { PortfolioQuality } from "@/components/portfolio-quality";
 import { ActivityFeed } from "@/components/activity-feed";
 import type { FeedItem } from "@/components/activity-feed";
-import { getDecisionTrend, getPortfolioMetrics } from "@/lib/api";
-import type { DecisionTrendPoint, PortfolioMetrics } from "@/lib/api";
-import { currentUser } from "@/lib/mock-data";
+import { getPortfolioMetrics } from "@/lib/api";
+import type { PortfolioMetrics } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { eventTitle } from "@/lib/shell-api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -53,47 +50,6 @@ const decisionSlices = [
   { name: "Rejected", key: "rejected", color: "var(--color-destructive)" },
 ] as const;
 
-const recentActivity: FeedItem[] = [
-  { id: "f1", actor: "Policy Engine", action: "Auto-approved APP-2026-00847 — Band A, CIBIL 782", timestamp: new Date(Date.now() - 8 * 60000).toISOString(), type: "success" },
-  { id: "f2", actor: "Rajeev Menon", action: "Opened APP-2026-00845 for manual review", timestamp: new Date(Date.now() - 22 * 60000).toISOString(), type: "info" },
-  { id: "f3", actor: "Bureau API", action: "CIBIL fetch failed for APP-2026-00843 — retrying", timestamp: new Date(Date.now() - 35 * 60000).toISOString(), type: "error" },
-  { id: "f4", actor: "System", action: "Rate grid v2.3 activated — Band A now 8.75%", timestamp: new Date(Date.now() - 2 * 3600000).toISOString(), type: "warning" },
-  { id: "f5", actor: "Priya Sharma", action: "Escalated APP-2026-00842 to State Credit Head", timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), type: "info" },
-  { id: "f6", actor: "Policy Engine", action: "Rejected APP-2026-00843 — CIBIL 624 below threshold", timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), type: "error" },
-  { id: "f7", actor: "Document AI", action: "Extracted salary slip for APP-2026-00846 — 94% confidence", timestamp: new Date(Date.now() - 5 * 3600000).toISOString(), type: "success" },
-];
-
-const flagReasons: Record<string, string> = {
-  "APP-2026-00847": "DTI Volatility",
-  "APP-2026-00846": "LTV Erosion Risk",
-  "APP-2026-00845": "Income Verification",
-  "APP-2026-00844": "Employment Tenure",
-  "APP-2026-00843": "High FPD Risk Score",
-  "APP-2026-00842": "Valuation Mismatch",
-};
-
-const aiConfidence: Record<string, number> = {
-  "APP-2026-00847": 68,
-  "APP-2026-00846": 42,
-  "APP-2026-00845": 55,
-  "APP-2026-00844": 71,
-  "APP-2026-00843": 38,
-  "APP-2026-00842": 62,
-};
-
-function buildFunnel(stats: DashboardStats) {
-  const t = stats.total || 1;
-  const docsVerified = Math.round(t * 0.92);
-  const bureauCleared = Math.round(t * 0.864);
-  return [
-    { stage: "Submitted", count: t, color: "var(--color-primary)" },
-    { stage: "Docs verified", count: docsVerified, color: "var(--color-info)" },
-    { stage: "Bureau cleared", count: bureauCleared, color: "var(--color-chart-5)" },
-    { stage: "AI approved", count: stats.approved, color: "var(--color-success)" },
-    { stage: "Disbursed", count: Math.round(stats.approved * 0.94), color: "var(--color-success)" },
-  ];
-}
-
 function rangeToDate(r: string): string | undefined {
   const now = new Date();
   if (r === "today") return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -103,37 +59,53 @@ function rangeToDate(r: string): string | undefined {
   return undefined;
 }
 
+const EMPTY_STATS: DashboardStats = {
+  total: 0, pending: 0, approved: 0, rejected: 0, stpRate: 0, fpdRisk: null, totalTrend: null, avgProcessingDays: null,
+};
+
 function Dashboard() {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({
-    total: 0, pending: 0, approved: 0, rejected: 0, stpRate: 0, fpdRisk: 0, totalTrend: 0, avgProcessingDays: null,
-  });
+  // C10: every figure comes from fn_staff_dashboard (sql/064); nothing on this page is typed in.
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState("30d");
-  const [tatDataFetched, setTatDataFetched] = useState<any[]>([]);
+  const [range] = useState("30d");
   const [activeSlice, setActiveSlice] = useState<number | null>(null);
-  const [trendData, setTrendData] = useState<DecisionTrendPoint[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioMetrics | null>(null);
+  const [myName, setMyName] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
     const from = rangeToDate(range);
     Promise.all([
-      getApplications().then(setApplications),
-      getDashboardStats(from).then(setStats),
-      (from ? getDashboardTat(from) : Promise.resolve([])).then(setTatDataFetched),
-      getDecisionTrend().then(setTrendData),
+      getDashboard(from).then(setData).catch((e: Error) => setLoadError(e.message)),
       getPortfolioMetrics().then(setPortfolio),
     ]).finally(() => setLoading(false));
   }, [range]);
 
+  const stats = data?.stats ?? EMPTY_STATS;
+  const trendData = data?.trend ?? [];
+
   const total = stats.approved + stats.pending + stats.rejected;
+  const activityItems: FeedItem[] = (data?.activity ?? []).map((e) => {
+    const text = eventTitle(e.eventType);
+    return {
+      id: e.id,
+      actor: e.actor,
+      action: e.applicationId ? `${text.title} — ${e.applicationId}` : text.title,
+      timestamp: e.timestamp,
+      type: text.type === "warning" ? "warning" : text.type === "success" ? "success" : "info",
+    };
+  });
 
   // Fix A4: today's day and the user's own branch, not a fixed "Wednesday — Chennai".
   const [branch, setBranch] = useState<string | null>(null);
   useEffect(() => {
     void getCurrentUser()
-      .then((me) => setBranch(me?.stateCode ?? null))
+      .then((me) => {
+        setBranch(me?.stateCode ?? null);
+        setMyName(me?.fullName ?? null);
+      })
       .catch(() => setBranch(null));
   }, []);
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" });
@@ -151,6 +123,16 @@ function Dashboard() {
         </Button>
       }
     >
+      {loadError && (
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          The dashboard figures could not be loaded: {loadError}
+        </div>
+      )}
+      {data && data.synthetic > 0 && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Includes {data.synthetic.toLocaleString()} synthetic (simulated) applications from the demo book.
+        </p>
+      )}
       {/* Metric cards */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {loading ? (
@@ -168,16 +150,18 @@ function Dashboard() {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Total applications
                 </p>
-                {stats.totalTrend > 0 && (
-                  <span className="flex items-center gap-0.5 text-xs font-semibold text-success">
-                    <TrendingUp className="size-3.5" />+{stats.totalTrend}%
+                {stats.totalTrend != null && stats.totalTrend !== 0 && (
+                  <span className={cn("flex items-center gap-0.5 text-xs font-semibold", stats.totalTrend > 0 ? "text-success" : "text-muted-foreground")}>
+                    <TrendingUp className="size-3.5" />
+                    {stats.totalTrend > 0 ? "+" : ""}
+                    {stats.totalTrend}%
                   </span>
                 )}
               </div>
               <p className="mt-2 text-3xl font-bold tabular tracking-tight">
                 {stats.total.toLocaleString()}
               </p>
-              <p className="mt-1 text-[11px] font-medium text-muted-foreground">this week</p>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">sent in the last 30 days</p>
             </div>
 
             <div className="panel p-5">
@@ -190,7 +174,7 @@ function Dashboard() {
                   Target: 80%
                 </span>
               </div>
-              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Straight-through processing</p>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Decided by the system with no person</p>
             </div>
 
             <div className="panel p-5">
@@ -200,7 +184,7 @@ function Dashboard() {
               <p className="mt-2 text-3xl font-bold tabular tracking-tight text-warning">
                 {stats.pending}
               </p>
-              <p className="mt-1 text-[11px] font-medium text-muted-foreground">AI-flagged for manual review</p>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Waiting for checks or a person</p>
             </div>
 
             <div className="panel p-5">
@@ -208,12 +192,16 @@ function Dashboard() {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   FPD risk
                 </p>
-                <span className="flex items-center gap-1 text-xs font-semibold text-destructive">
-                  <AlertTriangle className="size-3.5" />Elevated
-                </span>
+                {stats.fpdRisk != null && stats.fpdRisk >= 2 && (
+                  <span className="flex items-center gap-1 text-xs font-semibold text-destructive">
+                    <AlertTriangle className="size-3.5" />Elevated
+                  </span>
+                )}
               </div>
-              <p className="mt-2 text-3xl font-bold tabular tracking-tight">{stats.fpdRisk}%</p>
-              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Projected first payment default</p>
+              <p className="mt-2 text-3xl font-bold tabular tracking-tight">{stats.fpdRisk == null ? "—" : `${stats.fpdRisk}%`}</p>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                First instalment 30+ days late{data && data.fpdLoans > 0 ? ` (of ${data.fpdLoans} loans)` : ""}
+              </p>
             </div>
           </>
         )}
@@ -222,24 +210,22 @@ function Dashboard() {
       {/* My Queue */}
       <SectionCard
         title="My Queue"
-        description={`Assigned to ${currentUser.name}`}
+        description={myName ? `Assigned to ${myName}` : "Assigned to you"}
         className="mt-4"
       >
         <ul className="divide-y divide-border">
-          {applications
-            .filter((a) => a.assignedTo === currentUser.name)
-            .slice(0, 5)
-            .map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-3 py-2">
-                <Link
-                  to="/applications/$id"
-                  params={{ id: a.id }}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  {a.id} — {a.name}
-                </Link>
-                <div className="flex items-center gap-3">
-                  <SlaTimer since={a.submitted} />
+          {(data?.myQueue ?? []).map((a) => (
+            <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+              <Link
+                to="/applications/$id"
+                params={{ id: a.id }}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                {a.id} — {a.name}
+              </Link>
+              <div className="flex items-center gap-3">
+                <SlaTimer since={a.since} />
+                {a.recommendation && (
                   <Pill
                     tone={
                       a.recommendation === "Approve"
@@ -251,10 +237,11 @@ function Dashboard() {
                   >
                     {a.recommendation}
                   </Pill>
-                </div>
-              </li>
-            ))}
-          {applications.filter((a) => a.assignedTo === currentUser.name).length === 0 && (
+                )}
+              </div>
+            </li>
+          ))}
+          {(data?.myQueue ?? []).length === 0 && (
             <li className="py-6 text-center text-sm text-muted-foreground">No applications in your queue</li>
           )}
         </ul>
@@ -263,7 +250,7 @@ function Dashboard() {
       {/* Exception queue */}
       <SectionCard
         title="Exception Queue"
-        description="AI-flagged files requiring senior review"
+        description="Referred cases waiting for a person, newest first"
         action={
           <Button variant="ghost" size="sm" asChild>
             <Link to="/applications">View all</Link>
@@ -279,14 +266,14 @@ function Dashboard() {
                 <th className="px-4 py-2.5 text-left font-medium">Applicant</th>
                 <th className="px-4 py-2.5 text-left font-medium">Dealer / Source</th>
                 <th className="px-4 py-2.5 text-right font-medium">Loan Amount</th>
-                <th className="px-4 py-2.5 text-center font-medium">AI Confidence</th>
-                <th className="px-4 py-2.5 text-left font-medium">Flag Reason</th>
+                <th className="px-4 py-2.5 text-center font-medium">Engine score</th>
+                <th className="px-4 py-2.5 text-left font-medium">Rules not met</th>
               </tr>
             </thead>
             <tbody>
-              {applications.map((app) => {
-                const conf = aiConfidence[app.id] ?? 50;
-                const confTone = conf < 50 ? "destructive" : "warning";
+              {(data?.exceptions ?? []).map((app) => {
+                const conf = app.engineScore;
+                const confTone = conf == null || conf < 50 ? "destructive" : "warning";
                 return (
                   <tr key={app.id} className="border-t border-border transition-colors hover:bg-surface-subtle/60">
                     <td className="px-4 py-3">
@@ -299,31 +286,35 @@ function Dashboard() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">{app.name}</td>
-                    <td className="px-4 py-3">
-                      <span className="flex items-center gap-2 whitespace-nowrap">
-                        <CategoryBadge category={app.category} />
-                        {app.dealer.split(",")[0]}
-                      </span>
-                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">{app.dealer || "—"}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap tabular font-medium">
                       {inr(app.loanAmount)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={cn(
-                        "inline-block rounded px-2.5 py-1 text-xs font-bold tabular",
-                        confTone === "destructive"
-                          ? "bg-destructive/12 text-destructive"
-                          : "bg-warning/18 text-warning-foreground dark:text-warning",
-                      )}>
-                        {conf}%
-                      </span>
+                      {conf == null ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className={cn(
+                          "inline-block rounded px-2.5 py-1 text-xs font-bold tabular",
+                          confTone === "destructive"
+                            ? "bg-destructive/12 text-destructive"
+                            : "bg-warning/18 text-warning-foreground dark:text-warning",
+                        )}>
+                          {conf}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-[13px]">
-                      {flagReasons[app.id] ?? app.flags[0] ?? "—"}
+                      {app.reason || "—"}
                     </td>
                   </tr>
                 );
               })}
+              {data && data.exceptions.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-muted-foreground">No referred cases waiting</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -332,7 +323,7 @@ function Dashboard() {
       {/* Charts row */}
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         {/* Decision distribution */}
-        <SectionCard title="Decision Distribution" description="This month">
+        <SectionCard title="Decision Distribution" description="Applications sent in the last 30 days">
           <div className="relative mx-auto h-48 w-48">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -395,9 +386,9 @@ function Dashboard() {
         </SectionCard>
 
         {/* Application funnel */}
-        <SectionCard title="Application Funnel" description="Pipeline conversion (this month)">
+        <SectionCard title="Application Funnel" description="Applications sent in the last 30 days">
           <div className="space-y-3">
-            {buildFunnel(stats).map((step, i, arr) => {
+            {(data?.funnel ?? []).map((step, i, arr) => {
               const maxCount = arr[0]?.count ?? 1;
               const widthPct = maxCount > 0 ? (step.count / maxCount) * 100 : 0;
               const prevCount = i > 0 ? (arr[i - 1]?.count ?? step.count) : step.count;
@@ -422,7 +413,7 @@ function Dashboard() {
                       className="h-full rounded transition-all"
                       style={{
                         width: `${Math.max(widthPct, 2)}%`,
-                        background: step.color,
+                        background: i < 3 ? "var(--color-primary)" : "var(--color-success)",
                         opacity: 0.85,
                       }}
                     />
@@ -440,7 +431,7 @@ function Dashboard() {
           {trendData.length > 0 ? (
             <DecisionTrendChart data={trendData} />
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">Loading trend data...</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{loading ? "Loading trend data..." : "No decisions to show"}</p>
           )}
         </SectionCard>
         <SectionCard title="Portfolio Quality" description="Disbursed loans by days overdue today">
@@ -454,7 +445,11 @@ function Dashboard() {
 
       {/* Recent activity */}
       <SectionCard title="Recent Activity" description="Live feed" className="mt-4">
-        <ActivityFeed items={recentActivity} maxItems={7} />
+        {data && data.activity.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No recent activity</p>
+        ) : (
+          <ActivityFeed items={activityItems} maxItems={7} />
+        )}
       </SectionCard>
     </AppShell>
   );
