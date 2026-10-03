@@ -307,7 +307,7 @@ function SanctionLetter() {
             Percentage Rate of {apr}% p.a. I accept the loan on the terms stated herein and
             undertake to comply with all conditions for disbursement and repayment.
           </p>
-          <div className="mt-3 flex gap-8">
+          <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
             <div>
               <p className="text-slate-400">Signature: ________________________</p>
             </div>

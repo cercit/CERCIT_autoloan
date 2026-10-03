@@ -309,7 +309,8 @@ function ApplicationDetail() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
+        {/* H4: wraps on a phone instead of running off the screen */}
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 sm:w-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="extracted">Extracted Data</TabsTrigger>
