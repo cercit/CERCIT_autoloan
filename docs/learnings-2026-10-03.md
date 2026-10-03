@@ -89,7 +89,7 @@ The customer journey is open, so a LinkedIn visitor could upload their real Aadh
 |---|---|
 | Task list | `Desktop/Claude/TASKS.md` (board: `dashboard.html`) |
 | Fix list, incl. pre-launch L1–L6 | `docs/fix-list.md` |
-| Live migrations | `docs/migration-run-log.md` (001–080 run; 075/079 schedules wait for pg_cron) |
+| Live migrations | `docs/migration-run-log.md` (001–080 run; 075/079 schedules on since 3 Oct) |
 | How cercit works | `behind-the-scenes/how-it-works/` (flows, schema, functions, where things live) |
 | Launch video | `AI-Credit-Underwriter/brag-output-2026-10-03-150942/brag-v2.mp4` (1:53) + `brag.mp4` (2:42) |
 | Cloud session brief | `docs/cloud-session-brief.md` |
