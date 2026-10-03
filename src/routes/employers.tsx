@@ -27,10 +27,10 @@ function Employers() {
 
   const refresh = () => {
     setLoading(true);
-    getEmployers().then((data) => {
-      setEmployers(data || []);
-      setLoading(false);
-    });
+    getEmployers()
+      .then((data) => setEmployers(data || []))
+      .catch((e: Error) => toast.error(`Employers could not be loaded: ${e.message}`))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { refresh(); }, []);

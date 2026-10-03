@@ -106,6 +106,18 @@ const applicationRowSchema = z.object({
     .map((f) => f.message ?? f.rule_name ?? "")
     .filter(Boolean),
   reasons: [],
+  ...((row.risk_factors as Array<{ rule_name?: string }>).some((f) => f.rule_name)
+    ? {
+        ruleChecks: (row.risk_factors as Array<{ rule_name?: string; threshold?: unknown; actual?: unknown; result?: string }>)
+          .filter((f) => f.rule_name && f.result !== "SKIPPED")
+          .map((f) => ({
+            rule: f.rule_name ?? "",
+            expected: f.threshold == null ? "—" : String(f.threshold),
+            actual: f.actual == null ? "—" : String(f.actual),
+            pass: f.result !== "FAIL",
+          })),
+      }
+    : {}),
 } as Application));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -217,10 +229,9 @@ export async function getApplications(): Promise<Application[]> {
   if (!isSupabaseConfigured || isDemoMode()) return mockApplications;
 
   const { data, error } = await supabase.rpc("fn_list_applications");
-  if (error || !data) {
-    console.error("Failed to fetch applications:", error);
-    return mockApplications;
-  }
+  // C2: an error is shown on the page, never replaced with sample cases
+  if (error) throw new Error(error.message || "Could not load the applications");
+  if (!data) return [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const apps = (data as any[]).map(mapToApplication);
   // Batch-fetch engine decisions for these IDs
@@ -261,7 +272,15 @@ export async function getApplication(
     source: o.source ?? "Bureau",
   }));
 
-  return { ...baseApp, obligations };
+  const c = r.case;
+  return {
+    ...baseApp,
+    obligations,
+    ...(c.policy_version ? { policyVersionId: String(c.policy_version) } : {}),
+    ...(c.rules_snapshot ? { rulesSnapshot: String(c.rules_snapshot) } : {}),
+    ...(c.model_version ? { modelVersion: String(c.model_version) } : {}),
+    ...(c.version_basis === "RECORDED" || c.version_basis === "ASSUMED" ? { versionBasis: c.version_basis as "RECORDED" | "ASSUMED" } : {}),
+  };
 }
 
 export async function createApplication(
@@ -454,10 +473,9 @@ export async function getRateGrid(): Promise<RateGridData> {
       .order("display_order"),
   ]);
 
-  if (bandResult.error) {
-    console.error("Failed to fetch rate grid bands:", bandResult.error);
-    return mockRateGridData;
-  }
+  // C2: show the error rather than the sample grid
+  if (bandResult.error) throw new Error(bandResult.error.message || "Could not load the rate grid");
+  if (categoryResult.error) throw new Error(categoryResult.error.message || "Could not load the employer categories");
 
   const bands = (bandResult.data ?? []).flatMap((row) => {
     const parsed = rateBandRowSchema.safeParse(row);
@@ -475,17 +493,7 @@ export async function getRateGrid(): Promise<RateGridData> {
     ];
   });
 
-  if (bands.length === 0) return mockRateGridData;
-
-  // employer_category_pricing ships in migration 011 — fall back if it isn't applied yet
-  if (categoryResult.error || !categoryResult.data || categoryResult.data.length === 0) {
-    if (categoryResult.error) {
-      console.error("Failed to fetch employer category pricing:", categoryResult.error);
-    }
-    return { bands, categories: mockEmployerCategoryPricing };
-  }
-
-  const categories = categoryResult.data.flatMap((row) => {
+  const categories = (categoryResult.data ?? []).flatMap((row) => {
     const parsed = employerCategoryRowSchema.safeParse(row);
     if (!parsed.success) return [];
     const r = parsed.data;
@@ -502,10 +510,7 @@ export async function getRateGrid(): Promise<RateGridData> {
     ];
   });
 
-  return {
-    bands,
-    categories: categories.length > 0 ? categories : mockEmployerCategoryPricing,
-  };
+  return { bands, categories };
 }
 
 /** Effective rate for a band under an employer category. 0 base = not offered. */
@@ -903,7 +908,8 @@ export async function getEmployers() {
     .select("oem_name, dealer_name, dealer_code, city, state_code, is_active")
     .eq("is_active", true);
 
-  if (error || !data) return mockEmployers;
+  if (error) throw new Error(error.message || "Could not load the employers");
+  if (!data) return [];
   // Transform dealer rows into employer records for UI
   return (data as any[]).map((d) => ({
     name: d.oem_name ?? d.dealer_name,
@@ -942,18 +948,6 @@ export async function getDealersByOem() {
     });
   }
   return grouped;
-}
-
-export async function getMakes(): Promise<Record<string, string[]>> {
-  if (!isSupabaseConfigured || isDemoMode()) return mockMakes;
-
-  const { data, error } = await supabase
-    .from("dealers")
-    .select("oem_name, dealer_name")
-    .eq("is_active", true);
-
-  if (error || !data) return mockMakes;
-  return mockMakes;
 }
 
 export type Document = {

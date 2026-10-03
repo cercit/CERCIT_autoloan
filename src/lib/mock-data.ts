@@ -62,6 +62,8 @@ export type Application = {
   rulesSnapshot?: string;
   modelVersion?: string;
   versionBasis?: "RECORDED" | "ASSUMED";
+  /** the engine's rule results for this case (live data only) */
+  ruleChecks?: { rule: string; expected: string; actual: string; pass: boolean }[];
 };
 
 const base = {

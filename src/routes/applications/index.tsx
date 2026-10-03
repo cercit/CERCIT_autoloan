@@ -65,9 +65,11 @@ function Applications() {
   const [sortKey, setSortKey] = useState<"name" | "cibil" | "loanAmount" | "status" | "submitted" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
     getApplications()
       .then(setAllApps)
+      .catch((e: Error) => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -117,6 +119,11 @@ function Applications() {
         </Button>
       }
     >
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          The applications could not be loaded: {loadError}
+        </div>
+      )}
       <SectionCard className="overflow-hidden">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">

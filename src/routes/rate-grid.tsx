@@ -7,6 +7,8 @@ import { CategoryBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { rateBands, employerCategoryPricing } from "@/lib/mock-data";
 import { getRateGrid, effectiveRate, type RateGridData } from "@/lib/api";
+import { isDemoMode } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { getRateGridFromPolicy, type RateGridFromPolicy } from "@/lib/policy-api";
 import { inr } from "@/lib/format";
@@ -53,11 +55,14 @@ function exportCsv({ bands, categories }: RateGridData) {
   URL.revokeObjectURL(url);
 }
 
+const sampleMode = () => !isSupabaseConfigured || isDemoMode();
+
 function RateGridPage() {
-  const [data, setData] = useState<RateGridData>({
-    bands: rateBands,
-    categories: employerCategoryPricing,
-  });
+  // Sample grid only in sample mode; on the live site the page starts empty and shows any error (C2).
+  const [data, setData] = useState<RateGridData>(
+    sampleMode() ? { bands: rateBands, categories: employerCategoryPricing } : { bands: [], categories: [] },
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
   // With Credit control on, the grid shows what the approved policy version says,
   // and changes go through a proposal on the Policy Rules screen.
   const { enabled: creditControl, ready } = useFeatureStatus("credit_control");
@@ -76,9 +81,11 @@ function RateGridPage() {
           return;
         }
         const next = await getRateGrid();
-        if (!cancelled && next.bands.length > 0) setData(next);
+        if (!cancelled) setData(next);
       })
-      .catch(() => {});
+      .catch((e: Error) => {
+        if (!cancelled) setLoadError(e.message);
+      });
     return () => {
       cancelled = true;
     };
@@ -91,7 +98,7 @@ function RateGridPage() {
           ? new Date(approved.effectiveFrom).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
           : "—"
       } — new car loans, salaried segment`
-    : "Effective 01 Aug 2026 — new car loans, salaried segment";
+    : "New car loans, salaried segment";
 
   return (
     <AppShell
@@ -110,6 +117,11 @@ function RateGridPage() {
         </div>
       }
     >
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          The rate grid could not be loaded: {loadError}
+        </div>
+      )}
       {approved && approved.drift.length > 0 && (
         <div role="alert" className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />

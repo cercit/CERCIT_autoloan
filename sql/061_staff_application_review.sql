@@ -86,6 +86,10 @@ BEGIN
     'ltv_pct', r.ltv_calculated,
     'risk_factors', coalesce(r.risk_factors, '[]'::jsonb),
     'summary_text', r.summary_text,
+    'policy_version', (SELECT pv.version_code FROM policy_versions pv WHERE pv.id = r.policy_version_id),
+    'rules_snapshot', r.rules_snapshot,
+    'model_version', r.model_version,
+    'version_basis', r.version_basis,
     'officer_name', u.full_name
   ) INTO v_case
   FROM (SELECT 1) one
