@@ -81,6 +81,22 @@ const ACTIVITY_TEXT: Record<string, string> = {
   POLICY_STATUS: "Credit policy version changed",
   SWITCH_CHANGED: "Turned a module switch on or off",
   CASE_STAGE: "Case moved to a new stage",
+  ROLES_RETIRED: "Retired old roles",
+  EMPLOYER_ADDED: "Added an employer",
+  EMPLOYER_CHANGED: "Changed an employer",
+  EMPLOYER_CHECKED: "Ran an employer's checks",
+  EMPLOYER_CATEGORY_REQUESTED: "Asked for an employer category change",
+  EMPLOYER_CATEGORY_APPROVED: "Approved an employer category change",
+  EMPLOYER_CATEGORY_REJECTED: "Rejected an employer category change",
+  EMPLOYER_CATEGORY_WITHDRAWN: "Withdrew an employer category change",
+  RATE_GRID_PRODUCT_ADDED: "Added a pricing product",
+  RATE_GRID_DRAFTED: "Started a rate grid draft",
+  RATE_GRID_SUBMITTED: "Sent a rate grid for approval",
+  RATE_GRID_WITHDRAWN: "Withdrew a rate grid",
+  RATE_GRID_DISCARDED: "Discarded a rate grid draft",
+  RATE_GRID_APPROVED: "Approved a rate grid",
+  RATE_GRID_REJECTED: "Rejected a rate grid",
+  RATE_GRID_LIVE: "A rate grid went live",
 };
 
 const activityText = (code: string): string =>

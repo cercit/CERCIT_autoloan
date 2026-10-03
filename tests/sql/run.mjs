@@ -3327,6 +3327,76 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 49. Rate Grid: edit and add grids through pricing approval (071, G3)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("rate grid versions");
+  const PM = "33333333-3333-3333-3333-333333333333"; // policy manager: pricing.author
+  const HEAD = "71717171-0000-0000-0000-000000000001"; // credit head: pricing.author + pricing.approve
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('head@rg.t', 'Head RG', 'credit_head', $1) on conflict do nothing", [HEAD]);
+  const engineBefore = (await db.query("select band_label, rate_pct::float as r from rate_grid where is_active order by score_band_min desc")).rows;
+
+  await as(OFFICER);
+  const o = (await one("select fn_rate_grid_overview() as v")).v;
+  t.equal("version 1 is the grid in use, with its bands and categories",
+    [o.in_force.version_no, o.in_force.bands.length, o.in_force.categories.length, o.can_author], [1, engineBefore.length, 3, false]);
+  await t.rejects("an officer can't start a draft", () => db.query("select fn_rate_grid_draft_create('CAR_NEW_SALARIED')"), /permission denied: pricing.author/);
+
+  await as(PM);
+  const d = (await one("select fn_rate_grid_draft_create('CAR_NEW_SALARIED', 'test') as v")).v;
+  const bands = d.bands.map((b) => (b.band_label === "APPROVE" ? { ...b, rate_pct: 9.25 } : b));
+  const gap = bands.map((b) => (b.band_label === "MAYBE" ? { ...b, score_band_max: b.score_band_max - 5 } : b));
+  const withGap = (await one("select fn_rate_grid_draft_save($1, $2, $3) as v", [d.id, JSON.stringify(gap), JSON.stringify(d.categories)])).v;
+  t.equal("a gap between bands is caught before approval", withGap.problems.some((p) => /gap/.test(p)), true);
+  await t.rejects("and the grid can't be sent with it", () => db.query("select fn_rate_grid_submit($1, current_date, 'A new base rate for the top band')", [d.id]), /fix the grid first/);
+  const ok = (await one("select fn_rate_grid_draft_save($1, $2, $3) as v", [d.id, JSON.stringify(bands), JSON.stringify(d.categories)])).v;
+  t.equal("a whole grid has no problems", ok.problems, []);
+  await one("select fn_rate_grid_submit($1, (now() at time zone 'Asia/Kolkata')::date, 'A new base rate for the top band') as v", [d.id]);
+  await t.rejects("the author can't approve (no pricing.approve)", () => db.query("select fn_rate_grid_decide($1, true)", [d.id]), /permission denied: pricing.approve/);
+
+  await as(HEAD);
+  const live = (await one("select fn_rate_grid_decide($1, true, 'ok') as v", [d.id])).v;
+  t.equal("approved with today's date, it goes live at once", live.status, "ACTIVE");
+  await operator();
+  const after = (await db.query("select band_label, rate_pct::float as r, policy_version from rate_grid where is_active order by score_band_min desc")).rows;
+  t.equal("the engine's table now has the new rate, marked with the grid version",
+    [after.find((b) => b.band_label === "APPROVE").r, after[0].policy_version], [9.25, "RG-v2"]);
+  t.equal("the old rows are kept, switched off", (await one("select count(*)::int as n from rate_grid where not is_active and policy_version = '2026.08'")).n >= engineBefore.length, true);
+  const hist = (await db.query("select version_no, status, effective_to is not null as ended from rate_grid_versions where product_code = 'CAR_NEW_SALARIED' order by version_no")).rows;
+  t.equal("version 1 is history with an end date", hist[0], { version_no: 1, status: "SUPERSEDED", ended: true });
+  t.equal("each moment has one grid in force", [(await one("select fn_rate_grid_version_at('CAR_NEW_SALARIED', '2026-09-01') as v")).v.version_no,
+    (await one("select fn_rate_grid_version_at('CAR_NEW_SALARIED') as v")).v.version_no], [1, 2]);
+
+  await as(HEAD);
+  const own = (await one("select fn_rate_grid_draft_create('CAR_NEW_SALARIED', 'put it back') as v")).v;
+  const back = own.bands.map((b) => ({ ...b, rate_pct: engineBefore.find((e) => e.band_label === b.band_label).r }));
+  await one("select fn_rate_grid_draft_save($1, $2, $3) as v", [own.id, JSON.stringify(back), JSON.stringify(own.categories)]);
+  await one("select fn_rate_grid_submit($1, (now() at time zone 'Asia/Kolkata')::date, 'Back to the rates of version 1') as v", [own.id]);
+  await t.rejects("a credit head can't approve their own grid", () => db.query("select fn_rate_grid_decide($1, true)", [own.id]), /second person/);
+  await operator();
+  await db.query("select fn_rate_grid_decide($1, true, 'restore after test')", [own.id]);
+  t.equal("and a grid approved later restores the rates", (await db.query("select band_label, rate_pct::float as r from rate_grid where is_active order by score_band_min desc")).rows, engineBefore);
+
+  await as(PM);
+  const cv = (await one("select fn_rate_grid_product_create('cv salaried', 'Commercial vehicle, salaried') as v")).v;
+  t.equal("a new product starts as a draft copied from the car grid", [cv.product_code, cv.status, cv.bands.length], ["CV_SALARIED", "DRAFT", engineBefore.length]);
+  await operator();
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

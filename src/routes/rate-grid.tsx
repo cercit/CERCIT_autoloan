@@ -14,6 +14,7 @@ import { getRateGridFromPolicy, type RateGridFromPolicy } from "@/lib/policy-api
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { can, useMyRights } from "@/lib/permissions";
+import { RateGridVersions } from "@/components/rate-grid-versions";
 
 export const Route = createFileRoute("/rate-grid")({
   head: () => ({
@@ -65,6 +66,8 @@ function RateGridPage() {
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const rights = useMyRights();
+  // G3: a grid approved for today goes live at once; read the tables again
+  const [reloadKey, setReloadKey] = useState(0);
   // With Credit control on, the grid shows what the approved policy version says,
   // and changes go through a proposal on the Policy Rules screen.
   const { enabled: creditControl, ready } = useFeatureStatus("credit_control");
@@ -91,7 +94,7 @@ function RateGridPage() {
     return () => {
       cancelled = true;
     };
-  }, [ready, creditControl]);
+  }, [ready, creditControl, reloadKey]);
 
   const { bands, categories } = data;
   const subtitle = approved
@@ -224,6 +227,8 @@ function RateGridPage() {
           </SectionCard>
         ))}
       </div>
+
+      {!sampleMode() && !approved && <RateGridVersions onLive={() => setReloadKey((k) => k + 1)} />}
     </AppShell>
   );
 }

@@ -53,6 +53,7 @@ export function EmployerCard({ applicationId }: { applicationId: string }) {
             <LabelValue label="Rate" value={`${p.base_rate_pct}% + ${p.rate_loading_pct}% = ${p.rate_pct}%`} />
             <LabelValue label="Caps" value={`LTV ${p.ltv_cap_pct ?? "—"}% · tenure ${p.tenure_cap ?? "—"} months`} />
             <LabelValue label="Processing fee" value={p.processing_fee_inr != null ? inr(p.processing_fee_inr) : "—"} />
+            <LabelValue label="Rate grid" value={p.rate_grid ? `Version ${p.rate_grid.version_no}, in force when assessed` : "—"} />
           </>
         )}
       </div>

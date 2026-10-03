@@ -240,6 +240,7 @@ export type CaseEmployer = {
     ltv_cap_pct: number | null;
     tenure_cap: number | null;
     assessed_at: string;
+    rate_grid?: { version_no: number; effective_from: string } | null;
   } | null;
 };
 
