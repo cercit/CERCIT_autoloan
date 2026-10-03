@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ComponentProps } from "react";
 import { toast } from "sonner";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
@@ -63,6 +63,22 @@ const SWITCHES: [keyof AutoSettings, string, string][] = [
   ],
 ];
 
+// Fix B4: someone who can only read the rules sees plain On / Off labels, not
+// switches that look clickable.
+const ReadOnly = createContext(false);
+
+function RuleSwitch(props: ComponentProps<typeof Switch>) {
+  const readOnly = useContext(ReadOnly);
+  if (readOnly) {
+    return (
+      <span id={props.id} aria-label={props["aria-label"]}>
+        <Pill tone={props.checked ? "success" : "muted"}>{props.checked ? "On" : "Off"}</Pill>
+      </span>
+    );
+  }
+  return <Switch {...props} />;
+}
+
 function DocumentChecksPage() {
   const [rules, setRules] = useState<AutoRules | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +115,7 @@ function DocumentChecksPage() {
       ) : !rules || !s ? (
         <Skeleton className="h-64 w-full" />
       ) : (
+        <ReadOnly.Provider value={!rules.can_edit}>
         <div className="space-y-4">
           {!rules.can_edit && (
             <p className="rounded-md bg-surface-subtle px-3 py-2 text-sm text-muted-foreground">
@@ -113,7 +130,7 @@ function DocumentChecksPage() {
                     <Label htmlFor={`s-${key}`}>{label}</Label>
                     <p className="text-xs text-muted-foreground">{hint}</p>
                   </div>
-                  <Switch
+                  <RuleSwitch
                     id={`s-${key}`}
                     checked={Boolean(s[key])}
                     disabled={locked || (key !== "enabled" && !s.enabled)}
@@ -148,6 +165,7 @@ function DocumentChecksPage() {
             <DocumentRules key={d.doc_type} d={d} locked={locked} change={change} />
           ))}
         </div>
+        </ReadOnly.Provider>
       )}
     </AppShell>
   );
@@ -171,7 +189,7 @@ function DocumentRules({
           <Label htmlFor={`auto-${d.doc_type}`} className="text-sm font-normal">
             Accept automatically
           </Label>
-          <Switch
+          <RuleSwitch
             id={`auto-${d.doc_type}`}
             checked={d.auto_accept}
             disabled={locked}
@@ -222,7 +240,7 @@ function CheckRow({
         {!k.blocking && k.enabled && <Pill tone="muted">for information</Pill>}
       </td>
       <td className="px-4 py-2.5">
-        <Switch
+        <RuleSwitch
           id={`${id}-on`}
           aria-label={`${k.label}: on`}
           checked={k.enabled}
@@ -231,7 +249,7 @@ function CheckRow({
         />
       </td>
       <td className="px-4 py-2.5">
-        <Switch
+        <RuleSwitch
           id={`${id}-block`}
           aria-label={`${k.label}: must pass`}
           checked={k.blocking}

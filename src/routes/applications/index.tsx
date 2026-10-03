@@ -36,6 +36,9 @@ export const Route = createFileRoute("/applications/")({
       },
     ],
   }),
+  // ?q= comes from the search box in the top bar (fix A5)
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search["q"] === "string" && search["q"].trim() ? { q: search["q"].trim() } : {},
   component: Applications,
 });
 
@@ -52,7 +55,12 @@ const statuses = [
 function Applications() {
   const [allApps, setAllApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
+  const { q: searched } = Route.useSearch();
+  const [query, setQuery] = useState(searched ?? "");
+  // a new search from the top bar while this page is already open
+  useEffect(() => {
+    if (searched !== undefined) setQuery(searched);
+  }, [searched]);
   const [status, setStatus] = useState("All statuses");
   const [sortKey, setSortKey] = useState<"name" | "cibil" | "loanAmount" | "status" | "submitted" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");

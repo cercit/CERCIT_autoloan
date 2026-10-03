@@ -26,6 +26,7 @@ import type { FeedItem } from "@/components/activity-feed";
 import { getDecisionTrend, getPortfolioMetrics } from "@/lib/api";
 import type { DecisionTrendPoint, PortfolioMetrics } from "@/lib/api";
 import { currentUser } from "@/lib/mock-data";
+import { getCurrentUser } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -128,10 +129,20 @@ function Dashboard() {
 
   const total = stats.approved + stats.pending + stats.rejected;
 
+  // Fix A4: today's day and the user's own branch, not a fixed "Wednesday — Chennai".
+  const [branch, setBranch] = useState<string | null>(null);
+  useEffect(() => {
+    void getCurrentUser()
+      .then((me) => setBranch(me?.stateCode ?? null))
+      .catch(() => setBranch(null));
+  }, []);
+  const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" });
+  const subtitle = `${today} — ${branch ? `${branch} branch` : "all branches"}`;
+
   return (
     <AppShell
       title="Dashboard"
-      subtitle="Wednesday workload — Chennai Region"
+      subtitle={subtitle}
       actions={
         <Button asChild>
           <Link to="/applications/new">
