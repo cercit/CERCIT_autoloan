@@ -31,8 +31,7 @@
 CREATE INDEX IF NOT EXISTS ix_bureau_reports_application ON bureau_reports (application_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_credit_decisions_application ON credit_decisions (application_id, decided_at DESC);
 CREATE INDEX IF NOT EXISTS ix_recommendations_application ON recommendations (application_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS ix_engine_decisions_application ON engine_decisions (application_id, decided_at DESC);
-CREATE INDEX IF NOT EXISTS ix_applications_created_at ON applications (created_at DESC);
+-- (engine decisions by case and cases by date are already indexed: idx_engine_decisions_app in 033, idx_applications_created in 001)
 
 CREATE OR REPLACE FUNCTION fn_list_applications_page(
   p_search    TEXT    DEFAULT NULL,

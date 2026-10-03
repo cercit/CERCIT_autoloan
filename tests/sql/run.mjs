@@ -3735,6 +3735,25 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// H3: the advisor checks (sql/checks/advisor-checks.sql) find nothing
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("advisor checks");
+  await db.query("reset role");
+  await asOperator();
+  const { readFileSync } = await import("node:fs");
+  const file = readFileSync(new URL("../../sql/checks/advisor-checks.sql", import.meta.url), "utf8");
+  const checks = file.split(/;\s*\n/).map((q) => q.replace(/^(\s*--.*\n|\s*\n)*/, "").trim()).filter((q) => /^SELECT/i.test(q));
+  t.equal("the file holds nine checks", checks.length, 9);
+  for (const q of checks) {
+    const name = q.match(/'([a-z_]+)' AS check/)[1];
+    const rows = (await db.query(q)).rows.map((r) => r.object);
+    t.equal(`${name}: nothing found`, rows, []);
+  }
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

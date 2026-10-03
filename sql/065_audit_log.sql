@@ -29,7 +29,7 @@
 -- Run order: after 064. Safe to re-run.
 -- =============================================================================
 
-CREATE INDEX IF NOT EXISTS ix_audit_events_created_at ON audit_events (created_at DESC);
+-- (the date index it needs, idx_audit_events_created, has been there since 001)
 
 REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM anon, authenticated, service_role;
 

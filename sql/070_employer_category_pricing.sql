@@ -316,7 +316,7 @@ BEGIN
     'results', results
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE OR REPLACE FUNCTION fn_generate_recommendation(p_application_id UUID)
 RETURNS JSONB AS $$
