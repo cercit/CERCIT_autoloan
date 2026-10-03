@@ -15,7 +15,10 @@ Sameer: a product manager, not a developer. He reviews outcomes, not code.
 
 ## Rules
 
-1. **Commit after every item** (one fix list item = one commit) and push to `main`. Usage limits can stop a session at any time, and pushed work survives. Commit messages name the item (e.g. `fix(C5): …`) and end with the `Co-Authored-By` line.
+1. **Work on the branch `fix-list-build`, never on `main`.** `main` is the live site, and its pages would break if they called database functions Sameer hasn't run yet.
+   - Commit after every item (one fix-list item = one commit) and push the branch, so a usage limit loses nothing.
+   - Commit messages name the item (e.g. `fix(C5): …`) and end with the `Co-Authored-By` line.
+   - At the very end, open a pull request from `fix-list-build` to `main`, but **don't merge it**. Sameer runs the SQL first, then it's merged.
 2. **Never touch the live database.** Database changes go in a new `sql/NNN_name.sql` (next number after the highest in `sql/`). Each must be safe to re-run, with a header saying what it does and the run order. Add a row to `docs/migration-run-log.md` marked "☐ not yet run". Sameer runs SQL himself.
 3. **Test every SQL change first.** Add a section to `tests/sql/run.mjs` and run `node tests/sql/run.mjs`. It loads every migration into a local Postgres (PGlite). All sections must pass before a push.
 4. **Check the site code:** `npx tsc --noEmit -p .` (no new errors in files you touched) and `npx vite build --config vite.spa.config.ts`.
@@ -43,7 +46,10 @@ Sameer: a product manager, not a developer. He reviews outcomes, not code.
 - signing in to the live site;
 - putting SQL on his clipboard.
 
-At the end of each batch, list in your reply which `sql/NNN` files he must run, in order.
+**At the very end (not per batch):**
+- put every new migration, in order, into one file, `sql/RUN-ME-fix-list.sql`, with a header listing what it contains and a check query for each part;
+- list the same files in your final reply;
+- each `sql/NNN` file still stays on its own as well.
 
 ## Key places
 
