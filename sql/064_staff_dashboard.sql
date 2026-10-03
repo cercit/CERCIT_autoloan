@@ -25,7 +25,9 @@
 --     where it ran
 --   * activity: the latest 7 events from the audit log (sign-ins left out)
 --
--- Same rules as the other staff functions: any app.view right; real
+-- Same rules as the other staff functions: any app.view right (with only
+-- app.view.aggregate, the policy manager, the figures without any case
+-- lists); real
 -- customers' cases only for staff who may see real customers
 -- (fn_sees_real_customers), so the public demo login gets staff and
 -- synthetic cases only. Synthetic cases are counted (they are the simulated
@@ -45,11 +47,15 @@ DECLARE
   v_real  BOOLEAN;
   v_me    UUID;
   v_prior TIMESTAMPTZ;
+  v_cases BOOLEAN;
   v_out   JSONB;
 BEGIN
-  PERFORM fn_require_any_permission(ARRAY['app.view.own', 'app.view.team', 'app.view.all']);
+  PERFORM fn_require_any_permission(ARRAY['app.view.own', 'app.view.team', 'app.view.all', 'app.view.aggregate']);
   v_real := fn_sees_real_customers();
   v_me := fn_current_staff_id();
+  -- totals only for a login that may see figures but not cases (policy manager)
+  v_cases := fn_is_trusted_operator() OR fn_has_permission('app.view.own') OR fn_has_permission('app.view.team')
+             OR fn_has_permission('app.view.all');
   v_prior := CASE WHEN p_from IS NULL THEN NULL ELSE p_from - (now() - p_from) END;
   -- first-payment figures come from the stored loan status (062); catch up on recent payments
   PERFORM fn_loan_status_refresh(200);
@@ -127,7 +133,7 @@ BEGIN
                                   'recommendation', (SELECT r.recommendation FROM recommendations r WHERE r.application_id = v.id
                                                      ORDER BY r.created_at DESC LIMIT 1)) AS q
         FROM visible v JOIN customers c ON c.id = v.customer_id
-        WHERE v_me IS NOT NULL AND v.assigned_officer_id = v_me
+        WHERE v_cases AND v_me IS NOT NULL AND v.assigned_officer_id = v_me
           AND v.status IN ('SUBMITTED', 'UNDER_ASSESSMENT', 'UNDER_REVIEW')
         ORDER BY coalesce(v.customer_submitted_at, v.created_at) LIMIT 5) t),
     'exceptions', (SELECT coalesce(jsonb_agg(x ORDER BY x->>'created_at' DESC), '[]'::jsonb) FROM (
@@ -150,7 +156,7 @@ BEGIN
         LEFT JOIN vehicle_quotations q ON q.application_id = v.id AND vh.id IS NULL
         LEFT JOIN LATERAL (SELECT r.risk_factors, r.summary_text FROM recommendations r WHERE r.application_id = v.id
                            ORDER BY r.created_at DESC LIMIT 1) lr ON true
-        WHERE v.status = 'UNDER_REVIEW'
+        WHERE v_cases AND v.status = 'UNDER_REVIEW'
         ORDER BY v.created_at DESC LIMIT 10) t),
     'activity', (SELECT coalesce(jsonb_agg(e ORDER BY e->>'created_at' DESC), '[]'::jsonb) FROM (
         SELECT jsonb_build_object('id', ev.id, 'event_type', ev.event_type, 'created_at', ev.created_at,
@@ -160,7 +166,7 @@ BEGIN
         FROM audit_events ev
         LEFT JOIN applications a ON a.id = ev.application_id
         LEFT JOIN users u ON u.id = ev.actor_id
-        WHERE ev.application_id IS NOT NULL
+        WHERE v_cases AND ev.application_id IS NOT NULL
           AND ev.event_type NOT IN ('LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'PII_REVEAL')
           AND (a.origin IS DISTINCT FROM 'CUSTOMER' OR v_real)
         ORDER BY ev.created_at DESC LIMIT 7) t)

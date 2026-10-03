@@ -3067,6 +3067,40 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 45. The signed-in person's rights, for the menu (067, B1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("my permissions");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const PM = "33333333-3333-3333-3333-333333333333";
+  const CUSTOMER = "55555555-5555-5555-5555-555555555555";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await as(OFFICER);
+  const o = (await one("select fn_my_permissions() as v")).v;
+  t.equal("an officer gets the officer's rights, the same list the database checks",
+    [o.role, o.permissions.slice().sort()], ["credit_officer", (await one("select fn_role_permissions('credit_officer') as v")).v.slice().sort()]);
+  t.equal("officers may see real customers", o.sees_real_customers, true);
+  await as(PM);
+  const pm = (await one("select fn_my_permissions() as v")).v;
+  t.equal("the policy manager can't view users or decide cases", [pm.permissions.includes("user.view"), pm.permissions.includes("app.decide")], [false, false]);
+  const dash = (await one("select fn_staff_dashboard(null) as v")).v;
+  t.equal("with app.view.aggregate the dashboard gives totals but no case lists",
+    [typeof dash.totals.total, dash.my_queue.length, dash.exceptions.length, dash.activity.length], ["number", 0, 0, 0]);
+  await as(CUSTOMER);
+  t.equal("a customer login has no staff rights", (await one("select fn_my_permissions() as v")).v.permissions, []);
+  await db.query("set role anon");
+  await t.rejects("the public can't call it", () => db.query("select fn_my_permissions()"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

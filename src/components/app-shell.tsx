@@ -43,6 +43,7 @@ import {
   markNotificationsSeen,
 } from "@/lib/shell-api";
 import { useFeatureStatus } from "@/lib/feature-flags";
+import { canOpen, forgetMyRights, useMyRights } from "@/lib/permissions";
 import { getPendingChanges } from "@/lib/policy-api";
 import { getCurrentUser, isDemoMode, requireAuth, roleLabel, signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -113,11 +114,14 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const { enabled: creditControl } = useFeatureStatus("credit_control");
   const waiting = useApprovalsWaiting(creditControl);
   const casesWaiting = useCasesWaiting();
+  // B1: only the pages this person's role can open
+  const rights = useMyRights();
 
   return (
     <nav className="flex flex-col gap-1">
       {nav
         .filter((item) => !item.creditControl || creditControl)
+        .filter((item) => canOpen(rights, item.to))
         .map((item) => {
           const active = pathname.startsWith(item.to);
           const badge =
@@ -211,6 +215,7 @@ function useAutomation() {
  * keeps the back button from returning to a staff screen.
  */
 async function signOutToLogin() {
+  forgetMyRights();
   await signOut();
   window.location.replace(`${import.meta.env.BASE_URL}login`);
 }
@@ -275,6 +280,10 @@ export function AppShell({
     if (q) navigate({ to: "/applications", search: { q } } as never);
   };
   const sampleData = isDemoMode() || !isSupabaseConfigured;
+  // B1: a page opened by its address that this role can't use says so, instead of failing piece by piece
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const rights = useMyRights();
+  const pageAllowed = rights === null || canOpen(rights, pathname);
 
   useKeyboardShortcuts({
     "?": () => setShortcutsOpen((o) => !o),
@@ -460,7 +469,16 @@ export function AppShell({
             </div>
             {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
           </div>
-          {children}
+          {pageAllowed ? (
+            children
+          ) : (
+            <div className="rounded-md border border-border bg-surface-subtle p-6 text-sm">
+              <p className="font-medium">Your role can't open this page.</p>
+              <p className="mt-1 text-muted-foreground">
+                Ask an administrator if you need it. <Link to="/dashboard" className="text-primary hover:underline">Back to the dashboard</Link>
+              </p>
+            </div>
+          )}
         </main>
       </div>
       <ShortcutOverlay visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
