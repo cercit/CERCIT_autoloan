@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApplication, getBankingAnalysis, getBureauReport, refreshApplication } from "@/lib/api";
 import { can, useMyRights } from "@/lib/permissions";
+import { EmployerCard } from "@/components/employer-card";
 import { BureauReportCard } from "@/components/bureau-report-card";
 import { BureauUploadForm } from "@/components/bureau-upload-form";
 import { MlRiskCard } from "@/components/ml-risk-card";
@@ -320,6 +321,7 @@ function ApplicationDetail() {
 
         <TabsContent value="overview" className="space-y-4">
           <EngineDecisionCard applicationId={app.id} />
+          <EmployerCard applicationId={app.id} />
           <CopilotReview app={app} />
         </TabsContent>
 

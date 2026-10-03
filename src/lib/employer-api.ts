@@ -212,3 +212,40 @@ export const CHECK_LABEL: Record<string, string> = {
   EMAIL_DOMAIN: "Official email domain",
   NAME_MATCH: "Payslip and Form 16 name",
 };
+
+// -- The officer's card (sql/070, C8) ------------------------------------------
+
+export type CaseEmployer = {
+  employer: {
+    found: boolean;
+    employer_id?: string;
+    name?: string;
+    category?: string;
+    verified?: boolean;
+    employer_type?: string;
+    caution?: boolean;
+    caution_reason?: string | null;
+    names_seen?: string[];
+    checks?: Record<string, { result: string; note: string }>;
+  };
+  declared_name: string | null;
+  declared_type: string | null;
+  category: "A" | "B" | "C" | null;
+  basis: "MASTER_VERIFIED" | "MASTER_PROVISIONAL" | "DECLARED_TYPE" | null;
+  pricing: {
+    base_rate_pct: number;
+    rate_loading_pct: number;
+    rate_pct: number;
+    processing_fee_inr: number | null;
+    ltv_cap_pct: number | null;
+    tenure_cap: number | null;
+    assessed_at: string;
+  } | null;
+};
+
+export async function getCaseEmployer(applicationId: string): Promise<CaseEmployer | null> {
+  if (sampleMode()) return null;
+  const { data, error } = await supabase.rpc("fn_staff_case_employer", { p_application_id: applicationId });
+  if (error) throw fail(error, "Could not load the employer");
+  return data as CaseEmployer;
+}

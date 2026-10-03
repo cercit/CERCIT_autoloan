@@ -27,6 +27,7 @@ import { downloadPdf } from "@/lib/doc-pdf";
 import { inr } from "@/lib/format";
 import { disburse, getCaseLoan, issueOffer, type AfterApproval } from "@/lib/loan-api";
 import { can, useMyRights } from "@/lib/permissions";
+import { EmployerCard } from "@/components/employer-card";
 import { availableDocs } from "@/lib/loan-docs";
 import {
   FACE_TEXT,
@@ -300,6 +301,7 @@ function CaseView() {
         {/* min-w-0: wide tables scroll inside their cards instead of widening the column on phones. */}
         <div className="min-w-0 space-y-4 lg:col-span-2">
           {checks?.recommendation && <CreditChecksCard checks={checks} />}
+          <EmployerCard applicationId={a.application_id} />
           {bureau?.detail && <BureauDetailCard data={bureau} />}
           {income?.detail && <IncomeDetailCard data={income} />}
           <SectionCard

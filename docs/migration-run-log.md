@@ -50,6 +50,7 @@ Order matters: each file assumes the ones above it are already in.
 | 067 | `067_my_permissions.sql` | ☐ not yet run | B1/B3: `fn_my_permissions` tells the site the signed-in person's role and rights, so the menu and buttons follow them. Read only; grants nothing. Check: an officer's menu has no Users, Roles, Organisation, Audit Log or Approvals |
 | 068 | `068_case_scope_limits_roles.sql` | ☐ not yet run | B2: officers see their own cases plus unassigned ones in the Applications list, the customer queue and the badge (setting officers_see_unassigned, default 1). B5: the daily case limit and sanction limit on a user are enforced on every officer decision. C3: the old ADMIN, CREDIT_OFFICER and STATE_HEAD roles are removed (or marked retired if a login holds one). Needs 061. Check: an officer's Applications list hides cases assigned to another officer |
 | 069 | `069_employer_master.sql` | ☐ not yet run | G4 and C9: a real Employer Master (employers, their checks, category-change requests a second person approves, the government/PSU and NSE list it checks against, a provider switch with simulated MCA checks). Seeds one unverified employer per employer name already on applications, nothing made up. New right employer.manage for credit head, credit manager, policy manager and admin. Check: Employer Master lists real employer names (Infosys Ltd, Indian Railways…), not car makers |
+| 070 | `070_employer_category_pricing.sql` | ☐ not yet run | C8: the engine applies the employer category: links the case to its Employer Master employer (or a provisional category from the declared type), adds the category loading to the rate, caps tenure, refers cases above the category LTV cap, on the caution list or with a payslip/Form 16 employer mismatch, stores the processing fee; the rules check FOIR at the loaded rate. Redefines fn_generate_recommendation and fn_run_policy_engine (re-run 070 after any re-run of 053). New assessments only. Local dry run on 222 synthetic cases: approvals 106 → 80, referrals 82 → 108 (mostly the category B 110% LTV cap). Check: a new case's summary names its employer category and rate |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.
@@ -68,6 +69,8 @@ Order matters: each file assumes the ones above it are already in.
   `fn_generate_recommendation` (from 031) to stop the no-record crash.
   Re-running 004 or 031 afterwards brings the crash back; run 053 again after
   them.
+  Since 070, both functions are defined again there (employer category pricing):
+  after any re-run of 053, run 070 again.
 
 ## The encryption key (012)
 

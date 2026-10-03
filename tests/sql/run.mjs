@@ -788,6 +788,10 @@ const asOperator = () => asApi("", "");
 {
   const t = makeChecker("FOIR, LTV and tenure basis");
   const OFFICER = "22222222-2222-2222-2222-222222222222";
+  // These cases name "Infosys"; make it a category A employer in the master (069) so the
+  // employer category caps (070, tested on their own below) don't change what is tested here.
+  await db.query(`insert into employers (name, name_key, employer_type, category) values ('Infosys', fn_employer_key('Infosys'), 'LISTED', 'A')
+                  on conflict (name_key) do update set employer_type = 'LISTED', category = 'A'`);
   let n = 40;
   const submit = async (overrides) => {
     n += 1;
@@ -3255,6 +3259,71 @@ const asOperator = () => asApi("", "");
   await db.query("set role anon");
   await t.rejects("the public can't list employers", () => db.query("select fn_employer_list()"), /permission denied/);
   await operator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 48. Employer category in the engine and on the officer's card (070, C8)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("employer category pricing");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await db.query(`insert into employers (name, name_key, employer_type, category, verified) values
+      ('Alpha Govt Dept', fn_employer_key('Alpha Govt Dept'), 'GOVERNMENT', 'A', true),
+      ('Bravo Pvt Ltd', fn_employer_key('Bravo Pvt Ltd'), 'PRIVATE_LTD', 'B', true),
+      ('Charlie Traders', fn_employer_key('Charlie Traders'), 'PROPRIETORSHIP', 'C', true),
+      ('Delta Watch Ltd', fn_employer_key('Delta Watch Ltd'), 'PRIVATE_LTD', 'B', true)
+    on conflict (name_key) do nothing`);
+  await db.query("update employers set caution = true, caution_reason = 'salary delays reported' where name_key = fn_employer_key('Delta Watch Ltd')");
+  const cat = Object.fromEntries((await db.query("select category_code, rate_loading_pct::float as l, max_ltv_pct::float as ltv, max_tenure_months as ten, processing_fee_inr as fee from employer_category_pricing where is_active")).rows.map((r) => [r.category_code, r]));
+  let n = 70;
+  const submit = async (employer, overrides = {}) => {
+    n += 1;
+    const args = { p_full_name: "Category Test", p_email: `cat${n}@t.in`, p_mobile: `91100000${n}`, p_pan: `CATGY${1000 + n}C`,
+      p_dob: "1988-01-01", p_employer: employer, p_city: "Chennai", p_state_code: "TN", p_pincode: "600001",
+      p_make: "Maruti Suzuki", p_model: "Dzire", p_variant: "VXI", p_fuel_type: "PETROL",
+      p_net_salary: 150000, p_loan_amount: 600000, p_ex_showroom: 700000, p_on_road: 780000, p_cibil_score: 790, p_tenure: 84, ...overrides };
+    const names = Object.keys(args);
+    await asApi("authenticated", OFFICER);
+    const v = (await one(`select fn_submit_full_application(${names.map((k, j) => `${k} => $${j + 1}`).join(", ")}) as v`, names.map((k) => args[k]))).v;
+    await asOperator();
+    if (v.decision === "ERROR") throw new Error(JSON.stringify(v));
+    return one(`select r.*, a.employer_category as app_cat, a.application_id as app_no, e.name as employer_name from recommendations r
+      join applications a on a.id = r.application_id left join employers e on e.id = a.employer_id
+      where r.application_id = $1 order by r.created_at desc limit 1`, [v.application_uuid]);
+  };
+  const a = await submit("Alpha Govt Dept");
+  const b = await submit("Bravo Pvt Ltd");
+  const c = await submit("Charlie Traders");
+  t.equal("the case is linked to its employer and category", [a.employer_name, a.app_cat, b.app_cat, c.app_cat], ["Alpha Govt Dept", "A", "B", "C"]);
+  t.equal("the rate is the band rate plus the category loading",
+    [Number(a.recommended_rate), Number(b.recommended_rate), Number(c.recommended_rate)],
+    [Number(a.base_rate_pct) + cat.A.l, Number(b.base_rate_pct) + cat.B.l, Number(c.base_rate_pct) + cat.C.l].map((x) => Math.round(x * 100) / 100));
+  t.equal("category C caps the tenure", [Number(a.recommended_tenure), Number(c.recommended_tenure)], [84, Math.min(84, cat.C.ten)]);
+  t.equal("the processing fee is the category's", [a.processing_fee_inr, b.processing_fee_inr, c.processing_fee_inr], [cat.A.fee, cat.B.fee, cat.C.fee]);
+  // (on the B case: its tenure isn't cut, and the rules check FOIR at the tenure asked for)
+  const rule = await one("select actual_value from policy_results where application_id = $1 and rule_id = 'INC-FOIR' order by created_at desc limit 1", [b.application_id]);
+  t.equal("the rules check FOIR at the loaded rate the loan is priced at", Number(b.foir_calculated), Number(rule?.actual_value));
+
+  // 85% LTV is fine for A and B (120 / 110) but above C's 90%? use a loan that is 100% of ex-showroom
+  const cHigh = await submit("Charlie Traders", { p_loan_amount: 700000 });
+  t.equal("LTV above the category cap goes to a person", [cHigh.recommendation, (cHigh.risk_factors ?? []).some((f) => f.rule_id === "LTV_CATEGORY_CAP")],
+    [cat.C.ltv < 100 ? "MAYBE" : cHigh.recommendation, cat.C.ltv < 100]);
+  const d = await submit("Delta Watch Ltd");
+  t.equal("an employer on the caution list goes to a person", [d.recommendation, (d.risk_factors ?? []).some((f) => f.rule_id === "EMPLOYER_CAUTION")], ["MAYBE", true]);
+  const u = await submit("Unlisted Unknown Works");
+  t.equal("an employer not in the master is priced on the declared type, provisionally", [u.employer_category_basis, u.employer_category], ["DECLARED_TYPE", "C"]);
+
+  await asApi("authenticated", OFFICER);
+  await db.query("set role authenticated");
+  const card = (await one("select fn_staff_case_employer($1) as v", [b.app_no])).v;
+  t.equal("the officer's card shows the employer, category and pricing",
+    [card.employer.name, card.category, Number(card.pricing.rate_loading_pct), card.pricing.processing_fee_inr], ["Bravo Pvt Ltd", "B", cat.B.l, cat.B.fee]);
+  await db.query("reset role");
+  await asOperator();
   failures += t.report();
 }
 
