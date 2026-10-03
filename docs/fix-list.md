@@ -4,6 +4,12 @@ Collected 2 Oct 2026 from that day's audit and discussion. Nothing here has been
 
 Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) or an AWS deploy (Sameer's OK).
 
+## Done
+
+| Date | Items | Commits | Live? |
+|---|---|---|---|
+| 3 Oct | **Batch 1: A1–A6, B4.**<br>- real waiting-cases badge;<br>- the bell shows real events;<br>- the automation pill follows the switch;<br>- "Prototype data" only in sample mode;<br>- dashboard subtitle shows today and the user's branch;<br>- top search fills the Applications filter;<br>- read-only rules show On/Off labels | `1268a16`, `2e7abab` | Site: yes. The badge and bell need **060** run in Supabase |
+
 ## A. Numbers and text that are fake or fixed
 
 | # | Fix | Where | Size | Needs |
@@ -42,6 +48,7 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 | C7 | **Policy Rules shows made-up rules on the live site.** "Minimum CIBIL for auto approval 750", "New to credit (-1)" and "Last updated 28 Aug 2026 by Anand Gopal" are sample data. The real rules (e.g. BUR-SCORE-MIN 650) weren't loaded: the read failed or came back empty, and the page fell back to samples without saying so. Edit and Deactivate act on those samples. Fix: load the real rules (and the version in force), remove the fixed "Last updated" line, and show an error instead of samples. Part of C2, listed alone because it's misleading | `src/lib/api.ts` `getMappedPolicyRules`, `src/routes/policy-rules.tsx` | M | maybe SQL |
 | C8 | **Employer categories A/B/C are shown but never used or checked** (from Sameer's question "do we need it?": yes, because the price and the limits depend on it). The Rate Grid page shows real data: base rates 8.99% / 9.90%, and category loading of +0.40% for B and +1.25% for C, with each category's own LTV cap (120/110/90%), tenure cap (84/84/60 months) and processing fee (₹5,000 / 6,500 / 8,000). But:<br>(1) customers are recorded as GOVERNMENT, PSU, MNC, PUBLIC_LTD or PRIVATE_LTD, never as A, B or C, so nothing links a customer to a category;<br>(2) the engine prices on the score band alone, so the loading, the category LTV and tenure caps and the processing fee are never applied (the engine's own comment notes this gap);<br>(3) nothing verifies the category. To build: an employer master lookup (name → category, with GST/CIN), checks that a company is listed or has 3+ years of filings (MCA) for B, and government/PSU proof from the employer ID or payslip; then set the category on the case, apply the loading, caps and fee in the engine, and show it on the officer's card.<br>Also list, field by field, what the customer enters at step 4 but nothing checks (e.g. marital status, residence type, years at the employer), and decide which need a check | `fn_generate_recommendation`, `employer_category_pricing`, Employer Master, document checks (052) | L | SQL + decisions |
 | C9 | **Employer Master shows car makers, not employers.** The page reads the `dealers` table and relabels each car maker as an employer: every one shows "Category B" (fixed in the code), and "Verification Date" is always today. Nothing on it is a real employer or a real check. Fixed by G4 | `src/lib/api.ts` `getEmployers`, `src/routes/employers.tsx` | — | see G4 |
+| C10 | **Dashboard numbers likely broken on the live site** (found 3 Oct while building A1). The dashboard's stats, turnaround and decision trend read the `applications` table directly, but signed-in staff have no read right on it (checked: `has_table_privilege('authenticated','applications','SELECT')` is false). The figures will be empty or zero. Fix like 060: one staff function returning the dashboard figures, with the synthetic and real-customer rules | `src/lib/api.ts` `getDashboardStats`, `getDashboardTat`, `getDecisionTrend`, `getDecisionDistribution` | M | SQL |
 | C3 | Three old capitalised roles (ADMIN, CREDIT_OFFICER, STATE_HEAD) are still in the roles table: switched off, no rights, no users. Remove them or mark them retired | `roles` table | S | SQL |
 
 ## D. Practice logins for visitors (needs Sameer's go on the design)
@@ -118,7 +125,7 @@ That's about **10–12 working days** at the usual pace (commit per step, usage 
 ## Suggested order
 
 1. **A1–A4 and B4:** quick, visible, no SQL.
-2. **C5, C6, C7, C1, C2 and C4:** make Application Review open, stop showing empty or fake data, and make Applications fast. C5 first: the page is unusable today.
+2. **C5, C6, C7, C10, C1, C2 and C4:** make Application Review open, stop showing empty or fake data, and make Applications fast. C5 first: the page is unusable today.
 3. **B1 and B3:** the menu and buttons follow rights.
 4. **B2, B5 and C3:** one SQL step.
 5. **D1–D3:** practice logins, after the "go".
