@@ -13,6 +13,7 @@ import { useFeatureStatus } from "@/lib/feature-flags";
 import { getRateGridFromPolicy, type RateGridFromPolicy } from "@/lib/policy-api";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { can, useMyRights } from "@/lib/permissions";
 
 export const Route = createFileRoute("/rate-grid")({
   head: () => ({
@@ -63,6 +64,7 @@ function RateGridPage() {
     sampleMode() ? { bands: rateBands, categories: employerCategoryPricing } : { bands: [], categories: [] },
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const rights = useMyRights();
   // With Credit control on, the grid shows what the approved policy version says,
   // and changes go through a proposal on the Policy Rules screen.
   const { enabled: creditControl, ready } = useFeatureStatus("credit_control");
@@ -106,7 +108,7 @@ function RateGridPage() {
       subtitle={subtitle}
       actions={
         <div className="flex gap-2">
-          {approved && (
+          {approved && can(rights, "policy.author", "pricing.author") && (
             <Button asChild variant="secondary">
               <Link to="/policy-rules">Propose a change</Link>
             </Button>

@@ -11,6 +11,7 @@ import { useFeatureStatus } from "@/lib/feature-flags";
 import { PolicyControl } from "@/components/policy/policy-control";
 import type { PolicyRule } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { can, useMyRights } from "@/lib/permissions";
 
 export const Route = createFileRoute("/policy-rules")({
   head: () => ({
@@ -40,6 +41,9 @@ function PolicyRulesPage() {
   const [tab, setTab] = useState<string>("");
 
   const [inForce, setInForce] = useState<PolicyInForce | null>(null);
+  // B3: only policy authors get the controls
+  const rights = useMyRights();
+  const canAuthor = can(rights, "policy.author");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -83,9 +87,11 @@ function PolicyRulesPage() {
       title="Policy Rules"
       subtitle="Rule changes are versioned and applied to new applications only"
       actions={
-        <Button>
-          <Plus className="size-4" /> Add new rule
-        </Button>
+        canAuthor ? (
+          <Button>
+            <Plus className="size-4" /> Add new rule
+          </Button>
+        ) : undefined
       }
     >
       {loadError ? (
@@ -152,7 +158,8 @@ function PolicyRulesPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">{rule.to}</td>
                   <td className="px-4 py-2.5">
                     <button
-                      className="cursor-pointer"
+                      className={cn(canAuthor ? "cursor-pointer" : "cursor-default")}
+                      disabled={!canAuthor}
                       aria-label={`${rule.active ? "Deactivate" : "Activate"} rule ${rule.name}`}
                       onClick={async () => {
                         const ok = await togglePolicyRule(rule.id, !rule.active);
@@ -176,12 +183,14 @@ function PolicyRulesPage() {
                     </button>
                   </td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                    {canAuthor && (<>
                     <Button variant="ghost" size="sm">
                       Edit
                     </Button>
                     <Button variant="ghost" size="sm" className="text-destructive">
                       {rule.active ? "Deactivate" : "Activate"}
                     </Button>
+                    </>)}
                   </td>
                 </tr>
               ))}

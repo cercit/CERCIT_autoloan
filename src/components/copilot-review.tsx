@@ -33,6 +33,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { submitOfficerDecision } from "@/lib/api";
 import { isDemoMode } from "@/lib/auth";
+import { can, useMyRights } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { OfficerDecisionResult } from "@/lib/api";
@@ -97,6 +98,9 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   // and activity below are sample records. They show in sample mode only; on the live site
   // the real figures are on the Banking, Bureau, Documents and Timeline tabs.
   const sample = !isSupabaseConfigured || isDemoMode();
+  // B3: only a role with app.decide can record a decision
+  const rights = useMyRights();
+  const canDecide = can(rights, "app.decide");
   const checks = app.ruleChecks ?? (sample ? policyChecks : []);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
   const [decision, setDecision] = useState("Approve");
@@ -178,7 +182,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             <Pill tone={result.decision === "APPROVE" ? "success" : result.decision === "REJECT" ? "destructive" : "warning"}>
               Decision recorded: {result.decision}
             </Pill>
-          ) : (
+          ) : !canDecide ? null : (
             <>
               <Button
                 className="bg-success text-success-foreground hover:bg-success/90"
@@ -937,6 +941,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </SectionCard>
 
+          {canDecide && (
           <SectionCard title="Decision">
             <div className="space-y-3">
               <div className="space-y-1.5">
@@ -1008,6 +1013,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               </Button>
             </div>
           </SectionCard>
+          )}
 
           {manager && sample && (
             <SectionCard title="Override History">

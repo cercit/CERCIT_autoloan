@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApplication, getBankingAnalysis, getBureauReport, refreshApplication } from "@/lib/api";
+import { can, useMyRights } from "@/lib/permissions";
 import { BureauReportCard } from "@/components/bureau-report-card";
 import { BureauUploadForm } from "@/components/bureau-upload-form";
 import { MlRiskCard } from "@/components/ml-risk-card";
@@ -32,17 +33,8 @@ import { ApplicationTimeline } from "@/components/application-timeline";
 import { runAssessment } from "@/lib/engine";
 import { getAvailableTransitions } from "@/lib/workflow";
 import type { ApplicationStatus } from "@/lib/workflow";
-import { transitionStatus, checkDuplicates, getApplicationTimeline, assignApplication } from "@/lib/api";
+import { transitionStatus, checkDuplicates, getApplicationTimeline } from "@/lib/api";
 import type { TimelineEvent, DuplicateMatch } from "@/lib/api";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   isAwsConfigured,
@@ -135,8 +127,6 @@ function ApplicationDetail() {
   const [bankingLoading, setBankingLoading] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assignee, setAssignee] = useState("");
 
   const [bureauReport, setBureauReport] = useState<any>(null);
   const [bureauLoading, setBureauLoading] = useState(false);
@@ -175,6 +165,8 @@ function ApplicationDetail() {
   }
 
   const [loadError, setLoadError] = useState<string | null>(null);
+  // B3: actions only for roles that can take them
+  const rights = useMyRights();
 
   const loadApp = () => {
     refreshApplication(id);
@@ -265,7 +257,7 @@ function ApplicationDetail() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <SlaTimer since={app.submitted} />
-          {getAvailableTransitions(app.status as ApplicationStatus).map((next) => (
+          {can(rights, "app.evaluate") && getAvailableTransitions(app.status as ApplicationStatus).map((next) => (
             <Button
               key={next}
               variant="outline"
@@ -278,18 +270,19 @@ function ApplicationDetail() {
               {next}
             </Button>
           ))}
-          <Button variant="outline" size="sm" onClick={() => setAssignOpen(true)}>
-            Assign
-          </Button>
-          <OverridePanel
-            applicationId={app.id}
-            currentDecision={app.recommendation}
-            onOverride={() => loadApp()}
-          />
-          <EscalationDialog
-            applicationId={app.id}
-            onEscalate={() => loadApp()}
-          />
+          {can(rights, "app.override") && (
+            <OverridePanel
+              applicationId={app.id}
+              currentDecision={app.recommendation}
+              onOverride={() => loadApp()}
+            />
+          )}
+          {can(rights, "app.evaluate") && (
+            <EscalationDialog
+              applicationId={app.id}
+              onEscalate={() => loadApp()}
+            />
+          )}
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             Print CAM
           </Button>
@@ -517,31 +510,6 @@ function ApplicationDetail() {
           })()}
         </TabsContent>
       </Tabs>
-      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign application</DialogTitle>
-            <DialogDescription>Select an officer to assign this application to.</DialogDescription>
-          </DialogHeader>
-          <Select value={assignee} onValueChange={setAssignee}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select officer" />
-            </SelectTrigger>
-            <SelectContent>
-              {["Rajeev Menon", "Priya Sharma", "Ankit Patel"].map((name) => (
-                <SelectItem key={name} value={name}>{name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
-            <Button onClick={async () => {
-              const { error } = await assignApplication(app.id, assignee);
-              if (error) { toast.error(error); } else { toast.success(`Assigned to ${assignee}`); setAssignOpen(false); }
-            }}>Assign</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   );
 }
