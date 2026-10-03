@@ -45,11 +45,28 @@ export const faqs = [
   },
 ];
 
+// Other AI tools and builders who contributed, directly or indirectly. Claude led the
+// technical work; these helped with the prototype, design, research and drafts.
+// Logos are files in public/team/ (from Simple Icons); null shows initials instead.
+export const buildTeam: { name: string; logo: string | null; what: string }[] = [
+  { name: "Lovable", logo: null, what: "The first clickable prototype of the screens, which the website grew from." },
+  { name: "Google Stitch", logo: "team/google.svg", what: "Early screen design concepts for the customer and staff apps." },
+  { name: "ChatGPT", logo: null, what: "The first brainstorm: a 53-part solution blueprint for the whole credit appraisal system." },
+  { name: "Gemini", logo: "team/googlegemini.svg", what: "Market and regulation research for the product plan, and quick drafting." },
+  { name: "Microsoft Copilot", logo: null, what: "A detailed spec: failure handling, the document-reading pipeline and the test approach." },
+  { name: "Hermes", logo: null, what: "An agent that ran overnight drafting jobs and guides, using free models." },
+  { name: "Inkling", logo: null, what: "Free conversational model (through Hermes) for drafts and reasoning on design questions." },
+  { name: "MiniMax M3", logo: "team/minimax.svg", what: "Free coding model (through Hermes) for first drafts of small scripts." },
+  { name: "DeepSeek", logo: "team/deepseek.svg", what: "Earlier default for writing tasks that didn't need tools." },
+  { name: "Qwen (local)", logo: "team/qwen.svg", what: "Runs on Sameer's laptop for private and bulk drafts, so nothing sensitive leaves the machine." },
+];
+
 export const founders = [
   {
     name: "Sameer Shreenivas Mittimani",
     role: "Founder · product and credit",
     initials: "SM",
+    image: "team/sameer.jpg",
     bio: "Sameer has spent years close to how car loans really get approved, and to the slow parts nobody enjoys. He is a product manager (Masai × IIT Roorkee Product Management certification) and wrote cercit's product plan, its credit policy and every rule behind a decision, then reviewed the build one step at a time.",
     hats: [
       "Founder and CEO",
@@ -64,9 +81,10 @@ export const founders = [
   },
   {
     name: "Claude",
-    role: "Co-builder · code and design (AI by Anthropic)",
+    role: "Chief architect · all things tech (AI by Anthropic)",
     initials: "AI",
-    bio: "Claude is an AI model made by Anthropic. Working from Sameer's specs and reviews, it wrote the code, designed the screens, built the database and the cloud services, trained and checked the risk model, and wrote the tests and documentation.",
+    image: "team/claude.svg",
+    bio: "Claude is an AI model made by Anthropic and cercit's chief architect: the lead on everything technical. Working from Sameer's specs and reviews, it designed the system, wrote most of the code, designed the screens, built the database and the cloud services, trained and checked the risk model, and wrote the tests and documentation. Where other tools helped, Claude brought their work together and checked it.",
     hats: [
       "Software engineer",
       "Database engineer",

@@ -45,3 +45,5 @@ In this demo the bureau reports, the mobile code, the employer checks, e-NACH an
 - `docs/production-checklist.md`: what must change before real customers
 - `docs/risk-model-v2.md`: how the risk model was built and chosen
 - `docs/application_flow.md`, `docs/current_state_workflow.md`: earlier write-ups of the flow (older; this pack supersedes them where they differ)
+
+**Where everything lives:** which model or engine does each job, where it runs (everything with customer data runs in Mumbai), where each kind of data is kept, and the team that built it: [where-things-live.md](where-things-live.md).

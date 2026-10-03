@@ -151,9 +151,9 @@ cercit was built by two founders: one who knows car loans, and one that writes c
 
 Sameer has spent years close to how car loans really get approved, and to the slow parts nobody enjoys. He is a product manager (Masai × IIT Roorkee Product Management certification) and wrote cercit's product plan, its credit policy and every rule behind a decision, then reviewed the build one step at a time. GitHub: [cercit](https://github.com/cercit).
 
-### Claude (AI by Anthropic): co-builder, code and design
+### Claude (AI by Anthropic): chief architect, all things tech
 
-Claude is an AI model made by Anthropic. Working from Sameer's specs and reviews, it wrote the code, designed the screens, built the database and the cloud services, trained and checked the risk model, and wrote the tests and documentation.
+Claude is an AI model made by Anthropic and cercit's chief architect: the lead on everything technical. Working from Sameer's specs and reviews, it designed the system, wrote most of the code, designed the screens, built the database and the cloud services, trained and checked the risk model, and wrote the tests and documentation. Where other tools helped, Claude brought their work together and checked it.
 
 ### Roles covered in building cercit
 
@@ -176,7 +176,24 @@ Claude is an AI model made by Anthropic. Working from Sameer's specs and reviews
 | Security reviewer (access rules, audits) | Claude |
 | Technical writer (how-it-works pack, guides) | Claude |
 
-The first UI prototype was made with Lovable.
+### The wider team
+
+Claude led the technical work. These tools helped along the way, some directly and some behind the scenes:
+
+| Tool | What it contributed |
+|---|---|
+| Lovable | The first clickable prototype of the screens, which the website grew from |
+| Google Stitch | Early screen design concepts for the customer and staff apps |
+| ChatGPT | The first brainstorm: a 53-part solution blueprint for the whole system |
+| Gemini | Market and regulation research for the product plan, and quick drafting |
+| Microsoft Copilot | A detailed spec: failure handling, the document-reading pipeline, the test approach |
+| Hermes | An agent that ran overnight drafting jobs and guides, using free models |
+| Inkling | Free conversational model (through Hermes) for drafts and reasoning on design questions |
+| MiniMax M3 | Free coding model (through Hermes) for first drafts of small scripts |
+| DeepSeek | Earlier default for writing tasks that didn't need tools |
+| Qwen (local) | Runs on Sameer's laptop for private and bulk drafts, so nothing sensitive leaves the machine |
+
+No customer data was ever given to any of these tools. Which model does which job, where it runs and where each piece of data is kept: [behind-the-scenes/how-it-works/where-things-live.md](behind-the-scenes/how-it-works/where-things-live.md).
 
 ## License
 
