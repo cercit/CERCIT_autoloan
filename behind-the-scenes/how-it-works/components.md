@@ -46,7 +46,7 @@ flowchart LR
 
 | | |
 |---|---|
-| **What it does** | Holds every record and does every decision-making step: the credit rules, the recommendation, the officer's decision, the offer, the repayment history, the audit log. The website reads and writes almost entirely through database functions ([functions.md](functions.md)) that check the caller's rights first; row rules stop anyone reading a table they shouldn't. PAN and mobile numbers are encrypted at rest and shown masked unless a role may reveal them. Credit policy and prices are versioned and change only through a second person's approval. |
+| **What it does** | Holds every record and does every decision-making step: the credit rules, the recommendation, the officer's decision, the offer, the repayment history, the audit log. The website reads and writes almost entirely through database functions ([functions.md](functions.md)) that check the caller's rights first; row rules stop anyone reading a table they shouldn't. PAN and mobile numbers are encrypted at rest and shown masked unless a role may reveal them. Credit policy and prices are versioned and change only through a second person's approval. A customer's personal data can be erased on request, within the legal retention rules (`docs/data-protection.md`). |
 | **Talks to** | The website, the AWS Lambdas (with the service key), pg_cron (scheduled jobs) |
 | **Built with** | Postgres 15 on Supabase, Supabase Auth (passwords and email codes), pg_cron, pgcrypto |
 | **Code** | `sql/NNN_*.sql`, run in order ([migrations.md](migrations.md)); what has been run live: `docs/migration-run-log.md`; tables: [schema.md](schema.md) |
@@ -94,7 +94,7 @@ No live bureau, SMS, e-NACH or employer-check provider is connected yet. Each st
 
 | Test | What it checks | How to run |
 |---|---|---|
-| SQL tests | Every migration in a local Postgres (PGlite), then 57 sections: rights, privacy, the engine, the workflows, the advisor checks | `node tests/sql/run.mjs` |
+| SQL tests | Every migration in a local Postgres (PGlite), then 58 sections: rights, privacy, the engine, the workflows, the advisor checks | `node tests/sql/run.mjs` |
 | Policy tests | 40 test cases against the credit rules; the database and AWS engines agree | `npm run test:policy`, `npm run test:rules`, `npm run test:parity` |
 | Lambda tests | The AWS policy engine and the document helpers | `npm run test:lambda` |
 | Site tests | Public pages; every staff page as each role (H1); phone layout (H4) | `npx playwright test` (logins from the environment) |

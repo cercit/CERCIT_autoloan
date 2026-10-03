@@ -163,7 +163,7 @@ const STAGES = [
   ["Pricing and employers", /^fn_(rate_grid|employer|gstin|pricing)/],
   ["Offer, agreement, disbursal and repayments", /^fn_(loan|repayment|offer|agreement|mandate|disburse|installment|after_approval|apr|emi|first_emi_date|add_working_days)/],
   ["Simulation and practice", /^fn_(sim|synthetic|practice)/],
-  ["Privacy (PAN, mobile)", /^fn_pii_/],
+  ["Privacy and data protection", /^fn_(pii_|erasure_|retention_)/],
   ["Users, roles and sign-in", /^fn_(user|role|login|record_failed|record_login|unlock|current_staff|is_|require|has_permission|sees_real|security|org|public_org|permission|admin_|first_conflict)/],
   ["Settings, switches and backups", /^fn_(settings|feature|flag|module|default_tenant)/],
   ["Other", /.*/],

@@ -103,6 +103,13 @@ export const KEY_FUNCTIONS = {
   fn_record_failed_login: "Counts failed sign-ins and locks the account after too many.",
   fn_require_permission: "Refuses the call unless the signed-in person's role holds the right.",
   fn_sees_real_customers: "Whether the signed-in person may see real customers (the demo and practice logins may not).",
+  // privacy and data protection
+  fn_erasure_find: "Finds a customer by email for an erasure request: ids only, nothing personal.",
+  fn_erasure_check: "What erasing a customer would delete, and whether the law says keep it (open application, live loan, 5-year KYC retention).",
+  fn_erasure_execute: "Erases a customer's personal data (ERASE typed): detail deleted, identity blanked, the decision record kept; files queued for deletion from storage.",
+  fn_erasure_storage_queue: "Stored files waiting to be deleted after an erasure.",
+  fn_retention_due: "Customers whose data is past the retention period, ids and dates only.",
+  fn_pii_encrypt: "Encrypts a PAN or mobile number before it is stored.",
   // settings, switches and backups
   fn_feature_enabled: "Whether a module switch is on.",
   fn_settings_baseline_save: "Saves today's settings as named defaults.",

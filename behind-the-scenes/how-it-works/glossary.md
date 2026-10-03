@@ -10,6 +10,7 @@
 | **DPD** | Days past due: how late a payment is, counted from its due date to the day the full amount arrived. |
 | **Disbursal** | Paying the loan out, here to the car dealer. It creates the loan account and the repayment schedule. |
 | **e-NACH** | The electronic mandate that lets the lender debit the EMI from the customer's bank account each month (simulated in the demo). |
+| **Erasure** | Deleting a customer's personal data on their request (DPDP Act), except what the law says to keep: a borrower's records for 5 years after the loan ends. See `docs/data-protection.md`. |
 | **EMI** | Equated monthly instalment: the fixed monthly payment. |
 | **FOIR** | Fixed obligations to income ratio: all monthly EMIs (existing ones plus the new car loan's, at the priced rate) as a share of net monthly income. The rules cap it. |
 | **Fast lane** | A customer case whose documents all passed the automatic checks and whose recommendation is approve; a person still approves. |
