@@ -1606,7 +1606,7 @@ export async function getPortfolioMetrics(): Promise<PortfolioMetrics> {
       available: false,
       message: /permission/i.test(error?.message ?? "")
         ? "The loan book is open to credit managers, credit heads, compliance and admins."
-        : "The loan book could not be loaded.",
+        : `The loan book could not be loaded: ${error?.message ?? "no answer"}`,
       loans: 0,
       principalLeft: 0,
       loansOverdue: 0,

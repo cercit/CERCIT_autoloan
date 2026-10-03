@@ -10,6 +10,7 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 |---|---|---|---|
 | 3 Oct | **Batch 1: A1–A6, B4.**<br>- real waiting-cases badge;<br>- the bell shows real events;<br>- the automation pill follows the switch;<br>- "Prototype data" only in sample mode;<br>- dashboard subtitle shows today and the user's branch;<br>- top search fills the Applications filter;<br>- read-only rules show On/Off labels | `1268a16`, `2e7abab` | Yes, all live (060 run and checked 3 Oct) |
 | 3 Oct | **C5:** Application Review opens (one staff function for the case, bureau, bank, timeline and duplicates); an error and a Try again button instead of endless loading; the approval, sanction and manager pages show errors too | `fix(C5)` | No: run 061, then merge |
+| 3 Oct | **C6:** Loan portfolio and the dashboard's Portfolio quality box load fast: each instalment's status is stored and refreshed only when a payment arrives; locally 155 loans went from 1.1 s to 0.02 s (the old way grew with the square of the book, so about 18 s at 628 loans) | `fix(C6)` | No: run 062, then merge |
 
 ## A. Numbers and text that are fake or fixed
 

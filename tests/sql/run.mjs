@@ -2827,6 +2827,60 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 40. Loan portfolio reads a stored status (062, fixes C6)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("loan status snapshot");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 120) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  t.equal("new loans are marked for refresh as their schedules and payments arrive",
+    (await one("select count(*)::int as n from loan_status_stale")).n > 0, true);
+  await as(ADMIN);
+  const p = (await one("select fn_staff_loan_portfolio() as v")).v;
+  await operator();
+  t.equal("one read catches up the backlog", [p.stale_loans, (await one("select count(*)::int as n from loan_status_stale")).n], [0, 0]);
+  const diff = await one(`select count(*)::int as n from loan_accounts l
+    cross join lateral fn_loan_installment_status(l.id) s
+    left join loan_status_snapshot x on x.loan_id = l.id and x.installment_no = s.installment_no
+    where x.loan_id is null or (x.amount_paid, x.shortfall, x.cleared_on, x.days_late, x.attempts, x.bounces)
+          is distinct from (s.amount_paid, s.shortfall, s.cleared_on, s.days_late, s.attempts, s.bounces)`);
+  t.equal("every installment in the snapshot matches the repayment history exactly", diff.n, 0);
+
+  // a payment for the most overdue loan clears it at the next read
+  const late = p.attention[0];
+  if (late) {
+    const loan = await one("select id from loan_accounts where loan_account_no = $1", [late.loan_account_no]);
+    const owed = await one("select coalesce(sum(shortfall), 0) as v from loan_status_snapshot where loan_id = $1 and cleared_on is null and due_date < current_date", [loan.id]);
+    await db.query("insert into loan_repayments (loan_id, paid_on, amount, outcome, method, reference_no) values ($1, current_date, $2, 'SUCCESS', 'NEFT', 'T-062')", [loan.id, owed.v]);
+    t.equal("a payment marks its loan for refresh", (await one("select count(*)::int as n from loan_status_stale where loan_id = $1", [loan.id])).n, 1);
+    await as(ADMIN);
+    const p2 = (await one("select fn_staff_loan_portfolio() as v")).v;
+    await operator();
+    t.equal("and the next read shows it no longer overdue", p2.attention.some((a) => a.loan_account_no === late.loan_account_no), false);
+  }
+  await as(OFFICER);
+  await t.rejects("website logins can't run the refresh themselves", () => db.query("select fn_loan_status_refresh(1)"), /permission denied/);
+  await t.rejects("or read the snapshot table", () => db.query("select * from loan_status_snapshot"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  t.equal("the purge leaves no snapshot behind", (await one("select count(*)::int as n from loan_status_snapshot s where not exists (select 1 from loan_accounts l where l.id = s.loan_id)")).n, 0);
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
