@@ -8,7 +8,7 @@ Each item has a size (S, M or L) and says whether it needs SQL (Sameer runs it) 
 
 | Date | Items | Commits | Live? |
 |---|---|---|---|
-| 3 Oct | **Batch 1: A1–A6, B4.**<br>- real waiting-cases badge;<br>- the bell shows real events;<br>- the automation pill follows the switch;<br>- "Prototype data" only in sample mode;<br>- dashboard subtitle shows today and the user's branch;<br>- top search fills the Applications filter;<br>- read-only rules show On/Off labels | `1268a16`, `2e7abab` | Site: yes. The badge and bell need **060** run in Supabase |
+| 3 Oct | **Batch 1: A1–A6, B4.**<br>- real waiting-cases badge;<br>- the bell shows real events;<br>- the automation pill follows the switch;<br>- "Prototype data" only in sample mode;<br>- dashboard subtitle shows today and the user's branch;<br>- top search fills the Applications filter;<br>- read-only rules show On/Off labels | `1268a16`, `2e7abab` | Yes, all live (060 run and checked 3 Oct) |
 
 ## A. Numbers and text that are fake or fixed
 
