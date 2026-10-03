@@ -17,7 +17,7 @@ import { DocumentExtractionReview } from "@/components/document-extraction-revie
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getApplication, getBankingAnalysis, getBureauReport } from "@/lib/api";
+import { getApplication, getBankingAnalysis, getBureauReport, refreshApplication } from "@/lib/api";
 import { BureauReportCard } from "@/components/bureau-report-card";
 import { BureauUploadForm } from "@/components/bureau-upload-form";
 import { MlRiskCard } from "@/components/ml-risk-card";
@@ -174,34 +174,72 @@ function ApplicationDetail() {
     }
   }
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadApp = () => {
+    refreshApplication(id);
+    return getApplication(id)
+      .then((result) => {
+        if (result) setApp(result);
+        else setLoadError("application not found");
+      })
+      .catch((e: Error) => setLoadError(e.message));
+  };
+
   useEffect(() => {
-    getApplication(id).then((result) => setApp(result ?? null));
+    setLoadError(null);
+    loadApp();
   }, [id]);
 
   useEffect(() => {
     if (!app?.id) return;
     setBankingLoading(true);
-    getBankingAnalysis(app.id).then((res: { summary: any; transactions: any[] }) => {
-      setBankingSummary(res.summary);
-      setBankingTxns(res.transactions);
-      setBankingLoading(false);
-    });
+    getBankingAnalysis(app.id)
+      .then((res: { summary: any; transactions: any[] }) => {
+        setBankingSummary(res.summary);
+        setBankingTxns(res.transactions);
+      })
+      .catch((e: Error) => toast.error(`Banking: ${e.message}`))
+      .finally(() => setBankingLoading(false));
   }, [app?.id]);
 
   useEffect(() => {
     if (!app?.id) return;
     setBureauLoading(true);
-    getBureauReport(app.id).then((report) => {
-      setBureauReport(report);
-      setBureauLoading(false);
-    });
+    getBureauReport(app.id)
+      .then((report) => setBureauReport(report))
+      .catch((e: Error) => toast.error(`Bureau: ${e.message}`))
+      .finally(() => setBureauLoading(false));
   }, [app?.id]);
 
   useEffect(() => {
     if (!app?.id) return;
-    checkDuplicates(app.pan, app.phone, app.id).then(setDuplicates);
-    getApplicationTimeline(app.id).then(setTimeline);
+    checkDuplicates(app.pan, app.phone, app.id).then(setDuplicates).catch(() => setDuplicates([]));
+    getApplicationTimeline(app.id).then(setTimeline).catch(() => setTimeline([]));
   }, [app?.id, app?.pan, app?.phone]);
+
+  if (!app && loadError) {
+    return (
+      <AppShell title="Application Review" subtitle={`Application ${id}`}>
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm">
+          <p className="font-semibold">This application could not be opened.</p>
+          <p className="mt-1 text-muted-foreground">
+            {loadError === "application not found"
+              ? "There is no application with this number that you are allowed to see."
+              : loadError}
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => { setLoadError(null); loadApp(); }}>
+              Try again
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/applications">Back to Applications</Link>
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!app) {
     return (
@@ -246,11 +284,11 @@ function ApplicationDetail() {
           <OverridePanel
             applicationId={app.id}
             currentDecision={app.recommendation}
-            onOverride={() => getApplication(id).then((r) => setApp(r ?? null))}
+            onOverride={() => loadApp()}
           />
           <EscalationDialog
             applicationId={app.id}
-            onEscalate={() => getApplication(id).then((r) => setApp(r ?? null))}
+            onEscalate={() => loadApp()}
           />
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             Print CAM
@@ -393,9 +431,11 @@ function ApplicationDetail() {
             if (flagData.severeDelinquency) flagLabels.push("Severe delinquency (90+ DPD)");
             if (flagData.thinFile) flagLabels.push("Thin credit file");
             if (flagData.overLeveraged) flagLabels.push("Over-leveraged (>80% utilization)");
-            const util = bureauReport.totalExposure > 0
-              ? Math.round((bureauReport.totalOutstanding / bureauReport.totalExposure) * 100)
-              : 0;
+            const util = bureauReport.creditCardUtilization != null
+              ? Math.round(bureauReport.creditCardUtilization)
+              : bureauReport.totalExposure > 0
+                ? Math.round((bureauReport.totalOutstanding / bureauReport.totalExposure) * 100)
+                : 0;
             return (
               <BureauReportCard
                 bureauName="CIBIL"
@@ -419,10 +459,11 @@ function ApplicationDetail() {
                 applicationPan={app.pan}
                 onUploadComplete={() => {
                   setBureauLoading(true);
-                  getBureauReport(app.id).then((report) => {
-                    setBureauReport(report);
-                    setBureauLoading(false);
-                  });
+                  refreshApplication(app.id);
+                  getBureauReport(app.id)
+                    .then((report) => setBureauReport(report))
+                    .catch((e: Error) => toast.error(`Bureau: ${e.message}`))
+                    .finally(() => setBureauLoading(false));
                 }}
               />
             </div>

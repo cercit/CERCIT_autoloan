@@ -150,37 +150,64 @@ function formatDate(iso: string): string {
 }
 
 
-export async function getBureauReport(applicationId: string): Promise<BureauReport> {
+// -- Application Review (sql/061, fix list C5) -----------------------------------
+// Staff can't read the case tables directly (privacy rules), so the review page,
+// its bureau, bank and timeline tabs and the duplicate check all come from one
+// function, fn_staff_application_review. One call per case, shared for a few seconds.
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type ReviewBundle = { case: any; obligations: any[]; bureau: any | null; bank: any | null; timeline: any[]; duplicates: any[] };
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+const reviewCache = new Map<string, Promise<ReviewBundle>>();
+
+function applicationReview(applicationId: string): Promise<ReviewBundle> {
+  let p = reviewCache.get(applicationId);
+  if (!p) {
+    p = Promise.resolve(supabase.rpc("fn_staff_application_review", { p_application_id: applicationId })).then(
+      ({ data, error }) => {
+        if (error) throw new Error(error.message || "Could not load this application");
+        if (!data) throw new Error("application not found");
+        return data as ReviewBundle;
+      },
+    );
+    reviewCache.set(applicationId, p);
+    const drop = () => setTimeout(() => reviewCache.delete(applicationId), 5000);
+    p.then(drop, () => reviewCache.delete(applicationId));
+  }
+  return p;
+}
+
+/** Forget the cached case so the next read fetches it again (after a decision or override). */
+export function refreshApplication(applicationId: string): void {
+  reviewCache.delete(applicationId);
+}
+
+export async function getBureauReport(applicationId: string): Promise<BureauReport | null> {
   if (!isSupabaseConfigured || isDemoMode()) return mockBureauReport;
 
-  const { data, error } = await supabase
-    .from("bureau_reports")
-    .select("*")
-    .eq("application_id", applicationId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error || !data) {
-    console.error("Failed to fetch bureau report:", error);
-    return mockBureauReport;
-  }
-
+  const b = (await applicationReview(applicationId)).bureau;
+  if (!b) return null;
+  const n = (v: unknown) => Number(v) || 0;
+  // The stored summary has the worst late payment, not a month-by-month grid; show that one line.
+  const worst = n(b.dpd_max_24m);
+  const bucket = worst >= 90 ? "90+" : worst >= 60 || b.dpd_60_plus_flag ? "60+" : worst >= 30 ? "30+" : null;
   return {
-    score: Number(data.score) || 0,
-    activeAccounts: Number(data.active_accounts) || 0,
-    closedAccounts: Number(data.closed_accounts) || 0,
-    overdueAccounts: Number(data.overdue_accounts) || 0,
-    totalOutstanding: Number(data.total_outstanding) || 0,
-    totalExposure: Number(data.total_exposure) || 0,
-    enquiries90Days: Number(data.enquiries_90_days) || 0,
-    enquiries: data.enquiries ?? mockBureauReport.enquiries,
-    oldestAccountMonths: Number(data.oldest_account_months) || 0,
-    oldestAccountAge: String(data.oldest_account_age ?? "—"),
-    writeoffs: Boolean(data.writeoffs),
-    settlements: Boolean(data.settlements),
-    suitsFiled: Boolean(data.suits_filed),
-    dpdHistory: Array.isArray(data.dpd_history) ? data.dpd_history : mockBureauReport.dpdHistory,
+    score: n(b.score),
+    activeAccounts: n(b.active_accounts),
+    closedAccounts: 0,
+    overdueAccounts: n(b.dpd_30_count_24m),
+    totalOutstanding: n(b.total_outstanding),
+    totalExposure: 0,
+    enquiries90Days: n(b.enquiry_count_90d),
+    enquiries: { last3Months: n(b.enquiry_count_90d), last6Months: 0, last12Months: 0 },
+    oldestAccountMonths: n(b.oldest_account_months),
+    oldestAccountAge: b.oldest_account_months ? `${Math.floor(n(b.oldest_account_months) / 12)} yrs ${n(b.oldest_account_months) % 12} mths` : "—",
+    writeoffs: n(b.writeoff_count_5y) > 0,
+    settlements: n(b.settled_count_5y) > 0,
+    suitsFiled: false,
+    dpdHistory: bucket ? [{ account: "Worst of all accounts, 24 months", months: [bucket] }] : [],
+    ...(b.credit_utilization_pct == null ? {} : { creditCardUtilization: n(b.credit_utilization_pct) }),
   };
 }
 
@@ -220,65 +247,10 @@ export async function getApplication(
     return mockApplications.find((a) => a.id === id);
   }
 
-  const { data, error } = await supabase
-    .from("applications")
-    .select(
-      `
-      *,
-      customers!inner(full_name, email, mobile, pan_number, age_at_application, employer_name, city, state_code, address_line1, address_line2, pincode, designation, residence_type, years_in_current_job, total_work_experience_years, salary_bank_name),
-      vehicles!fk_vehicles_app(make, model, variant, ex_showroom_price, on_road_price),
-      bureau_reports(score),
-      recommendations(recommendation, recommended_rate, foir_calculated, ltv_calculated, risk_factors, summary_text, policy_version_id, rules_snapshot, model_version, version_basis),
-      credit_decisions(decision),
-      obligation_details(lender_name, obligation_type, monthly_emi, outstanding_amount, dpd_current, source)
-    `
-    )
-    .eq("application_id", id)
-    .single();
-
-  if (error || !data) {
-    console.error("Failed to fetch application:", error);
-    return mockApplications.find((a) => a.id === id);
-  }
-
-  const cust = data.customers;
-  const veh = data.vehicles?.[0];
-  const bureau = data.bureau_reports?.[0];
-  const rec = data.recommendations?.[0];
-
-  const baseApp = mapToApplication({
-    ...data,
-    full_name: cust?.full_name,
-    email: cust?.email,
-    mobile: cust?.mobile,
-    pan_number: cust?.pan_number,
-    age_at_application: cust?.age_at_application,
-    employer_name: cust?.employer_name,
-    city: cust?.city,
-    state_name: cust?.state_code,
-    address_line1: cust?.address_line1,
-    address_line2: cust?.address_line2,
-    pincode: cust?.pincode,
-    residence_type: cust?.residence_type,
-    designation: cust?.designation,
-    years_in_current_job: cust?.years_in_current_job,
-    total_work_experience_years: cust?.total_work_experience_years,
-    salary_bank_name: cust?.salary_bank_name,
-    vehicle_make: veh?.make,
-    vehicle_model: veh?.model,
-    vehicle_variant: veh?.variant,
-    ex_showroom_price: veh?.ex_showroom_price,
-    on_road_price: veh?.on_road_price,
-    decision: rec?.recommendation,
-    rate: rec?.recommended_rate,
-    foir_pct: rec?.foir_calculated,
-    ltv_pct: rec?.ltv_calculated,
-    risk_factors: rec?.risk_factors,
-    cibil_score: bureau?.score ?? 0,
-  });
-
+  const r = await applicationReview(id);
+  const baseApp = mapToApplication({ ...r.case, cibil_score: r.case.cibil_score ?? 0 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const obligations = ((data as any).obligation_details ?? []).map((o: any) => ({
+  const obligations = (r.obligations ?? []).map((o: any) => ({
     lender: o.lender_name ?? "",
     type: o.obligation_type ?? "",
     emi: Number(o.monthly_emi) || 0,
@@ -287,10 +259,7 @@ export async function getApplication(
     source: o.source ?? "Bureau",
   }));
 
-  return {
-    ...baseApp,
-    obligations: obligations.length > 0 ? obligations : baseApp.obligations,
-  };
+  return { ...baseApp, obligations };
 }
 
 export async function createApplication(
@@ -1233,18 +1202,16 @@ export async function checkDuplicates(
   if (!isSupabaseConfigured || isDemoMode()) {
     return [];
   }
-  const { data, error } = await supabase
-    .from("customers")
-    .select("application_id, full_name, pan_number, mobile")
-    .or(`pan_number.eq.${pan},mobile.eq.${mobile}`)
-    .neq("application_id", currentApplicationId)
-    .limit(5);
-  if (error || !data) return [];
-  return (data as any[]).map((row) => ({
+  // PAN and mobile reach the page masked, so the match is made in the database by blind index.
+  void pan;
+  void mobile;
+  const r = await applicationReview(currentApplicationId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (r.duplicates ?? []).map((row: any) => ({
     applicationId: row.application_id,
     name: row.full_name ?? "",
-    status: "Active",
-    matchField: row.pan_number === pan ? "PAN" : "Mobile",
+    status: row.status ?? "",
+    matchField: row.match_field,
   }));
 }
 
@@ -1496,21 +1463,13 @@ export async function getApplicationTimeline(
       },
     ];
   }
-  const { data, error } = await supabase
-    .from("audit_events")
-    .select("event_type, created_at, actor_id, details")
-    .eq("entity_id", applicationId)
-    .eq("entity_type", "APPLICATION")
-    .order("created_at", { ascending: true });
-  if (error || !data) return [];
-  return (data as any[]).map((row) => ({
+  const r = await applicationReview(applicationId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (r.timeline ?? []).map((row: any) => ({
     stage: row.event_type,
     timestamp: row.created_at,
-    actor: row.actor_id ?? "System",
-    detail:
-      typeof row.details === "string"
-        ? row.details
-        : JSON.stringify(row.details ?? {}),
+    actor: row.actor ?? "System",
+    detail: row.detail && Object.keys(row.detail).length ? JSON.stringify(row.detail) : "",
   }));
 }
 
@@ -1790,47 +1749,42 @@ export async function searchEmployers(
 }
 
 export async function getBankingAnalysis(applicationId: string, from?: string): Promise<{
-  summary: BankStatementSummary;
+  summary: BankStatementSummary | null;
   transactions: BankTransaction[];
 }> {
   if (!isSupabaseConfigured || isDemoMode()) {
     return { summary: mockBankStatementSummary, transactions: mockTransactions };
   }
-  const [summaryRes, txnRes] = await Promise.all([
-    supabase
-      .from("bank_statement_analysis")
-      .select("*")
-      .eq("application_id", applicationId)
-      .single(),
-    supabase
-      .from("bank_transactions")
-      .select("*")
-      .eq("application_id", applicationId)
-      .order("transaction_date", { ascending: true }),
-  ]);
-  const summary: BankStatementSummary = summaryRes.data
-    ? {
-        avgMonthlyBalance: Number(summaryRes.data.avg_monthly_balance) || 0,
-        salaryCreditCount: Number(summaryRes.data.salary_credit_count) || 0,
-        avgSalaryAmount: Number(summaryRes.data.avg_salary_amount) || 0,
-        emiDebitCount: Number(summaryRes.data.emi_debit_count) || 0,
-        emiDebitTotal: Number(summaryRes.data.emi_debit_total) || 0,
-        cashDeposits: Number(summaryRes.data.cash_deposits) || 0,
-        chequeBounceInward: Number(summaryRes.data.cheque_bounce_inward) || 0,
-        chequeBounceOutward: Number(summaryRes.data.cheque_bounce_outward) || 0,
-        minBalanceBreaches: Number(summaryRes.data.min_balance_breaches) || 0,
-        months: Number(summaryRes.data.months) || 6,
-      }
-    : mockBankStatementSummary;
-  const transactions: BankTransaction[] = txnRes.data
-    ? (txnRes.data as any[]).map((t) => ({
-        date: formatDate(t.transaction_date ?? ""),
-        description: t.description ?? "",
-        debit: Number(t.debit) || 0,
-        credit: Number(t.credit) || 0,
-        balance: Number(t.balance) || 0,
-        category: (t.category ?? "Other") as BankTransaction["category"],
-      }))
-    : mockTransactions;
+  void from;
+  const b = (await applicationReview(applicationId)).bank;
+  if (!b) return { summary: null, transactions: [] };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const txns = (b.transactions ?? []) as any[];
+  const months = Number(b.months_covered) || 6;
+  const summary: BankStatementSummary = {
+    avgMonthlyBalance: Number(b.avg_monthly_balance) || 0,
+    salaryCreditCount: txns.filter((t) => t.category === "Salary").length || (b.salary_regularity === "REGULAR" ? months : 0),
+    avgSalaryAmount: Number(b.avg_salary_credit) || 0,
+    emiDebitCount: txns.filter((t) => t.category === "EMI").length,
+    emiDebitTotal: Number(b.total_emi_debits) || 0,
+    cashDeposits: Number(b.cash_deposit_total_6m) || 0,
+    chequeBounceInward: 0,
+    chequeBounceOutward: Number(b.bounce_count_6m) || 0,
+    minBalanceBreaches: 0,
+    months,
+  };
+  const known = ["Salary", "EMI", "Rent", "ATM", "Transfer", "UPI"];
+  const transactions: BankTransaction[] = txns.map((t) => {
+    const amount = Number(t.amount) || 0;
+    const debit = String(t.txn_type).toUpperCase().startsWith("D");
+    return {
+      date: formatDate(t.txn_date ?? ""),
+      description: t.description ?? "",
+      debit: debit ? amount : 0,
+      credit: debit ? 0 : amount,
+      balance: Number(t.balance_after) || 0,
+      category: (known.includes(t.category) ? t.category : "Other") as BankTransaction["category"],
+    };
+  });
   return { summary, transactions };
 }

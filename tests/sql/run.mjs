@@ -2783,6 +2783,50 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 39. Application Review through one staff function (061, fixes C5)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("application review");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 20) as v");
+  const syn = await one(`select a.application_id, c.pan_last4, (select count(*)::int from audit_events e where e.application_id = a.id) as events,
+      exists (select 1 from bureau_reports b where b.application_id = a.id) as has_bureau
+    from applications a join customers c on c.id = a.customer_id
+    where a.origin = 'SYNTHETIC' and exists (select 1 from bureau_reports b where b.application_id = a.id) limit 1`);
+  const real = await one("select application_id from applications where origin = 'CUSTOMER' and status <> 'DRAFT' limit 1");
+
+  await as(ADMIN);
+  const r = (await one("select fn_staff_application_review($1) as v", [syn.application_id])).v;
+  t.equal("the case comes back with PAN and mobile masked", [r.case.application_id, r.case.pan_number, /^X{6}\d{4}$/.test(r.case.mobile)],
+    [syn.application_id, "XXXXXX" + syn.pan_last4, true]);
+  t.equal("bureau, timeline and duplicates come in the same call", [r.bureau !== null, r.timeline.length, Array.isArray(r.duplicates)],
+    [syn.has_bureau, syn.events, true]);
+  t.equal("timeline is oldest first and names who acted", r.timeline.every((e, i) => i === 0 || e.created_at >= r.timeline[i - 1].created_at) && r.timeline.every((e) => e.actor), true);
+  await t.rejects("an unknown number is 'not found'", () => db.query("select fn_staff_application_review('NO-SUCH')"), /application not found/);
+  if (real) await t.ok("staff who may see customers open a customer's case", () => db.query("select fn_staff_application_review($1)", [real.application_id]));
+
+  await as(DEMO);
+  await t.ok("the public demo login opens a synthetic case", () => db.query("select fn_staff_application_review($1)", [syn.application_id]));
+  if (real) await t.rejects("but not a real customer's case", () => db.query("select fn_staff_application_review($1)", [real.application_id]), /application not found/);
+  await db.query("set role anon");
+  await t.rejects("the public can't call it", () => db.query("select fn_staff_application_review($1)", [syn.application_id]), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

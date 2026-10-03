@@ -57,15 +57,18 @@ function computeApr(
 function SanctionLetter() {
   const { id } = Route.useParams();
   const [app, setApp] = useState<Application | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    getApplication(id).then((result) => setApp(result ?? null));
+    getApplication(id)
+      .then((result) => (result ? setApp(result) : setLoadError("application not found")))
+      .catch((e: Error) => setLoadError(e.message));
   }, [id]);
 
   if (!app) {
     return (
       <AppShell title="Sanction Letter" subtitle="Loading...">
-        <div className="py-20 text-center text-muted-foreground">Loading application...</div>
+        <div className="py-20 text-center text-muted-foreground">{loadError ? `This application could not be opened: ${loadError}` : "Loading application..."}</div>
       </AppShell>
     );
   }
