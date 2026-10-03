@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { isDemoMode } from "@/lib/auth";
 import { getOrgSettings, saveOrgSettings, type OrgSettings } from "@/lib/org-api";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { SettingsDefaults } from "@/components/settings-defaults";
 
 export const Route = createFileRoute("/organisation")({
   head: () => ({
@@ -190,6 +191,7 @@ function Organisation() {
           </div>
         </form>
       )}
+      {isSupabaseConfigured && !isDemoMode() && settings?.can_manage && <SettingsDefaults />}
     </AppShell>
   );
 }

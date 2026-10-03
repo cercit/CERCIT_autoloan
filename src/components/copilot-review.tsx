@@ -8,7 +8,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { LabelValue, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, MeterBar, Pill, StatusPill } from "@/components/status";
@@ -32,6 +32,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { submitOfficerDecision } from "@/lib/api";
+import { getCurrentUser, isDemoMode } from "@/lib/auth";
+import { can, useMyRights } from "@/lib/permissions";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { OfficerDecisionResult } from "@/lib/api";
 import { emiFor, inr } from "@/lib/format";
@@ -48,7 +51,6 @@ import {
 import { cn } from "@/lib/utils";
 import { calculateIncome, calculateLTV } from "@/lib/engine";
 import { runAssessment, detectFraudFlags, checkEmployerConsistency, type FraudFlag } from "@/lib/engine";
-import { saveAssessment, getAssessmentHistory, verifyEmployer, verifyVehicle } from "@/lib/api";
 import { IncomeComparison } from "@/components/income-comparison";
 
 const recTone = {
@@ -91,6 +93,20 @@ function Collapsible({
 
 export function CopilotReview({ app, manager = false }: { app: Application; manager?: boolean }) {
   const navigate = useNavigate();
+  // C2: the income sources, bureau metrics, document list, cross-checks, override history
+  // and activity below are sample records. They show in sample mode only; on the live site
+  // the real figures are on the Banking, Bureau, Documents and Timeline tabs.
+  const sample = !isSupabaseConfigured || isDemoMode();
+  // B3: only a role with app.decide can record a decision
+  const rights = useMyRights();
+  const canDecide = can(rights, "app.decide");
+  // B5: the person's own sanction limit (Users page), checked by the database on approval
+  const [myLimit, setMyLimit] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (sample) return;
+    void getCurrentUser().then((me) => setMyLimit(me?.maxSanctionAmount ?? null)).catch(() => setMyLimit(undefined));
+  }, [sample]);
+  const checks = app.ruleChecks ?? (sample ? policyChecks : []);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
   const [decision, setDecision] = useState("Approve");
   const [amount, setAmount] = useState(String(app.loanAmount));
@@ -166,12 +182,16 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {manager && <Pill tone="primary">Delegation authority: up to Rs 25,00,000</Pill>}
+          {sample
+            ? manager && <Pill tone="primary">Delegation authority: up to Rs 25,00,000</Pill>
+            : canDecide && myLimit !== undefined && (
+                <Pill tone="primary">{myLimit === null ? "Your sanction limit: none set" : `Your sanction limit: ${inr(myLimit)}`}</Pill>
+              )}
           {result ? (
             <Pill tone={result.decision === "APPROVE" ? "success" : result.decision === "REJECT" ? "destructive" : "warning"}>
               Decision recorded: {result.decision}
             </Pill>
-          ) : (
+          ) : !canDecide ? null : (
             <>
               <Button
                 className="bg-success text-success-foreground hover:bg-success/90"
@@ -370,6 +390,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </Collapsible>
 
+          {sample ? (
           <Collapsible title="Income Assessment">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] text-sm">
@@ -409,7 +430,18 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               {variance <= 5 ? "within 5% threshold" : "salary mismatch, manual review required"}
             </p>
           </Collapsible>
+          ) : (
+          <Collapsible title="Income Assessment">
+            <p className="text-sm">
+              Declared net monthly income: <span className="font-semibold tabular">{inr(app.netIncome)}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Salary slips, Form 16 and the bank statement are compared on the Income and bank card and the Banking tab.
+            </p>
+          </Collapsible>
+          )}
 
+          {sample && (
           <Collapsible title="Cross-Document Income Validation">
             <IncomeComparison
               incomes={[
@@ -419,6 +451,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               ]}
             />
           </Collapsible>
+          )}
 
           <Collapsible title="Bureau Summary" defaultOpen>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -444,13 +477,18 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">300 — 900</p>
               </div>
+              {sample ? (
               <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {bureauMetrics.map(([label, value]) => (
                   <LabelValue key={label} label={label} value={value} />
                 ))}
               </div>
+              ) : (
+                <p className="flex-1 text-sm text-muted-foreground">Accounts, enquiries and late payments are on the Bureau tab.</p>
+              )}
             </div>
 
+            {sample && (
             <div className="mt-5">
               <p className="mb-2 text-xs font-medium text-muted-foreground">
                 DPD history — last 12 months
@@ -475,6 +513,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                 ))}
               </div>
             </div>
+            )}
           </Collapsible>
 
           <Collapsible title="Obligations & FOIR" defaultOpen>
@@ -703,8 +742,11 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           </Collapsible>
 
           <Collapsible title="Policy Check Results">
+            {checks.length === 0 && (
+              <p className="text-sm text-muted-foreground">The credit rules have not been run on this case yet.</p>
+            )}
             <ul className="divide-y divide-border">
-              {policyChecks.map((check) => (
+              {checks.map((check) => (
                 <li
                   key={check.rule}
                   className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
@@ -754,6 +796,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
         </div>
 
         <div className="min-w-0 space-y-4">
+          {sample && (
           <SectionCard title="Documents" description={`${documents.length} files`}>
             <ul className="space-y-2">
               {documents.map((doc) => {
@@ -809,6 +852,9 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </ul>
           </SectionCard>
 
+          )}
+
+          {sample && (
           <SectionCard title="Cross-Document Verification">
             <ul className="space-y-3 text-sm">
               <li className="flex items-start justify-between gap-3">
@@ -842,6 +888,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               </li>
             </ul>
           </SectionCard>
+          )}
 
           <SectionCard title="Proposed Terms" description="Adjust before approving">
             <div className="space-y-3">
@@ -903,6 +950,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </SectionCard>
 
+          {canDecide && (
           <SectionCard title="Decision">
             <div className="space-y-3">
               <div className="space-y-1.5">
@@ -974,8 +1022,9 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               </Button>
             </div>
           </SectionCard>
+          )}
 
-          {manager && (
+          {manager && sample && (
             <SectionCard title="Override History">
               <ul className="space-y-3 text-sm">
                 {overrideHistory.map((o) => (
@@ -991,6 +1040,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </SectionCard>
           )}
 
+          {sample && (
           <SectionCard title="Activity Log">
             <ol className="relative space-y-4 border-l border-border pl-4">
               {activityLog.map((entry) => (
@@ -1002,6 +1052,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               ))}
             </ol>
           </SectionCard>
+          )}
         </div>
       </div>
 

@@ -29,6 +29,15 @@ type LoginAs = "customer" | "official";
 const LIVE_DEMO_EMAIL = (import.meta.env["VITE_DEMO_EMAIL"] as string | undefined)?.trim();
 const LIVE_DEMO_PASSWORD = (import.meta.env["VITE_DEMO_PASSWORD"] as string | undefined)?.trim();
 const LIVE_DEMO = isSupabaseConfigured && !!LIVE_DEMO_EMAIL && !!LIVE_DEMO_PASSWORD;
+// Practice logins (072, D3): do the real jobs on synthetic customers. One shared
+// password, from the build (GitHub secret VITE_PRACTICE_PASSWORD), never this file.
+const PRACTICE_PASSWORD = (import.meta.env["VITE_PRACTICE_PASSWORD"] as string | undefined)?.trim();
+const PRACTICE = isSupabaseConfigured && !!PRACTICE_PASSWORD;
+const PRACTICE_LOGINS = [
+  { label: "Officer", email: "cercit+practice.officer@gmail.com", note: "takes and decides cases" },
+  { label: "Manager", email: "cercit+practice.manager@gmail.com", note: "sees every case, can override" },
+  { label: "Head", email: "cercit+practice.head@gmail.com", note: "also drafts and simulates policy" },
+];
 const DEMO_LOGIN = LIVE_DEMO
   ? { email: LIVE_DEMO_EMAIL!, password: LIVE_DEMO_PASSWORD! }
   : { email: DEMO_EMAIL, password: "demo" };
@@ -311,6 +320,37 @@ function StaffLogin() {
               >
                 Fill in the demo login
               </Button>
+            </div>
+          )}
+
+          {as !== "customer" && PRACTICE && (
+            <div className="mt-3 rounded-lg border border-dashed border-border px-4 py-3 text-sm">
+              <p className="font-medium">Practice the real jobs</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Work synthetic customers' cases as an officer, a manager or a credit head. No real customers are shown, and
+                practice cases are reset regularly. Password: <span className="font-mono text-foreground">{PRACTICE_PASSWORD}</span>
+              </p>
+              <div className="mt-2.5 grid grid-cols-3 gap-2">
+                {PRACTICE_LOGINS.map((p) => (
+                  <Button
+                    key={p.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    title={`Practice ${p.label.toLowerCase()}: ${p.note}`}
+                    onClick={() => {
+                      setByCode(false);
+                      setCodeSent(false);
+                      setError(null);
+                      setEmail(p.email);
+                      setPassword(PRACTICE_PASSWORD ?? "");
+                    }}
+                  >
+                    Try as {p.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">Fills in the login; then press Sign in.</p>
             </div>
           )}
 

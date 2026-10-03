@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   getCustomerState,
   getUploadTypes,
+  isSignInError,
   type CustomerState,
   type DraftDocument,
   type UploadType,
@@ -31,6 +32,7 @@ function DocumentsStep() {
   const [state, setState] = useState<CustomerState | null>(null);
   const [types, setTypes] = useState<Record<string, UploadType>>({});
   const [photoSkipped, setPhotoSkipped] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const s = await getCustomerState();
@@ -42,10 +44,13 @@ function DocumentsStep() {
   }, [app, navigate]);
 
   useEffect(() => {
-    void load().catch(() => navigate({ to: "/login", search: { as: "customer" } }));
+    // H2: only a sign-in problem goes back to sign in; anything else is shown
+    void load().catch((e: Error) =>
+      isSignInError(e) ? navigate({ to: "/login", search: { as: "customer" } }) : setLoadError(e.message),
+    );
     void getUploadTypes()
       .then(setTypes)
-      .catch(() => setTypes({}));
+      .catch((e: Error) => setLoadError(`the list of documents could not be read (${e.message})`));
   }, [load, navigate]);
 
   const appId = app ?? state?.draft?.application_id ?? "";
@@ -88,6 +93,14 @@ function DocumentsStep() {
       title="Your documents"
       lead="A quick photo of you first, then your documents. You can leave and come back; everything you upload is saved."
     >
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          We couldn't load your application: {loadError}{" "}
+          <button type="button" className="font-medium underline" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </div>
+      )}
       {!storageReady() ? (
         <p className="panel p-6 text-sm text-muted-foreground">
           Uploads aren't connected on this copy of the site.

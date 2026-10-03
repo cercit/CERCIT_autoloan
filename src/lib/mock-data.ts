@@ -5,6 +5,7 @@ export type AppStatus =
   | "Under Review"
   | "Referred"
   | "Sanctioned"
+  | "Disbursed"
   | "Rejected";
 
 export type Obligation = {
@@ -62,6 +63,8 @@ export type Application = {
   rulesSnapshot?: string;
   modelVersion?: string;
   versionBasis?: "RECORDED" | "ASSUMED";
+  /** the engine's rule results for this case (live data only) */
+  ruleChecks?: { rule: string; expected: string; actual: string; pass: boolean }[];
 };
 
 const base = {
@@ -475,26 +478,6 @@ export const applications: Application[] = [
 export const getApplication = (id: string): Application =>
   applications.find((a) => a.id === id) ?? applications[0]!;
 
-export const dashboardStats = [
-  { label: "New Applications", value: 12, trend: "+18%", up: true },
-  { label: "In Progress", value: 8, trend: "-4%", up: false },
-  { label: "Sanctioned Today", value: 5, trend: "+25%", up: true },
-  { label: "Rejected Today", value: 2, trend: "-9%", up: false },
-];
-
-export const decisionDistribution = [
-  { name: "Auto-Approved", value: 148, key: "approved" },
-  { name: "Manual Review", value: 63, key: "maybe" },
-  { name: "Rejected", value: 41, key: "rejected" },
-];
-
-export const tatData = [
-  { week: "W31", minutes: 92 },
-  { week: "W32", minutes: 78 },
-  { week: "W33", minutes: 64 },
-  { week: "W34", minutes: 55 },
-];
-
 export const documents = [
   { name: "PAN Card", status: "Extracted", confidence: 98, fields: [["PAN", "ABCDE1234F"], ["Name", "Rajesh Kumar Sharma"], ["DOB", "14 Mar 1994"]] },
   { name: "Aadhaar Card", status: "Extracted", confidence: 96, fields: [["Aadhaar", "XXXX XXXX 9012"], ["Address", "Anna Nagar East, Chennai"]] },
@@ -718,16 +701,6 @@ export const auditLog = [
   { time: "26 Aug 2026, 7:10 PM", user: "Rajeev Menon", action: "Decision Made", app: "APP-2026-00843", details: "Rejected — Low CIBIL, High FOIR", ip: "10.4.2.19" },
   { time: "26 Aug 2026, 6:02 PM", user: "Meera Iyer", action: "Logout", app: "—", details: "Session ended", ip: "10.4.1.44" },
   { time: "25 Aug 2026, 11:48 AM", user: "System", action: "Document Uploaded", app: "APP-2026-00841", details: "Bank statement re-upload", ip: "—" },
-];
-
-export const auditActions = [
-  "Application Created",
-  "Decision Made",
-  "Override",
-  "Policy Changed",
-  "Document Uploaded",
-  "Login",
-  "Logout",
 ];
 
 export const makes: Record<string, string[]> = {

@@ -42,6 +42,7 @@ const statusTone: Record<AppStatus, Tone> = {
   "Under Review": "warning",
   Referred: "warning",
   Sanctioned: "success",
+  Disbursed: "success",
   Rejected: "destructive",
 };
 

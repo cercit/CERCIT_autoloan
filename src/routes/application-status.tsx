@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, Clock, FileText, LogOut, ArrowLeft } from "lucide-react";
 
@@ -274,7 +275,7 @@ function ApplicationStatus() {
     if (waiting)
       void getUploadTypes()
         .then(setTypes)
-        .catch(() => setTypes({}));
+        .catch((e: Error) => toast.error(`Upload boxes could not be loaded: ${e.message}`));
   }, [waiting]);
   const reload = async () => {
     setTracking(await getTracking());

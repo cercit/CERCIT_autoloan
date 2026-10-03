@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RiskScoreExplainer } from "@/components/risk-score-explainer";
-import { buildRiskFeatures, buildPolicyInput } from "@/lib/ml-features";
+import { buildRiskFeatures, buildPolicyInput, getCaseRiskFeatures, type RiskFeatureSource } from "@/lib/ml-features";
+import type { RiskFeatures } from "@/lib/risk-score-model";
 import { computeRiskScore, type RiskScoreResult } from "@/lib/risk-score-model";
 import { CHALLENGER_VERSION } from "@/lib/onnx-inference";
 import { evaluatePolicy, POLICY_RULES } from "@/lib/policy-rule-engine";
@@ -20,7 +21,22 @@ export function MlRiskCard({
   bureau?: BureauReport | null;
   banking?: BankStatementSummary | null;
 }) {
-  const features = useMemo(() => buildRiskFeatures(app, bureau, banking), [app, bureau, banking]);
+  // E1: on the live site the inputs come from the database, worked out from the bureau and bank
+  // detail the model was trained on; the in-browser estimate is the sample-mode (or fallback) path.
+  const estimate = useMemo(() => buildRiskFeatures(app, bureau, banking), [app, bureau, banking]);
+  const [fromDb, setFromDb] = useState<{ features: RiskFeatures; source: RiskFeatureSource } | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [dbDone, setDbDone] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setDbDone(false);
+    getCaseRiskFeatures(app.id)
+      .then((r) => { if (!cancelled) setFromDb(r); })
+      .catch((e: Error) => { if (!cancelled) setDbError(e.message); })
+      .finally(() => { if (!cancelled) setDbDone(true); });
+    return () => { cancelled = true; };
+  }, [app.id]);
+  const features = fromDb?.features ?? estimate;
   const policy = useMemo(() => evaluatePolicy(buildPolicyInput(app, features)), [app, features]);
   const [result, setResult] = useState<RiskScoreResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +47,7 @@ export function MlRiskCard({
     setResult(null);
     setError(null);
     setChallenger(null);
+    if (!dbDone) return;
     computeRiskScore(features)
       .then((r) => { if (!cancelled) setResult(r); })
       .catch((e) => { if (!cancelled) setError(e?.message ?? "scoring failed"); })
@@ -39,7 +56,7 @@ export function MlRiskCard({
       .then((r) => { if (!cancelled && r) setChallenger(r); })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [features]);
+  }, [features, dbDone]);
 
   const failed = new Set([...policy.hardFailures, ...policy.softFailures]);
   const week3 = POLICY_RULES.filter((r) => WEEK3_RULES.has(r.id));
@@ -52,6 +69,18 @@ export function MlRiskCard({
         <RiskScoreExplainer result={result} />
       ) : (
         <Skeleton className="h-64 w-full" />
+      )}
+
+      {dbDone && (
+        <p className="text-xs text-muted-foreground">
+          {fromDb
+            ? `Inputs worked out from the case's ${fromDb.source.bureau_accounts ? "bureau accounts" : "bureau summary"}${
+                fromDb.source.bank_months > 0 ? ` and ${fromDb.source.bank_months} months of bank statement` : ""
+              }, as the model was trained.${!fromDb.source.bureau_summary || fromDb.source.bank_months === 0 ? " Some detail is missing, so those inputs use the training defaults." : ""}`
+            : dbError
+              ? `The case's detailed inputs could not be read (${dbError}); this score is an estimate from the summary figures.`
+              : "Sample data: an estimate from the summary figures."}
+        </p>
       )}
 
       {result && challenger && (

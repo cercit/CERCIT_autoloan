@@ -17,7 +17,9 @@ import { DocumentExtractionReview } from "@/components/document-extraction-revie
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getApplication, getBankingAnalysis, getBureauReport } from "@/lib/api";
+import { getApplication, getBankingAnalysis, getBureauReport, refreshApplication } from "@/lib/api";
+import { can, useMyRights } from "@/lib/permissions";
+import { EmployerCard } from "@/components/employer-card";
 import { BureauReportCard } from "@/components/bureau-report-card";
 import { BureauUploadForm } from "@/components/bureau-upload-form";
 import { MlRiskCard } from "@/components/ml-risk-card";
@@ -26,23 +28,16 @@ import type { Application } from "@/lib/mock-data";
 import { SlaTimer } from "@/components/sla-timer";
 import { OverridePanel } from "@/components/override-panel";
 import { EscalationDialog } from "@/components/escalation-dialog";
+import { isDemoMode } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuditTrailTimeline } from "@/components/audit-trail-timeline";
 import { CAMPreview } from "@/components/cam-preview";
 import { ApplicationTimeline } from "@/components/application-timeline";
 import { runAssessment } from "@/lib/engine";
 import { getAvailableTransitions } from "@/lib/workflow";
 import type { ApplicationStatus } from "@/lib/workflow";
-import { transitionStatus, checkDuplicates, getApplicationTimeline, assignApplication } from "@/lib/api";
+import { transitionStatus, checkDuplicates, getApplicationTimeline } from "@/lib/api";
 import type { TimelineEvent, DuplicateMatch } from "@/lib/api";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   isAwsConfigured,
@@ -135,8 +130,6 @@ function ApplicationDetail() {
   const [bankingLoading, setBankingLoading] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assignee, setAssignee] = useState("");
 
   const [bureauReport, setBureauReport] = useState<any>(null);
   const [bureauLoading, setBureauLoading] = useState(false);
@@ -174,34 +167,75 @@ function ApplicationDetail() {
     }
   }
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // B3: actions only for roles that can take them
+  const rights = useMyRights();
+  const sample = !isSupabaseConfigured || isDemoMode();
+
+  const loadApp = () => {
+    refreshApplication(id);
+    return getApplication(id)
+      .then((result) => {
+        if (result) setApp(result);
+        else setLoadError("application not found");
+      })
+      .catch((e: Error) => setLoadError(e.message));
+  };
+
   useEffect(() => {
-    getApplication(id).then((result) => setApp(result ?? null));
+    setLoadError(null);
+    loadApp();
   }, [id]);
 
   useEffect(() => {
     if (!app?.id) return;
     setBankingLoading(true);
-    getBankingAnalysis(app.id).then((res: { summary: any; transactions: any[] }) => {
-      setBankingSummary(res.summary);
-      setBankingTxns(res.transactions);
-      setBankingLoading(false);
-    });
+    getBankingAnalysis(app.id)
+      .then((res: { summary: any; transactions: any[] }) => {
+        setBankingSummary(res.summary);
+        setBankingTxns(res.transactions);
+      })
+      .catch((e: Error) => toast.error(`Banking: ${e.message}`))
+      .finally(() => setBankingLoading(false));
   }, [app?.id]);
 
   useEffect(() => {
     if (!app?.id) return;
     setBureauLoading(true);
-    getBureauReport(app.id).then((report) => {
-      setBureauReport(report);
-      setBureauLoading(false);
-    });
+    getBureauReport(app.id)
+      .then((report) => setBureauReport(report))
+      .catch((e: Error) => toast.error(`Bureau: ${e.message}`))
+      .finally(() => setBureauLoading(false));
   }, [app?.id]);
 
   useEffect(() => {
     if (!app?.id) return;
-    checkDuplicates(app.pan, app.phone, app.id).then(setDuplicates);
-    getApplicationTimeline(app.id).then(setTimeline);
+    checkDuplicates(app.pan, app.phone, app.id).then(setDuplicates).catch(() => setDuplicates([]));
+    getApplicationTimeline(app.id).then(setTimeline).catch(() => setTimeline([]));
   }, [app?.id, app?.pan, app?.phone]);
+
+  if (!app && loadError) {
+    return (
+      <AppShell title="Application Review" subtitle={`Application ${id}`}>
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm">
+          <p className="font-semibold">This application could not be opened.</p>
+          <p className="mt-1 text-muted-foreground">
+            {loadError === "application not found"
+              ? "There is no application with this number that you are allowed to see."
+              : loadError}
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => { setLoadError(null); loadApp(); }}>
+              Try again
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/applications">Back to Applications</Link>
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!app) {
     return (
@@ -227,7 +261,10 @@ function ApplicationDetail() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <SlaTimer since={app.submitted} />
-          {getAvailableTransitions(app.status as ApplicationStatus).map((next) => (
+          {/* H8: status buttons and Escalate have no database function behind them yet (they wrote
+              to the table directly, which the row rules refuse, or to a table that doesn't exist), so
+              they show in sample mode only */}
+          {sample && can(rights, "app.evaluate") && getAvailableTransitions(app.status as ApplicationStatus).map((next) => (
             <Button
               key={next}
               variant="outline"
@@ -240,18 +277,18 @@ function ApplicationDetail() {
               {next}
             </Button>
           ))}
-          <Button variant="outline" size="sm" onClick={() => setAssignOpen(true)}>
-            Assign
-          </Button>
-          <OverridePanel
-            applicationId={app.id}
-            currentDecision={app.recommendation}
-            onOverride={() => getApplication(id).then((r) => setApp(r ?? null))}
-          />
-          <EscalationDialog
-            applicationId={app.id}
-            onEscalate={() => getApplication(id).then((r) => setApp(r ?? null))}
-          />
+          {can(rights, "app.override") && (
+            <OverridePanel
+              applicationId={app.id}
+              onOverride={() => loadApp()}
+            />
+          )}
+          {sample && can(rights, "app.evaluate") && (
+            <EscalationDialog
+              applicationId={app.id}
+              onEscalate={() => loadApp()}
+            />
+          )}
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             Print CAM
           </Button>
@@ -277,7 +314,8 @@ function ApplicationDetail() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
+        {/* H4: wraps on a phone instead of running off the screen */}
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 sm:w-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="extracted">Extracted Data</TabsTrigger>
@@ -289,6 +327,7 @@ function ApplicationDetail() {
 
         <TabsContent value="overview" className="space-y-4">
           <EngineDecisionCard applicationId={app.id} />
+          <EmployerCard applicationId={app.id} />
           <CopilotReview app={app} />
         </TabsContent>
 
@@ -393,9 +432,11 @@ function ApplicationDetail() {
             if (flagData.severeDelinquency) flagLabels.push("Severe delinquency (90+ DPD)");
             if (flagData.thinFile) flagLabels.push("Thin credit file");
             if (flagData.overLeveraged) flagLabels.push("Over-leveraged (>80% utilization)");
-            const util = bureauReport.totalExposure > 0
-              ? Math.round((bureauReport.totalOutstanding / bureauReport.totalExposure) * 100)
-              : 0;
+            const util = bureauReport.creditCardUtilization != null
+              ? Math.round(bureauReport.creditCardUtilization)
+              : bureauReport.totalExposure > 0
+                ? Math.round((bureauReport.totalOutstanding / bureauReport.totalExposure) * 100)
+                : 0;
             return (
               <BureauReportCard
                 bureauName="CIBIL"
@@ -419,10 +460,11 @@ function ApplicationDetail() {
                 applicationPan={app.pan}
                 onUploadComplete={() => {
                   setBureauLoading(true);
-                  getBureauReport(app.id).then((report) => {
-                    setBureauReport(report);
-                    setBureauLoading(false);
-                  });
+                  refreshApplication(app.id);
+                  getBureauReport(app.id)
+                    .then((report) => setBureauReport(report))
+                    .catch((e: Error) => toast.error(`Bureau: ${e.message}`))
+                    .finally(() => setBureauLoading(false));
                 }}
               />
             </div>
@@ -476,31 +518,6 @@ function ApplicationDetail() {
           })()}
         </TabsContent>
       </Tabs>
-      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign application</DialogTitle>
-            <DialogDescription>Select an officer to assign this application to.</DialogDescription>
-          </DialogHeader>
-          <Select value={assignee} onValueChange={setAssignee}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select officer" />
-            </SelectTrigger>
-            <SelectContent>
-              {["Rajeev Menon", "Priya Sharma", "Ankit Patel"].map((name) => (
-                <SelectItem key={name} value={name}>{name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
-            <Button onClick={async () => {
-              const { error } = await assignApplication(app.id, assignee);
-              if (error) { toast.error(error); } else { toast.success(`Assigned to ${assignee}`); setAssignOpen(false); }
-            }}>Assign</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   );
 }

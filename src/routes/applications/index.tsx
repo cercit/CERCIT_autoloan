@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ClipboardList, Filter, Plus, Search, ArrowUpDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ClipboardList, Filter, Plus, Search, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { AppShell, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, Pill, ScoreText, StatusPill } from "@/components/status";
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getApplications } from "@/lib/api";
+import { getApplicationsPage } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Application } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
@@ -49,8 +49,19 @@ const statuses = [
   "Under Review",
   "Referred",
   "Sanctioned",
+  "Disbursed",
   "Rejected",
 ];
+
+type SortKey = "name" | "cibil" | "loanAmount" | "status" | "submitted";
+const SORT_PARAM: Record<SortKey, "name" | "cibil" | "loan" | "status" | "submitted"> = {
+  name: "name",
+  cibil: "cibil",
+  loanAmount: "loan",
+  status: "status",
+  submitted: "submitted",
+};
+const PAGE_SIZE = 50;
 
 function Applications() {
   const [allApps, setAllApps] = useState<Application[]>([]);
@@ -62,43 +73,41 @@ function Applications() {
     if (searched !== undefined) setQuery(searched);
   }, [searched]);
   const [status, setStatus] = useState("All statuses");
-  const [sortKey, setSortKey] = useState<"name" | "cibil" | "loanAmount" | "status" | "submitted" | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
+  // C4: the database searches, sorts and pages (fn_list_applications_page); the page
+  // asks for 50 cases at a time instead of all ~2,000.
+  const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
-    getApplications()
-      .then(setAllApps)
-      .finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    const timer = setTimeout(() => {
+      getApplicationsPage({
+        search: query,
+        status,
+        sort: sortKey ? SORT_PARAM[sortKey] : "submitted",
+        desc: sortKey ? sortDir === "desc" : true,
+        page,
+        pageSize: PAGE_SIZE,
+      })
+        .then((r) => {
+          setAllApps(r.rows);
+          setTotal(r.total);
+          setLoadError(null);
+        })
+        .catch((e: Error) => setLoadError(e.message))
+        .finally(() => setLoading(false));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, status, sortKey, sortDir, page]);
 
-  const filteredRows = useMemo(
-    () =>
-      allApps.filter((app) => {
-        const matchesStatus = status === "All statuses" || app.status === status;
-        const q = query.trim().toLowerCase();
-        const matchesQuery =
-          !q ||
-          app.name.toLowerCase().includes(q) ||
-          app.id.toLowerCase().includes(q) ||
-          app.pan.toLowerCase().includes(q) ||
-          app.employer.toLowerCase().includes(q);
-        return matchesStatus && matchesQuery;
-      }),
-    [allApps, query, status],
-  );
+  // a new search, filter or sort starts from the first page
+  useEffect(() => setPage(1), [query, status, sortKey, sortDir]);
 
-  const sortedRows = useMemo(() => {
-    if (!sortKey) return filteredRows;
-    return [...filteredRows].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "cibil") cmp = a.cibil - b.cibil;
-      else if (sortKey === "loanAmount") cmp = a.loanAmount - b.loanAmount;
-      else if (sortKey === "status") cmp = a.status.localeCompare(b.status);
-      else if (sortKey === "submitted") cmp = a.submitted.localeCompare(b.submitted);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [filteredRows, sortKey, sortDir]);
+  const sortedRows = allApps;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function toggleSort(key: typeof sortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -108,7 +117,7 @@ function Applications() {
   return (
     <AppShell
       title="Applications"
-      subtitle={loading ? "Loading..." : `${sortedRows.length} of ${allApps.length} applications`}
+      subtitle={loading ? "Loading..." : `${total.toLocaleString()} application${total === 1 ? "" : "s"}${pages > 1 ? ` · page ${page} of ${pages}` : ""}`}
       actions={
         <Button asChild>
           <Link to="/applications/new">
@@ -117,6 +126,11 @@ function Applications() {
         </Button>
       }
     >
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          The applications could not be loaded: {loadError}
+        </div>
+      )}
       <SectionCard className="overflow-hidden">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
@@ -124,7 +138,7 @@ function Applications() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, PAN, application ID or employer"
+              placeholder="Search name, application ID, employer, last 4 of PAN or full PAN"
               className="pl-9"
             />
           </div>
@@ -288,6 +302,19 @@ function Applications() {
             </tbody>
           </table>
         </div>
+        {total > PAGE_SIZE && (
+          <div className="mt-6 flex items-center justify-end gap-2 text-sm">
+            <span className="text-muted-foreground">
+              Page {page} of {pages}
+            </span>
+            <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage((p) => p + 1)} aria-label="Next page">
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        )}
       </SectionCard>
     </AppShell>
   );

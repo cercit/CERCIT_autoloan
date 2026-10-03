@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { makes } from "@/lib/customer-data";
-import { getCustomerState, saveVehicle, type DraftVehicle } from "@/lib/customer-api";
+import { getCustomerState, isSignInError, saveVehicle, type DraftVehicle } from "@/lib/customer-api";
 import { emiFor, inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +46,7 @@ function CarStep() {
   const [ready, setReady] = useState(false);
   const [initial, setInitial] = useState<DraftVehicle | null>(null);
   const [progress, setProgress] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Only for a signed-in customer's own draft; otherwise back to the start.
   useEffect(() => {
@@ -58,7 +59,8 @@ function CarStep() {
         setInitial(s.draft.vehicle);
         setReady(true);
       })
-      .catch(() => navigate({ to: "/login", search: { as: "customer" } }));
+      // H2: only a sign-in problem goes back to sign in; anything else is shown
+      .catch((e: Error) => (isSignInError(e) ? navigate({ to: "/login", search: { as: "customer" } }) : setLoadError(e.message)));
   }, [app, navigate]);
 
   return (
@@ -69,10 +71,18 @@ function CarStep() {
       title="Which car are you buying?"
       lead="Use the quotation from the dealer if you have one. If not, type what you know; we'll ask for the quotation before final approval."
     >
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          We couldn't load your application: {loadError}{" "}
+          <button type="button" className="font-medium underline" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </div>
+      )}
       {ready && app ? (
         <CarForm app={app} initial={initial} onProgress={setProgress} />
       ) : (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        !loadError && <p className="text-sm text-muted-foreground">Loading…</p>
       )}
     </OnboardingShell>
   );

@@ -796,6 +796,8 @@ export type PortfolioLoan = {
 export type LoanPortfolio = {
   as_of: string;
   includes_real: boolean;
+  /** loans paid since the last refresh and not yet counted (sql/062); normally 0 */
+  stale_loans?: number;
   totals: {
     loans: number;
     synthetic: number;

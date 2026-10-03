@@ -73,6 +73,11 @@ export function Portfolio({ data }: { data: LoanPortfolio }) {
 
   return (
     <div className="space-y-4">
+      {data.stale_loans ? (
+        <p className="text-xs text-muted-foreground">
+          {data.stale_loans} loan{data.stale_loans === 1 ? " has" : "s have"} new payments not counted yet; they are added on the next visit or the daily run.
+        </p>
+      ) : null}
       {t.synthetic === t.loans && (
         <p className="rounded-md bg-surface-subtle px-3 py-2 text-sm text-muted-foreground">
           Every loan here is synthetic test data{data.includes_real ? "" : " (your login sees synthetic loans only)"}. Repayments follow a

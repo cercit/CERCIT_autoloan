@@ -17,32 +17,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { submitOverride } from "@/lib/api";
+import { overrideDecision } from "@/lib/api";
 import { toast } from "sonner";
 
 export function OverridePanel({
   applicationId,
-  currentDecision,
   onOverride,
 }: {
   applicationId: string;
-  currentDecision: string;
   onOverride: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [decision, setDecision] = useState<"APPROVE" | "REJECT" | "HOLD">("APPROVE");
+  const [decision, setDecision] = useState<"APPROVE" | "REJECT" | "MAYBE">("APPROVE");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit() {
     setSubmitting(true);
-    const { error } = await submitOverride({
-      applicationId,
-      originalDecision: currentDecision,
-      overrideDecision: decision,
-      reason,
-      overriddenBy: "current-user",
-    });
+    const { error } = await overrideDecision({ applicationId, decision, reason });
     setSubmitting(false);
     if (error) {
       toast.error(error);
@@ -74,7 +66,7 @@ export function OverridePanel({
             <SelectContent>
               <SelectItem value="APPROVE">Approve</SelectItem>
               <SelectItem value="REJECT">Reject</SelectItem>
-              <SelectItem value="HOLD">Hold</SelectItem>
+              <SelectItem value="MAYBE">Refer for review</SelectItem>
             </SelectContent>
           </Select>
           <Textarea

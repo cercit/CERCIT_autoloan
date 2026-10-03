@@ -26,6 +26,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { downloadPdf } from "@/lib/doc-pdf";
 import { inr } from "@/lib/format";
 import { disburse, getCaseLoan, issueOffer, type AfterApproval } from "@/lib/loan-api";
+import { can, useMyRights } from "@/lib/permissions";
+import { EmployerCard } from "@/components/employer-card";
 import { availableDocs } from "@/lib/loan-docs";
 import {
   FACE_TEXT,
@@ -143,6 +145,7 @@ function CaseView() {
   const [docChecks, setDocChecks] = useState<DocumentChecks | null>(null);
   const [bureau, setBureau] = useState<BureauDetail | null>(null);
   const [income, setIncome] = useState<IncomeDetail | null>(null);
+  const rights = useMyRights();
 
   const load = useCallback(async () => {
     try {
@@ -224,9 +227,13 @@ function CaseView() {
   const quoteIn = c.documents.some(
     (d) => d.doc_type === "QUOTE" && (d.status === "RECEIVED" || d.status === "ACCEPTED"),
   );
+  // B3: buttons only for roles that can use them (the database refuses the rest anyway)
+  const canAct = can(rights, "app.evaluate");
+  const canDecide = can(rights, "app.decide");
   const open =
-    ["SUBMITTED", "UNDER_ASSESSMENT", "UNDER_REVIEW"].includes(a.status) ||
-    (a.status === "APPROVED" && a.approval_stage === "IN_PRINCIPLE");
+    canAct &&
+    (["SUBMITTED", "UNDER_ASSESSMENT", "UNDER_REVIEW"].includes(a.status) ||
+      (a.status === "APPROVED" && a.approval_stage === "IN_PRINCIPLE"));
 
   return (
     <AppShell
@@ -271,7 +278,13 @@ function CaseView() {
       )}
 
       {(a.status === "APPROVED" && a.approval_stage === "FINAL") || a.status === "DISBURSED" ? (
-        <AfterApprovalPanel id={id} onChange={load} />
+        <AfterApprovalPanel id={id} onChange={load} canDecide={canDecide} />
+      ) : !canAct ? (
+        rights && (
+          <p className="mb-4 rounded-md border border-border bg-surface-subtle px-3 py-2 text-sm text-muted-foreground">
+            Your role can view this case but not act on it.
+          </p>
+        )
       ) : (
         <NextStep
           c={c}
@@ -288,6 +301,7 @@ function CaseView() {
         {/* min-w-0: wide tables scroll inside their cards instead of widening the column on phones. */}
         <div className="min-w-0 space-y-4 lg:col-span-2">
           {checks?.recommendation && <CreditChecksCard checks={checks} />}
+          <EmployerCard applicationId={a.application_id} />
           {bureau?.detail && <BureauDetailCard data={bureau} />}
           {income?.detail && <IncomeDetailCard data={income} />}
           <SectionCard
@@ -450,7 +464,7 @@ function CaseView() {
             </ul>
           </SectionCard>
 
-          <NoteBox busy={busy} act={act} />
+          {canAct && <NoteBox busy={busy} act={act} />}
 
           <SectionCard title="History">
             <ol className="space-y-2 text-sm">
@@ -1052,7 +1066,15 @@ function CreditChecksCard({ checks }: { checks: CaseChecks }) {
 // After final approval: offer and KFS, the customer's steps, disbursement (sql/049)
 // ---------------------------------------------------------------------------
 
-function AfterApprovalPanel({ id, onChange }: { id: string; onChange: () => Promise<void> }) {
+function AfterApprovalPanel({
+  id,
+  onChange,
+  canDecide,
+}: {
+  id: string;
+  onChange: () => Promise<void>;
+  canDecide: boolean;
+}) {
   const [a, setA] = useState<AfterApproval | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1178,13 +1200,13 @@ function AfterApprovalPanel({ id, onChange }: { id: string; onChange: () => Prom
         ))}
       </ol>
       <div className="mt-4 flex flex-wrap items-end gap-2">
-        {canIssue && (
+        {canIssue && canDecide && (
           <Button disabled={busy !== null} onClick={() => void run("issue", () => issueOffer(id))}>
             {busy === "issue" && <Loader2 className="size-4 animate-spin" />}
             {o ? "Issue a fresh offer and KFS" : "Issue the offer and KFS"}
           </Button>
         )}
-        {!a.loan && o?.status === "ACCEPTED" && (
+        {!a.loan && o?.status === "ACCEPTED" && canDecide && (
           <>
             <div className="space-y-1">
               <label htmlFor="utr" className="text-xs text-muted-foreground">

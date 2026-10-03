@@ -21,6 +21,7 @@ import {
   getConsentText,
   getCustomerState,
   getDetails,
+  isSignInError,
   saveDetails,
   sendCustomerEmailCode,
   submitApplication,
@@ -184,6 +185,7 @@ function DetailsStep() {
   const { emit } = useCharacter();
   const [state, setState] = useState<CustomerState | null>(null);
   const [details, setDetails] = useState<DetailsState | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<ExtractionResult["extractions"]>({});
 
   const load = useCallback(async () => {
@@ -198,7 +200,10 @@ function DetailsStep() {
 
   useEffect(() => {
     emit("FORM_STARTED");
-    void load().catch(() => navigate({ to: "/login", search: { as: "customer" } }));
+    // H2: only a sign-in problem goes back to sign in; anything else is shown
+    void load().catch((e: Error) =>
+      isSignInError(e) ? navigate({ to: "/login", search: { as: "customer" } }) : setLoadError(e.message),
+    );
   }, [emit, load, navigate]);
 
   const appId = state?.draft?.application_id ?? "";
@@ -279,8 +284,16 @@ function DetailsStep() {
           : "Fill in each part and confirm. It takes about 3 minutes."
       }
     >
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          We couldn't load your application: {loadError}{" "}
+          <button type="button" className="font-medium underline" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </div>
+      )}
       {!state || !details ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        !loadError && <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <div className="space-y-4">
           {isAwsConfigured() && (
@@ -1111,6 +1124,7 @@ function SubmitBlock({ app, state, ready }: { app: string; state: CustomerState;
   const navigate = useNavigate();
   const { emit, privateField } = useCharacter();
   const [consent, setConsent] = useState<ConsentText | null>(null);
+  const [consentMissing, setConsentMissing] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState("");
@@ -1122,7 +1136,10 @@ function SubmitBlock({ app, state, ready }: { app: string; state: CustomerState;
   );
 
   useEffect(() => {
-    void getConsentText("BUREAU_PULL").then(setConsent);
+    // H2: without the consent wording the application can't be sent, so say so instead of a silent button
+    void getConsentText("BUREAU_PULL")
+      .then((c) => (c ? setConsent(c) : setConsentMissing(true)))
+      .catch(() => setConsentMissing(true));
   }, []);
 
   async function send() {
@@ -1182,6 +1199,11 @@ function SubmitBlock({ app, state, ready }: { app: string; state: CustomerState;
         )}
         {ready && missing.length === 0 && (
           <>
+            {consentMissing && (
+              <p role="alert" className="text-sm text-destructive">
+                The consent wording for the credit check could not be loaded, so the application can't be sent yet. Refresh the page to try again.
+              </p>
+            )}
             {consent && (
               <label className="flex items-start gap-3">
                 <Checkbox

@@ -1,0 +1,31 @@
+# H7: weekly copy of the settings and policy tables, kept outside the database for 90 days.
+# Needs two repository secrets: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. Without them it does nothing.
+name: Settings backup
+
+on:
+  schedule:
+    - cron: "0 20 * * 6" # Sundays 01:30 India time, half an hour after the database takes its weekly backup (079)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Export the newest backup
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/backup-settings.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: settings-backup
+          path: backups/
+          retention-days: 90
+          if-no-files-found: ignore

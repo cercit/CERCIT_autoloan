@@ -430,6 +430,10 @@ function UserDialog({
                 placeholder="No limit"
               />
             </div>
+            <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">
+              Both limits are checked on every decision: approvals above the sanction limit, and decisions beyond the
+              cases per day (India time), are refused. Leave blank for no limit.
+            </p>
             {!user && (
               <label className="flex items-center gap-2 text-sm sm:col-span-2">
                 <input type="checkbox" checked={invite} onChange={(e) => setInvite(e.target.checked)} className="size-4" />

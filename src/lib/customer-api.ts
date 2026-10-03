@@ -86,6 +86,16 @@ export interface VehicleInput {
   tenure_months: number;
 }
 
+/**
+ * Whether an error means the customer isn't signed in (or hasn't verified their
+ * email), as opposed to anything else going wrong (fix list H2). Only the first
+ * should send them back to sign in; the rest are shown with a way to try again.
+ */
+export function isSignInError(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e ?? "");
+  return /sign in|verify your email|not authenticated|jwt|no session/i.test(m);
+}
+
 function message(error: { message?: string } | null): string {
   const m = (error?.message ?? "Something went wrong").replace(/^.*?ERROR:\s*/, "");
   return m.charAt(0).toUpperCase() + m.slice(1);

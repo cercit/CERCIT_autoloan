@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Check,
@@ -85,7 +86,7 @@ function MyLoan() {
     void load();
     void getUploadTypes()
       .then(setTypes)
-      .catch(() => setTypes({}));
+      .catch((e: Error) => toast.error(`Upload boxes could not be loaded: ${e.message}`));
   }, [load]);
 
   const o = a?.offer;

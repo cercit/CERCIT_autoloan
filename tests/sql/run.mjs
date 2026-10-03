@@ -788,6 +788,10 @@ const asOperator = () => asApi("", "");
 {
   const t = makeChecker("FOIR, LTV and tenure basis");
   const OFFICER = "22222222-2222-2222-2222-222222222222";
+  // These cases name "Infosys"; make it a category A employer in the master (069) so the
+  // employer category caps (070, tested on their own below) don't change what is tested here.
+  await db.query(`insert into employers (name, name_key, employer_type, category) values ('Infosys', fn_employer_key('Infosys'), 'LISTED', 'A')
+                  on conflict (name_key) do update set employer_type = 'LISTED', category = 'A'`);
   let n = 40;
   const submit = async (overrides) => {
     n += 1;
@@ -1063,20 +1067,23 @@ const asOperator = () => asApi("", "");
   // Same rights as the CASE list in 018, role by role
   const counts = Object.fromEntries((await db.query(
     "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
-  // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041
+  // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041;
+  // admin, credit head, credit manager and policy manager: plus employer.manage from 069; the practice roles from 072
   t.equal("every role keeps its 018 rights", counts,
-    { admin: 13, compliance: 13, credit_head: 20, credit_manager: 9, credit_officer: 7, demo_viewer: 5, policy_manager: 11, reviewer: 5, viewer: 3 });
+    { admin: 14, compliance: 13, credit_head: 21, credit_manager: 10, credit_officer: 7, demo_viewer: 5, policy_manager: 12,
+      practice_head: 10, practice_manager: 7, practice_officer: 4, reviewer: 5, viewer: 3 });
   t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
     ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
   const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
-  t.equal("six current roles, plus the public demo role (042)", six, ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "demo_viewer", "policy_manager"]);
+  t.equal("six current roles, plus the public demo role (042) and the three practice roles (072)", six,
+    ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "demo_viewer", "policy_manager", "practice_head", "practice_manager", "practice_officer"]);
   const mfa = (await db.query("select code from roles where mfa_required order by code")).rows.map((r) => r.code);
   t.equal("MFA marked for the four privileged roles", mfa, ["admin", "compliance", "credit_head", "policy_manager"]);
   t.equal("admin idles out at 10 minutes", (await one("select idle_timeout_minutes as v from roles where code = 'admin'")).v, 10);
 
   // Conflicting pairs
   const conflicts = (await db.query("select role_code, waived from v_role_conflicts order by role_code")).rows;
-  t.equal("only waived conflicts exist", conflicts, [{ role_code: "admin", waived: true }, { role_code: "credit_head", waived: true }]);
+  t.equal("only waived conflicts exist", conflicts, [{ role_code: "admin", waived: true }, { role_code: "credit_head", waived: true }, { role_code: "practice_head", waived: true }]);
   await db.query("insert into roles (code, name, description) values ('test_role', 'Test', 'x')");
   await db.query("insert into role_permissions (role_code, permission_code) values ('test_role', 'app.decide')");
   await t.rejects("a role cannot get decide and author together",
@@ -2780,6 +2787,1074 @@ const asOperator = () => asApi("", "");
   await db.query("select set_config('request.jwt.claims', '', false)");
   await db.query("delete from audit_events where event_type in ('USER_CHANGED','LOGIN') and actor_type = 'USER' and application_id is null");
   await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 39. Application Review through one staff function (061, fixes C5)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("application review");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 20) as v");
+  const syn = await one(`select a.application_id, c.pan_last4, (select count(*)::int from audit_events e where e.application_id = a.id) as events,
+      exists (select 1 from bureau_reports b where b.application_id = a.id) as has_bureau
+    from applications a join customers c on c.id = a.customer_id
+    where a.origin = 'SYNTHETIC' and exists (select 1 from bureau_reports b where b.application_id = a.id) limit 1`);
+  const real = await one("select application_id from applications where origin = 'CUSTOMER' and status <> 'DRAFT' limit 1");
+
+  await as(ADMIN);
+  const r = (await one("select fn_staff_application_review($1) as v", [syn.application_id])).v;
+  t.equal("the case comes back with PAN and mobile masked", [r.case.application_id, r.case.pan_number, /^X{6}\d{4}$/.test(r.case.mobile)],
+    [syn.application_id, "XXXXXX" + syn.pan_last4, true]);
+  t.equal("bureau, timeline and duplicates come in the same call", [r.bureau !== null, r.timeline.length, Array.isArray(r.duplicates)],
+    [syn.has_bureau, syn.events, true]);
+  t.equal("timeline is oldest first and names who acted", r.timeline.every((e, i) => i === 0 || e.created_at >= r.timeline[i - 1].created_at) && r.timeline.every((e) => e.actor), true);
+  await t.rejects("an unknown number is 'not found'", () => db.query("select fn_staff_application_review('NO-SUCH')"), /application not found/);
+  if (real) await t.ok("staff who may see customers open a customer's case", () => db.query("select fn_staff_application_review($1)", [real.application_id]));
+
+  await as(DEMO);
+  await t.ok("the public demo login opens a synthetic case", () => db.query("select fn_staff_application_review($1)", [syn.application_id]));
+  if (real) await t.rejects("but not a real customer's case", () => db.query("select fn_staff_application_review($1)", [real.application_id]), /application not found/);
+  await db.query("set role anon");
+  await t.rejects("the public can't call it", () => db.query("select fn_staff_application_review($1)", [syn.application_id]), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 40. Loan portfolio reads a stored status (062, fixes C6)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("loan status snapshot");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 120) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  t.equal("new loans are marked for refresh as their schedules and payments arrive",
+    (await one("select count(*)::int as n from loan_status_stale")).n > 0, true);
+  await as(ADMIN);
+  const p = (await one("select fn_staff_loan_portfolio() as v")).v;
+  await operator();
+  t.equal("one read catches up the backlog", [p.stale_loans, (await one("select count(*)::int as n from loan_status_stale")).n], [0, 0]);
+  const diff = await one(`select count(*)::int as n from loan_accounts l
+    cross join lateral fn_loan_installment_status(l.id) s
+    left join loan_status_snapshot x on x.loan_id = l.id and x.installment_no = s.installment_no
+    where x.loan_id is null or (x.amount_paid, x.shortfall, x.cleared_on, x.days_late, x.attempts, x.bounces)
+          is distinct from (s.amount_paid, s.shortfall, s.cleared_on, s.days_late, s.attempts, s.bounces)`);
+  t.equal("every installment in the snapshot matches the repayment history exactly", diff.n, 0);
+
+  // a payment for the most overdue loan clears it at the next read
+  const late = p.attention[0];
+  if (late) {
+    const loan = await one("select id from loan_accounts where loan_account_no = $1", [late.loan_account_no]);
+    const owed = await one("select coalesce(sum(shortfall), 0) as v from loan_status_snapshot where loan_id = $1 and cleared_on is null and due_date < current_date", [loan.id]);
+    await db.query("insert into loan_repayments (loan_id, paid_on, amount, outcome, method, reference_no) values ($1, current_date, $2, 'SUCCESS', 'NEFT', 'T-062')", [loan.id, owed.v]);
+    t.equal("a payment marks its loan for refresh", (await one("select count(*)::int as n from loan_status_stale where loan_id = $1", [loan.id])).n, 1);
+    await as(ADMIN);
+    const p2 = (await one("select fn_staff_loan_portfolio() as v")).v;
+    await operator();
+    t.equal("and the next read shows it no longer overdue", p2.attention.some((a) => a.loan_account_no === late.loan_account_no), false);
+  }
+  await as(OFFICER);
+  await t.rejects("website logins can't run the refresh themselves", () => db.query("select fn_loan_status_refresh(1)"), /permission denied/);
+  await t.rejects("or read the snapshot table", () => db.query("select * from loan_status_snapshot"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  t.equal("the purge leaves no snapshot behind", (await one("select count(*)::int as n from loan_status_snapshot s where not exists (select 1 from loan_accounts l where l.id = s.loan_id)")).n, 0);
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 41. Policy Rules page reads the real rules (063, fixes C7)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("policy rules for staff");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const CUSTOMER = "55555555-5555-5555-5555-555555555555";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  const stored = await one("select count(*)::int as n, (select threshold_value from policy_rules where rule_id = 'BUR-SCORE-MIN') as min_score from policy_rules");
+  const inForce = await one("select version_code from policy_versions where id = fn_policy_version_at()");
+  await as(OFFICER);
+  const r = (await one("select fn_staff_policy_rules() as v")).v;
+  t.equal("an officer gets every stored rule, with the real score cut-off", [r.rules.length, r.rules.find((x) => x.rule_id === "BUR-SCORE-MIN")?.threshold_value],
+    [stored.n, stored.min_score]);
+  t.equal("and the version in force", r.version?.version_code ?? null, inForce?.version_code ?? null);
+  t.equal("the last change names who made it", r.last_change === null || typeof r.last_change.by === "string", true);
+  await as(DEMO);
+  await t.ok("the demo login can read the rules", () => db.query("select fn_staff_policy_rules()"));
+  await as(CUSTOMER);
+  await t.rejects("a customer login can't", () => db.query("select fn_staff_policy_rules()"), /no active cercit user/);
+  await db.query("set role anon");
+  await t.rejects("nor can the public", () => db.query("select fn_staff_policy_rules()"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 42. Dashboard figures through one staff function (064, fixes C10)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("dashboard figures");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 80) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  const expect = await one(`select count(*)::int as total,
+      count(*) filter (where status in ('APPROVED','DISBURSED'))::int as approved,
+      count(*) filter (where status = 'REJECTED')::int as rejected,
+      count(*) filter (where origin = 'SYNTHETIC')::int as synthetic,
+      count(*) filter (where origin is distinct from 'CUSTOMER')::int as no_customers
+    from applications where status <> 'DRAFT'`);
+  const referred = (await one("select count(*)::int as n from applications where status = 'UNDER_REVIEW' and origin is distinct from 'CUSTOMER'")).n;
+
+  await as(ADMIN);
+  const d = (await one("select fn_staff_dashboard(null) as v")).v;
+  t.equal("all-time totals match the applications table, drafts left out",
+    [d.totals.total, d.totals.approved, d.totals.rejected, d.totals.synthetic], [expect.total, expect.approved, expect.rejected, expect.synthetic]);
+  t.equal("the funnel only narrows", [d.funnel.sent >= d.funnel.bureau, d.funnel.approved >= d.funnel.disbursed, d.funnel.sent === d.totals.total], [true, true, true]);
+  t.equal("the trend has one point per day for 30 days", d.trend.length, 30);
+  t.equal("first-payment default is a share of loans old enough to tell", d.fpd.loans > 0 && d.fpd.defaults <= d.fpd.loans, true);
+  t.equal("exceptions are referred cases, at most 10, each with the rules not met",
+    [d.exceptions.length, d.exceptions.every((x) => x.reason)], [Math.min(10, referred), true]);
+  t.equal("activity leaves out sign-ins", d.activity.every((e) => !["LOGIN", "LOGIN_FAILED"].includes(e.event_type)), true);
+  const recent = (await one("select fn_staff_dashboard(now() - interval '1 day') as v")).v;
+  t.equal("a date range narrows the count and gives the period before", [recent.totals.total <= d.totals.total, recent.totals.prior_total !== null], [true, true]);
+
+  await as(DEMO);
+  const demo = (await one("select fn_staff_dashboard(null) as v")).v;
+  t.equal("the public demo login counts no real customers", demo.totals.total, expect.no_customers);
+  await db.query("set role anon");
+  await t.rejects("the public can't read it", () => db.query("select fn_staff_dashboard(null)"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 43. Audit Log: one combined, filtered, read-only log (065, fixes C1 + G6)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("audit log");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 20) as v");
+  const counts = await one(`select (select count(*) from audit_events e left join applications a on a.id = e.application_id)::int as events,
+      (select count(*) from policy_version_events)::int as policy, (select count(*) from feature_flag_history)::int as switches,
+      (select count(*) from application_stage_events)::int as stages, (select count(*) from override_logs)::int as overrides`);
+  const syn = await one("select application_id from applications where origin = 'SYNTHETIC' limit 1");
+
+  await as(ADMIN);
+  const all = (await one("select fn_audit_log() as v")).v;
+  t.equal("one log brings in events, policy, switch, stage and override history",
+    all.total, counts.events + counts.policy + counts.switches + counts.stages + counts.overrides);
+  t.equal("pages of 50, newest first", [all.rows.length, all.rows.every((r, i) => i === 0 || r.at <= all.rows[i - 1].at)], [Math.min(50, all.total), true]);
+  t.equal("policy history is in it", all.activities.includes("POLICY_STATUS"), counts.policy > 0);
+  const byCase = (await one("select fn_audit_log(p_case => $1) as v", [syn.application_id])).v;
+  t.equal("case filter keeps that case only", byCase.total > 0 && byCase.rows.every((r) => r.case_id === syn.application_id && r.synthetic), true);
+  const sys = (await one("select fn_audit_log(p_actor => 'SYSTEM', p_activity => 'APPLICATION_CREATED') as v")).v;
+  t.equal("user and activity filters combine", sys.rows.every((r) => r.actor_key === "SYSTEM" && r.activity === "APPLICATION_CREATED"), true);
+  const future = (await one("select fn_audit_log(p_from => now() + interval '1 day') as v")).v;
+  t.equal("a date range in the future is empty", future.total, 0);
+  const csv = (await one("select fn_audit_log(p_page_size => 100000) as v")).v;
+  t.equal("an export asks for at most 5,000 rows", csv.page_size, 5000);
+
+  await as(OFFICER);
+  await t.rejects("an officer, without audit.view, can't read it", () => db.query("select fn_audit_log()"), /permission denied: audit.view/);
+  await t.rejects("nobody on the website can delete an entry", () => db.query("delete from audit_events"), /permission denied/);
+  await t.rejects("or change one", () => db.query("update audit_events set event_type = 'X'"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 44. Applications list a page at a time (066, fixes C4)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("applications page");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 120) as v");
+  await as(OFFICER);
+  const full = (await db.query("select application_id from fn_list_applications()")).rows.map((r) => r.application_id).sort();
+  const p1 = (await one("select fn_list_applications_page() as v")).v;
+  t.equal("same cases as the full list, 50 to a page", [p1.total, p1.rows.length], [full.length, Math.min(50, full.length)]);
+  const pages = [];
+  for (let p = 1; p <= Math.ceil(p1.total / 50); p++) pages.push(...(await one("select fn_list_applications_page(p_page => $1) as v", [p])).v.rows.map((r) => r.application_id));
+  t.equal("walking every page gives every case exactly once", pages.slice().sort(), full);
+  t.equal("newest first by default", p1.rows.every((r, i) => i === 0 || r.created_at <= p1.rows[i - 1].created_at), true);
+  const byScore = (await one("select fn_list_applications_page(p_sort => 'cibil', p_desc => false) as v")).v.rows.map((r) => r.cibil_score).filter((x) => x !== null);
+  t.equal("sorting by score works in the database", byScore.every((x, i) => i === 0 || x >= byScore[i - 1]), true);
+  await operator();
+  const one_ = await one("select a.application_id, c.pan_last4, c.full_name, a.status from applications a join customers c on c.id = a.customer_id where a.origin = 'SYNTHETIC' limit 1");
+  await as(OFFICER);
+  const byId = (await one("select fn_list_applications_page($1) as v", [one_.application_id])).v;
+  t.equal("search by case number", byId.rows.map((r) => r.application_id), [one_.application_id]);
+  const byPan = (await one("select fn_list_applications_page($1) as v", [one_.pan_last4])).v;
+  t.equal("search by the last 4 of the PAN", byPan.rows.some((r) => r.application_id === one_.application_id), true);
+  const byStatus = (await one("select fn_list_applications_page(p_statuses => array[$1]) as v", [one_.status])).v;
+  t.equal("status filter keeps that status only", byStatus.rows.every((r) => r.status === one_.status) && byStatus.total > 0, true);
+  t.equal("PAN and mobile stay masked", p1.rows.every((r) => /^X{6}/.test(r.pan_number ?? "XXXXXX") && /^X{6}/.test(r.mobile ?? "XXXXXX")), true);
+  await t.ok("a page asks for at most 200 rows", async () => {
+    const big = (await one("select fn_list_applications_page(p_page_size => 100000) as v")).v;
+    if (big.page_size !== 200) throw new Error(String(big.page_size));
+  });
+  await as(DEMO);
+  t.equal("the demo login still sees no real customers",
+    (await one("select fn_list_applications_page(p_page_size => 200) as v")).v.rows.some((r) => r.origin === "CUSTOMER"), false);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 45. The signed-in person's rights, for the menu (067, B1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("my permissions");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const PM = "33333333-3333-3333-3333-333333333333";
+  const CUSTOMER = "55555555-5555-5555-5555-555555555555";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await as(OFFICER);
+  const o = (await one("select fn_my_permissions() as v")).v;
+  t.equal("an officer gets the officer's rights, the same list the database checks",
+    [o.role, o.permissions.slice().sort()], ["credit_officer", (await one("select fn_role_permissions('credit_officer') as v")).v.slice().sort()]);
+  t.equal("officers may see real customers", o.sees_real_customers, true);
+  await as(PM);
+  const pm = (await one("select fn_my_permissions() as v")).v;
+  t.equal("the policy manager can't view users or decide cases", [pm.permissions.includes("user.view"), pm.permissions.includes("app.decide")], [false, false]);
+  const dash = (await one("select fn_staff_dashboard(null) as v")).v;
+  t.equal("with app.view.aggregate the dashboard gives totals but no case lists",
+    [typeof dash.totals.total, dash.my_queue.length, dash.exceptions.length, dash.activity.length], ["number", 0, 0, 0]);
+  await as(CUSTOMER);
+  t.equal("a customer login has no staff rights", (await one("select fn_my_permissions() as v")).v.permissions, []);
+  await db.query("set role anon");
+  await t.rejects("the public can't call it", () => db.query("select fn_my_permissions()"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 46. Officers see their own cases; user limits; old roles retired (068: B2, B5, C3)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("case scope and limits");
+  const O1 = "68686868-0000-0000-0000-000000000001";
+  const O2 = "68686868-0000-0000-0000-000000000002";
+  const MGR = "68686868-0000-0000-0000-000000000003";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query(`insert into users (email, full_name, role, auth_user_id) values
+    ('o1@scope.t', 'Officer One', 'credit_officer', $1), ('o2@scope.t', 'Officer Two', 'credit_officer', $2),
+    ('m@scope.t', 'Manager', 'credit_manager', $3)`, [O1, O2, MGR]);
+  await one("select fn_synthetic_generate(1, 30) as v");
+  const ids = (await db.query("select a.id, a.application_id from applications a where origin = 'SYNTHETIC' and status in ('SUBMITTED','UNDER_REVIEW') order by application_id limit 3")).rows;
+  await db.query("update applications set assigned_officer_id = (select id from users where auth_user_id = $1) where id = $2", [O1, ids[0].id]);
+  await db.query("update applications set assigned_officer_id = (select id from users where auth_user_id = $1) where id = $2", [O2, ids[1].id]);
+  const listed = async () => new Set((await db.query("select application_id from fn_list_applications()")).rows.map((r) => r.application_id));
+
+  await as(O1);
+  let l = await listed();
+  t.equal("an officer sees their own case and unassigned ones, not another officer's", [l.has(ids[0].application_id), l.has(ids[2].application_id), l.has(ids[1].application_id)], [true, true, false]);
+  const page = (await one("select fn_list_applications_page(p_page_size => 200) as v")).v.rows.map((r) => r.application_id);
+  t.equal("the paged list agrees", page.includes(ids[1].application_id), false);
+  await t.rejects("and can't open the other officer's case by its number", () => db.query("select fn_staff_application_review($1)", [ids[1].application_id]), /application not found/);
+  await operator();
+  await db.query("update security_settings set value = 0 where setting_key = 'officers_see_unassigned'");
+  await as(O1);
+  l = await listed();
+  t.equal("with officers_see_unassigned = 0, only their own", [l.has(ids[0].application_id), l.has(ids[2].application_id)], [true, false]);
+  await operator();
+  await db.query("update security_settings set value = 1 where setting_key = 'officers_see_unassigned'");
+  await as(MGR);
+  l = await listed();
+  t.equal("a manager sees every case", [l.has(ids[0].application_id), l.has(ids[1].application_id), l.has(ids[2].application_id)], [true, true, true]);
+
+  // B5: limits
+  await operator();
+  const cases = (await db.query("select application_id, loan_amount_requested from applications where origin = 'SYNTHETIC' and status in ('SUBMITTED','UNDER_REVIEW') and assigned_officer_id is null order by application_id limit 3")).rows;
+  await db.query("update users set daily_case_limit = 1, max_sanction_amount = 100000 where auth_user_id = $1", [O1]);
+  await as(O1);
+  await t.rejects("an approval above the sanction limit is refused", () => db.query("select fn_officer_decision($1, 'APPROVE', 'x', null, 500000)", [cases[0].application_id]), /above your sanction limit/);
+  await t.ok("a referral is not limited by amount", () => db.query("select fn_officer_decision($1, 'MAYBE', 'x', null, 500000)", [cases[0].application_id]));
+  await t.ok("deciding the same case again doesn't count twice", () => db.query("select fn_officer_decision($1, 'REJECT', 'x')", [cases[0].application_id]));
+  await t.rejects("a second case the same day is over the daily limit", () => db.query("select fn_officer_decision($1, 'REJECT', 'x')", [cases[1].application_id]), /daily case limit reached/);
+  await as(O2);
+  await t.ok("another officer, with no limits set, can decide", () => db.query("select fn_officer_decision($1, 'REJECT', 'x')", [cases[1].application_id]));
+  await operator();
+  await t.ok("system decisions are never limited", () => db.query("update credit_decisions set sanctioned_amount = 99999999 where decided_by = 'SYSTEM' and decision = 'APPROVE'"));
+
+  // C3
+  // live, nobody holds them, so they are removed; here the 002 seed logins still do, so they stay, retired
+  const old = await one(`select count(*)::int as n,
+      count(*) filter (where not is_active and is_legacy)::int as retired,
+      count(*) filter (where exists (select 1 from users u where u.role = r.code))::int as held
+    from roles r where code in ('ADMIN','CREDIT_OFFICER','STATE_HEAD')`);
+  t.equal("the three old capitalised roles are removed, or retired where a login still holds one", [old.n, old.retired], [old.held, old.held]);
+  t.equal("with one audit entry", (await one("select count(*)::int as n from audit_events where event_type = 'ROLES_RETIRED'")).n >= 1, true);
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../../sql/068_case_scope_limits_roles.sql", import.meta.url), "utf8"));
+  t.equal("running 068 again changes nothing more", (await one("select count(*)::int as n from audit_events where event_type = 'ROLES_RETIRED'")).n, 1);
+
+  await db.query("update applications set assigned_officer_id = null where id = any($1)", [ids.map((r) => r.id)]);
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 47. Employer Master with checks behind each field (069, G4 / C9)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("employer master");
+  const PM = "33333333-3333-3333-3333-333333333333";
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  // a valid GSTIN for a PAN: the check character is mod 36 over the first 14
+  const gstin = (body) => {
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let sum = 0;
+    for (let i = 0; i < 14; i++) { const p = chars.indexOf(body[i]) * (i % 2 ? 2 : 1); sum += Math.floor(p / 36) + (p % 36); }
+    return body + chars[(36 - (sum % 36)) % 36];
+  };
+  await operator();
+  t.equal("one name key for small spelling differences",
+    (await one("select fn_employer_key('Infosys Limited') = fn_employer_key('INFOSYS LTD.') as v")).v, true);
+  const seeded = await one("select count(*)::int as n, count(*) filter (where verified)::int as v, count(*) filter (where source = 'FROM_APPLICATIONS')::int as s from employers");
+  t.equal("employers named on applications are seeded, none verified, nothing made up", [seeded.n > 0, seeded.v, seeded.s === seeded.n, (await one("select count(*)::int as n from employers where cin is not null or gstin is not null")).n], [true, 0, true, 0]);
+
+  await as(PM);
+  const g = gstin("29AABCZ1234F1Z");
+  t.equal("the GSTIN check character is checked", [(await one("select fn_gstin_valid($1) as v", [g])).v, (await one("select fn_gstin_valid($1) as v", [g.slice(0, 14) + (g[14] === "A" ? "B" : "A")])).v], [true, false]);
+  const id1 = (await one("select fn_employer_save(null, $1) as v", [JSON.stringify({ name: "Zephyr Analytics Pvt Ltd", employer_type: "PRIVATE_LTD", cin: "U72200KA2018PTC123456", gstin: g, email_domains: ["zephyr.example"], aliases: ["Zephyr Analytics"] })])).v;
+  const r1 = (await one("select fn_employer_run_checks($1) as v", [id1])).v;
+  const by = Object.fromEntries(r1.checks.map((c) => [c.check, c.result]));
+  t.equal("a private company with 8 years of filings: checks pass, category B, verified",
+    [by.CIN_MCA, by.GSTIN, by.CAUTION, r1.employer.years_of_filings >= 3, r1.employer.category, r1.employer.verified, r1.rule_category], ["PASS", "PASS", "PASS", true, "B", true, "B"]);
+  t.equal("the simulated MCA check says it is simulated", r1.checks.find((c) => c.check === "CIN_MCA").source, "SIMULATED");
+
+  const id2 = (await one("select fn_employer_save(null, $1) as v", [JSON.stringify({ name: "Newco Ventures Pvt Ltd", employer_type: "PRIVATE_LTD", cin: `U72200KA${new Date().getFullYear() - 1}PTC654321` })])).v;
+  const r2 = (await one("select fn_employer_run_checks($1) as v", [id2])).v;
+  t.equal("a company 1 year old falls to C, but only through a request someone else approves",
+    [r2.rule_category, r2.employer.category, r2.changes[0]?.status, r2.changes[0]?.to], ["C", "B", "PENDING", "C"]);
+  await t.rejects("the person who asked can't approve it", () => db.query("select fn_employer_decide_category($1, 'APPROVE')", [r2.changes[0].id]), /second person/);
+  await as(ADMIN);
+  const r3 = (await one("select fn_employer_decide_category($1, 'APPROVE', 'ok') as v", [r2.changes[0].id])).v;
+  t.equal("a second person approves and the category changes", [r3.employer.category, r3.changes[0].status], ["C", "APPROVED"]);
+  await t.rejects("a wrong GSTIN is refused", () => db.query("select fn_employer_save(null, $1)", [JSON.stringify({ name: "Bad GST Ltd", gstin: "29AABCZ1234F1Z0" })]), /not a valid GSTIN/);
+  await t.rejects("a caution flag needs a reason", () => db.query("select fn_employer_save($1, $2)", [id1, JSON.stringify({ name: "Zephyr Analytics Pvt Ltd", caution: true })]), /reason/);
+
+  await operator();
+  await one("select fn_synthetic_generate(1, 20) as v");
+  await one("select fn_employer_seed_from_applications() as v");
+  const infy = (await one("select id from employers where name_key = fn_employer_key('Infosys Ltd')"))?.id;
+  await as(ADMIN);
+  if (infy) {
+    const ri = (await one("select fn_employer_run_checks($1) as v", [infy])).v;
+    t.equal("a company on the NSE list is found there", ri.checks.find((c) => c.check === "LISTED").result, "PASS");
+  }
+
+  await as(OFFICER);
+  const list = (await one("select fn_employer_list('Zephyr') as v")).v;
+  t.equal("an officer can look employers up but not manage them", [list.rows.length, list.can_manage], [1, false]);
+  await t.rejects("and can't add one", () => db.query("select fn_employer_save(null, '{\"name\":\"X Ltd\"}')"), /permission denied: employer.manage/);
+  await t.rejects("or read the table directly", () => db.query("select * from employers"), /permission denied/);
+
+  await operator();
+  const syn = await one("select id from applications where origin = 'SYNTHETIC' limit 1");
+  const m = (await one("select fn_employer_for_application($1) as v", [syn.id])).v;
+  t.equal("a case finds its employer in the master; a synthetic email isn't treated as a work email",
+    [m.found, ["A", "B", "C"].includes(m.category), m.checks.EMAIL_DOMAIN.result], [true, true, "NOT_APPLICABLE"]);
+  await one("select fn_synthetic_purge() as v");
+  await db.query("set role anon");
+  await t.rejects("the public can't list employers", () => db.query("select fn_employer_list()"), /permission denied/);
+  await operator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 48. Employer category in the engine and on the officer's card (070, C8)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("employer category pricing");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await db.query(`insert into employers (name, name_key, employer_type, category, verified) values
+      ('Alpha Govt Dept', fn_employer_key('Alpha Govt Dept'), 'GOVERNMENT', 'A', true),
+      ('Bravo Pvt Ltd', fn_employer_key('Bravo Pvt Ltd'), 'PRIVATE_LTD', 'B', true),
+      ('Charlie Traders', fn_employer_key('Charlie Traders'), 'PROPRIETORSHIP', 'C', true),
+      ('Delta Watch Ltd', fn_employer_key('Delta Watch Ltd'), 'PRIVATE_LTD', 'B', true)
+    on conflict (name_key) do nothing`);
+  await db.query("update employers set caution = true, caution_reason = 'salary delays reported' where name_key = fn_employer_key('Delta Watch Ltd')");
+  const cat = Object.fromEntries((await db.query("select category_code, rate_loading_pct::float as l, max_ltv_pct::float as ltv, max_tenure_months as ten, processing_fee_inr as fee from employer_category_pricing where is_active")).rows.map((r) => [r.category_code, r]));
+  let n = 70;
+  const submit = async (employer, overrides = {}) => {
+    n += 1;
+    const args = { p_full_name: "Category Test", p_email: `cat${n}@t.in`, p_mobile: `91100000${n}`, p_pan: `CATGY${1000 + n}C`,
+      p_dob: "1988-01-01", p_employer: employer, p_city: "Chennai", p_state_code: "TN", p_pincode: "600001",
+      p_make: "Maruti Suzuki", p_model: "Dzire", p_variant: "VXI", p_fuel_type: "PETROL",
+      p_net_salary: 150000, p_loan_amount: 600000, p_ex_showroom: 700000, p_on_road: 780000, p_cibil_score: 790, p_tenure: 84, ...overrides };
+    const names = Object.keys(args);
+    await asApi("authenticated", OFFICER);
+    const v = (await one(`select fn_submit_full_application(${names.map((k, j) => `${k} => $${j + 1}`).join(", ")}) as v`, names.map((k) => args[k]))).v;
+    await asOperator();
+    if (v.decision === "ERROR") throw new Error(JSON.stringify(v));
+    return one(`select r.*, a.employer_category as app_cat, a.application_id as app_no, e.name as employer_name from recommendations r
+      join applications a on a.id = r.application_id left join employers e on e.id = a.employer_id
+      where r.application_id = $1 order by r.created_at desc limit 1`, [v.application_uuid]);
+  };
+  const a = await submit("Alpha Govt Dept");
+  const b = await submit("Bravo Pvt Ltd");
+  const c = await submit("Charlie Traders");
+  t.equal("the case is linked to its employer and category", [a.employer_name, a.app_cat, b.app_cat, c.app_cat], ["Alpha Govt Dept", "A", "B", "C"]);
+  t.equal("the rate is the band rate plus the category loading",
+    [Number(a.recommended_rate), Number(b.recommended_rate), Number(c.recommended_rate)],
+    [Number(a.base_rate_pct) + cat.A.l, Number(b.base_rate_pct) + cat.B.l, Number(c.base_rate_pct) + cat.C.l].map((x) => Math.round(x * 100) / 100));
+  t.equal("category C caps the tenure", [Number(a.recommended_tenure), Number(c.recommended_tenure)], [84, Math.min(84, cat.C.ten)]);
+  t.equal("the processing fee is the category's", [a.processing_fee_inr, b.processing_fee_inr, c.processing_fee_inr], [cat.A.fee, cat.B.fee, cat.C.fee]);
+  // (on the B case: its tenure isn't cut, and the rules check FOIR at the tenure asked for)
+  const rule = await one("select actual_value from policy_results where application_id = $1 and rule_id = 'INC-FOIR' order by created_at desc limit 1", [b.application_id]);
+  t.equal("the rules check FOIR at the loaded rate the loan is priced at", Number(b.foir_calculated), Number(rule?.actual_value));
+
+  // 85% LTV is fine for A and B (120 / 110) but above C's 90%? use a loan that is 100% of ex-showroom
+  const cHigh = await submit("Charlie Traders", { p_loan_amount: 700000 });
+  t.equal("LTV above the category cap goes to a person", [cHigh.recommendation, (cHigh.risk_factors ?? []).some((f) => f.rule_id === "LTV_CATEGORY_CAP")],
+    [cat.C.ltv < 100 ? "MAYBE" : cHigh.recommendation, cat.C.ltv < 100]);
+  const d = await submit("Delta Watch Ltd");
+  t.equal("an employer on the caution list goes to a person", [d.recommendation, (d.risk_factors ?? []).some((f) => f.rule_id === "EMPLOYER_CAUTION")], ["MAYBE", true]);
+  const u = await submit("Unlisted Unknown Works");
+  t.equal("an employer not in the master is priced on the declared type, provisionally", [u.employer_category_basis, u.employer_category], ["DECLARED_TYPE", "C"]);
+
+  await asApi("authenticated", OFFICER);
+  await db.query("set role authenticated");
+  const card = (await one("select fn_staff_case_employer($1) as v", [b.app_no])).v;
+  t.equal("the officer's card shows the employer, category and pricing",
+    [card.employer.name, card.category, Number(card.pricing.rate_loading_pct), card.pricing.processing_fee_inr], ["Bravo Pvt Ltd", "B", cat.B.l, cat.B.fee]);
+  await db.query("reset role");
+  await asOperator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 49. Rate Grid: edit and add grids through pricing approval (071, G3)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("rate grid versions");
+  const PM = "33333333-3333-3333-3333-333333333333"; // policy manager: pricing.author
+  const HEAD = "71717171-0000-0000-0000-000000000001"; // credit head: pricing.author + pricing.approve
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('head@rg.t', 'Head RG', 'credit_head', $1) on conflict do nothing", [HEAD]);
+  const engineBefore = (await db.query("select band_label, rate_pct::float as r from rate_grid where is_active order by score_band_min desc")).rows;
+
+  await as(OFFICER);
+  const o = (await one("select fn_rate_grid_overview() as v")).v;
+  t.equal("version 1 is the grid in use, with its bands and categories",
+    [o.in_force.version_no, o.in_force.bands.length, o.in_force.categories.length, o.can_author], [1, engineBefore.length, 3, false]);
+  await t.rejects("an officer can't start a draft", () => db.query("select fn_rate_grid_draft_create('CAR_NEW_SALARIED')"), /permission denied: pricing.author/);
+
+  await as(PM);
+  const d = (await one("select fn_rate_grid_draft_create('CAR_NEW_SALARIED', 'test') as v")).v;
+  const bands = d.bands.map((b) => (b.band_label === "APPROVE" ? { ...b, rate_pct: 9.25 } : b));
+  const gap = bands.map((b) => (b.band_label === "MAYBE" ? { ...b, score_band_max: b.score_band_max - 5 } : b));
+  const withGap = (await one("select fn_rate_grid_draft_save($1, $2, $3) as v", [d.id, JSON.stringify(gap), JSON.stringify(d.categories)])).v;
+  t.equal("a gap between bands is caught before approval", withGap.problems.some((p) => /gap/.test(p)), true);
+  await t.rejects("and the grid can't be sent with it", () => db.query("select fn_rate_grid_submit($1, current_date, 'A new base rate for the top band')", [d.id]), /fix the grid first/);
+  const ok = (await one("select fn_rate_grid_draft_save($1, $2, $3) as v", [d.id, JSON.stringify(bands), JSON.stringify(d.categories)])).v;
+  t.equal("a whole grid has no problems", ok.problems, []);
+  await one("select fn_rate_grid_submit($1, (now() at time zone 'Asia/Kolkata')::date, 'A new base rate for the top band') as v", [d.id]);
+  await t.rejects("the author can't approve (no pricing.approve)", () => db.query("select fn_rate_grid_decide($1, true)", [d.id]), /permission denied: pricing.approve/);
+
+  await as(HEAD);
+  const live = (await one("select fn_rate_grid_decide($1, true, 'ok') as v", [d.id])).v;
+  t.equal("approved with today's date, it goes live at once", live.status, "ACTIVE");
+  await operator();
+  const after = (await db.query("select band_label, rate_pct::float as r, policy_version from rate_grid where is_active order by score_band_min desc")).rows;
+  t.equal("the engine's table now has the new rate, marked with the grid version",
+    [after.find((b) => b.band_label === "APPROVE").r, after[0].policy_version], [9.25, "RG-v2"]);
+  t.equal("the old rows are kept, switched off", (await one("select count(*)::int as n from rate_grid where not is_active and policy_version = '2026.08'")).n >= engineBefore.length, true);
+  const hist = (await db.query("select version_no, status, effective_to is not null as ended from rate_grid_versions where product_code = 'CAR_NEW_SALARIED' order by version_no")).rows;
+  t.equal("version 1 is history with an end date", hist[0], { version_no: 1, status: "SUPERSEDED", ended: true });
+  t.equal("each moment has one grid in force", [(await one("select fn_rate_grid_version_at('CAR_NEW_SALARIED', '2026-09-01') as v")).v.version_no,
+    (await one("select fn_rate_grid_version_at('CAR_NEW_SALARIED') as v")).v.version_no], [1, 2]);
+
+  await as(HEAD);
+  const own = (await one("select fn_rate_grid_draft_create('CAR_NEW_SALARIED', 'put it back') as v")).v;
+  const back = own.bands.map((b) => ({ ...b, rate_pct: engineBefore.find((e) => e.band_label === b.band_label).r }));
+  await one("select fn_rate_grid_draft_save($1, $2, $3) as v", [own.id, JSON.stringify(back), JSON.stringify(own.categories)]);
+  await one("select fn_rate_grid_submit($1, (now() at time zone 'Asia/Kolkata')::date, 'Back to the rates of version 1') as v", [own.id]);
+  await t.rejects("a credit head can't approve their own grid", () => db.query("select fn_rate_grid_decide($1, true)", [own.id]), /second person/);
+  await operator();
+  await db.query("select fn_rate_grid_decide($1, true, 'restore after test')", [own.id]);
+  t.equal("and a grid approved later restores the rates", (await db.query("select band_label, rate_pct::float as r from rate_grid where is_active order by score_band_min desc")).rows, engineBefore);
+
+  await as(PM);
+  const cv = (await one("select fn_rate_grid_product_create('cv salaried', 'Commercial vehicle, salaried') as v")).v;
+  t.equal("a new product starts as a draft copied from the car grid", [cv.product_code, cv.status, cv.bands.length], ["CV_SALARIED", "DRAFT", engineBefore.length]);
+  await operator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 50. Practice logins: synthetic cases only (072, D1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("practice logins");
+  const PO = "72727272-0000-0000-0000-000000000001";
+  const PHEAD = "72727272-0000-0000-0000-000000000003";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query("update users set auth_user_id = $1 where email = 'cercit+practice.officer@gmail.com'", [PO]);
+  await db.query("update users set auth_user_id = $1 where email = 'cercit+practice.head@gmail.com'", [PHEAD]);
+  await one("select fn_synthetic_generate(1, 30) as v");
+  const syn = await one("select a.id, a.application_id, a.status from applications a where origin = 'SYNTHETIC' and status = 'UNDER_REVIEW' and assigned_officer_id is null limit 1");
+  const staff = await one("select application_id from applications where origin = 'STAFF' limit 1");
+  const cust = await one("select id from customers where auth_user_id is not null limit 1");
+
+  await as(PO);
+  const me = (await one("select fn_my_permissions() as v")).v;
+  t.equal("a practice officer may not see real customers or reveal PAN", [me.role, me.sees_real_customers, me.permissions.includes("pii.reveal")], ["practice_officer", false, false]);
+  t.equal("and the list has no real customers' cases", (await db.query("select origin from fn_list_applications() where origin = 'CUSTOMER'")).rows.length, 0);
+  await t.ok("a practice officer decides a synthetic case", () => db.query("select fn_officer_decision($1, 'REJECT', 'practice')", [syn.application_id]));
+  await t.rejects("but not a staff case", () => db.query("select fn_officer_decision($1, 'REJECT', 'practice')", [staff.application_id]), /synthetic cases only/);
+  if (cust) await t.rejects("nor reveals a customer's PAN", () => db.query("select * from fn_customer_pii($1, 'x')", [cust.id]), /permission denied: pii.reveal/);
+  const created = (await one("select fn_submit_full_application(p_full_name => 'Real Person', p_email => 'real@t.in', p_mobile => '9000000099') as v")).v;
+  t.equal("and doesn't create applications (no real details typed in)", created.summary, "permission denied: app.create");
+  await operator();
+  const snap = await one("select s.status from practice_case_snapshots s join applications a on a.id = s.application_id where a.application_id = $1", [syn.application_id]);
+  t.equal("the case as it was is kept before the first practice change", snap?.status, syn.status);
+
+  await as(PHEAD);
+  const draft = (await one("select fn_policy_draft_create('P-TEST-1', 'practice draft') as v")).v;
+  const draftId = draft.versionId;
+  await t.rejects("a practice head's policy draft can't be sent for approval", () => db.query("select fn_policy_submit($1, 'Try to make it live')", [draftId]), /practice draft stays a draft/);
+
+  await operator();
+  await t.rejects("a practice role can't be given a stronger right", () => db.query("insert into role_permissions (role_code, permission_code) values ('practice_officer', 'pii.reveal')"), /practice role may not hold/);
+  await t.rejects("a practice account keeps its role", () => db.query("update users set role = 'admin' where email = 'cercit+practice.officer@gmail.com'"), /keeps its practice role/);
+  for (let i = 0; i < 6; i++) await db.query("select fn_record_failed_login('cercit+practice.officer@gmail.com')");
+  t.equal("and is never locked out", (await one("select locked_until from users where email = 'cercit+practice.officer@gmail.com'")).locked_until, null);
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 51. Reset the practice cases to fresh (073, D2)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("practice reset");
+  const PO = "72727272-0000-0000-0000-000000000001";
+  const PM2 = "72727272-0000-0000-0000-000000000002";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query("update users set auth_user_id = $1 where email = 'cercit+practice.manager@gmail.com'", [PM2]);
+  // the state of every synthetic case before this section's practice changes
+  const state = async () => (await db.query(`select a.application_id, a.status, a.assigned_officer_id,
+      (select row(d.decision, d.decided_by, d.sanctioned_amount, d.sanctioned_rate)::text from credit_decisions d where d.application_id = a.id order by d.created_at desc limit 1) as d
+    from applications a where origin = 'SYNTHETIC' order by 1`)).rows;
+  // section 50 already changed one case; reset first so this section starts clean
+  await one("select fn_practice_reset() as v");
+  const before = await state();
+  const cases = (await db.query("select application_id from applications where origin = 'SYNTHETIC' and status = 'UNDER_REVIEW' and assigned_officer_id is null order by application_id limit 2")).rows;
+  await as(PO);
+  await db.query("select fn_officer_decision($1, 'APPROVE', 'practice approve')", [cases[0].application_id]);
+  await as(PM2);
+  await db.query("select fn_officer_decision($1, 'REJECT', 'practice reject', null, null, null, null, 'manager says no')", [cases[1].application_id]);
+  await operator();
+  t.equal("practice logins changed two cases", (await state()).filter((r, i) => JSON.stringify(r) !== JSON.stringify(before[i])).length, 2);
+
+  await as(PO);
+  await t.rejects("a practice login can't reset", () => db.query("select fn_practice_reset()"), /permission denied|operator/);
+  await operator();
+  const r = (await one("select fn_practice_reset() as v")).v;
+  t.equal("the reset restores both cases", r.cases_restored, 2);
+  t.equal("every synthetic case is back exactly as it was", await state(), before);
+  t.equal("a second reset finds nothing to do", (await one("select fn_practice_reset() as v")).v, { cases_released: 0, cases_restored: 0, overrides_removed: 0, policy_drafts_cancelled: 0 });
+  t.equal("the practice head's policy draft from before was cancelled, not deleted",
+    (await one("select status from policy_versions where version_code = 'P-TEST-1'"))?.status, "CANCELLED");
+  t.equal("the reset is in the audit log", (await one("select count(*)::int as n from audit_events where event_type = 'PRACTICE_RESET'")).n >= 1, true);
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 52. Policy Rules: switch and modify through approval (074, G2)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("rule changes through approval");
+  const PM = "33333333-3333-3333-3333-333333333333";
+  const HEAD = "71717171-0000-0000-0000-000000000001";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  const rule = async (id) => one("select is_active, threshold_value, severity_on_fail from policy_rules where rule_id = $1", [id]);
+  await operator();
+  const before = { score: await rule("BUR-SCORE-MIN"), enq: await rule("BUR-ENQUIRY") };
+
+  await as(OFFICER);
+  await t.rejects("an officer can't change a rule", () => db.query("select fn_policy_rule_draft('BUR-SCORE-MIN', null, '700')"), /permission denied: policy.author/);
+  const ro = (await one("select fn_staff_policy_rules() as v")).v;
+  t.equal("and is told so (read-only switches)", [ro.can_author, ro.can_approve], [false, false]);
+
+  await as(PM);
+  await one("select fn_policy_rule_draft('BUR-SCORE-MIN', null, '700') as v");
+  const d = (await one("select fn_policy_rule_draft('BUR-ENQUIRY', false) as v")).v;
+  const mine = d.changes.filter((c) => c.mine && c.status === "DRAFT");
+  t.equal("both changes sit on the author's draft", mine.map((c) => [c.rule_id, c.threshold_value, c.is_active]).sort(),
+    [["BUR-ENQUIRY", null, false], ["BUR-SCORE-MIN", "700", null]]);
+  await t.rejects("a word where the limit is a number is refused", () => db.query("select fn_policy_rule_draft('BUR-SCORE-MIN', null, 'seven hundred')"), /is a number/);
+  t.equal("nothing changes in the live rules yet", [await rule("BUR-SCORE-MIN"), await rule("BUR-ENQUIRY")], [before.score, before.enq]);
+  const undo = (await one("select fn_policy_rule_draft('BUR-ENQUIRY', true) as v")).v;
+  t.equal("switching it back takes the change off the draft", undo.changes.filter((c) => c.mine && c.rule_id === "BUR-ENQUIRY").length, 0);
+  await one("select fn_policy_rule_draft('BUR-ENQUIRY', false) as v");
+  const versionId = mine[0].version_id;
+  await one("select fn_policy_submit($1, 'Tighter score, enquiry rule off') as v", [versionId]);
+
+  // Earlier sections leave a version live from 2099, so these start later; the date arriving is
+  // stood in for by switching the versions as fn_policy_activate_due does (the rules follow the switch).
+  const goLive = async (id) => {
+    await operator();
+    await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = (select effective_from from policy_versions where id = $1) where status = 'ACTIVE' and product = 'CAR_NEW'", [id]);
+    await db.query("update policy_versions set status = 'ACTIVE' where id = $1", [id]);
+  };
+  await as(HEAD);
+  await one("select fn_policy_approve($1, '2099-12-01T00:00:00+05:30', 'ok') as v", [versionId]);
+  t.equal("approved, it waits for its date", (await one("select status from policy_versions where id = $1", [versionId])).status, "APPROVED");
+  await goLive(versionId);
+  t.equal("live on its date: the engine's rules change", [(await rule("BUR-SCORE-MIN")).threshold_value, (await rule("BUR-ENQUIRY")).is_active], ["700", false]);
+  t.equal("and each change is in the rule history", (await one("select count(*)::int as n from policy_rule_history where policy_version_id = $1", [versionId])).n, 2);
+
+  // put them back the same way
+  await as(PM);
+  await one("select fn_policy_rule_draft('BUR-SCORE-MIN', null, $1) as v", [before.score.threshold_value]);
+  const back = (await one("select fn_policy_rule_draft('BUR-ENQUIRY', true) as v")).v;
+  const backId = back.changes.find((c) => c.mine && c.status === "DRAFT").version_id;
+  await one("select fn_policy_submit($1, 'Back as before') as v", [backId]);
+  await as(HEAD);
+  await one("select fn_policy_approve($1, '2099-12-02T00:00:00+05:30', 'ok') as v", [backId]);
+  await goLive(backId);
+  t.equal("a second approved version puts the rules back", [await rule("BUR-SCORE-MIN"), await rule("BUR-ENQUIRY")], [before.score, before.enq]);
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 53. Daily simulation (075, G7)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("daily simulation");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 60) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  const day = (await one("select (current_date + 40)::text as d")).d;
+  const realBefore = (await one("select count(*)::int as n from loan_repayments r join loan_accounts l on l.id = r.loan_id join applications a on a.id = l.application_id where a.origin is distinct from 'SYNTHETIC'")).n;
+  const hash = async () => (await one(`select md5(string_agg(row(l.loan_account_no, r.paid_on, r.amount, r.outcome, r.reference_no)::text, '|' order by l.loan_account_no, r.reference_no)) as h,
+      count(*)::int as n from loan_repayments r join loan_accounts l on l.id = r.loan_id where r.reference_no like 'SIMD%'`));
+
+  const out = (await one("select fn_sim_daily($1::date) as v", [day])).v;
+  const d = out.days[0];
+  t.equal("one day runs: new leads dated that day, payments made", [out.days.length, d.leads > 0, d.paid_on_time + d.bounced > 0], [1, true, true]);
+  const dated = await one("select count(*)::int as n from applications where origin = 'SYNTHETIC' and created_at::date between $1::date - 1 and $1::date + 1 and application_id >= 'SYN0002001'", [day]);
+  t.equal("the day's leads carry that day's date", dated.n, d.leads);
+  t.equal("no instalment due by that day is left without an attempt",
+    (await one(`select count(*)::int as n from loan_installments li join loan_accounts l on l.id = li.loan_id join applications a on a.id = l.application_id
+      where a.origin = 'SYNTHETIC' and li.due_date <= $1::date and not exists (select 1 from loan_repayments r where r.installment_id = li.id)`, [day])).n, 0);
+  t.equal("only synthetic loans get payments", (await one("select count(*)::int as n from loan_repayments r join loan_accounts l on l.id = r.loan_id join applications a on a.id = l.application_id where a.origin is distinct from 'SYNTHETIC'")).n, realBefore);
+  t.equal("the summary is kept", (await one("select count(*)::int as n from sim_daily_runs where day = $1::date", [day])).n, 1);
+  const again = (await one("select fn_sim_daily($1::date) as v", [day])).v;
+  t.equal("running the same day twice does nothing more", again.days.length, 0);
+  t.equal("the portfolio's stored status is up to date", (await one("select count(*)::int as n from loan_status_stale")).n, 0);
+
+  // replay: the same customers on the same day get the same payments
+  const h1 = await hash();
+  await one("select fn_synthetic_purge() as v");
+  await db.query("delete from sim_daily_runs");
+  await one("select fn_synthetic_generate(1, 60) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  await one("select fn_sim_daily($1::date) as v", [day]);
+  t.equal("a replayed day gives the same payments", await hash(), h1);
+
+  await db.query("update simulation_settings set simulation_enabled = false");
+  t.equal("the switch stops it", (await one("select fn_sim_daily($1::date + 1) as v", [day])).v, { skipped: "simulation_enabled is off" });
+  await db.query("update simulation_settings set simulation_enabled = true");
+  await db.query("set role authenticated");
+  await asApi("authenticated", OFFICER);
+  await t.rejects("the website can't run it", () => db.query("select fn_sim_daily()"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  await db.query("delete from sim_daily_runs");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 54. Settings defaults and reset (076, G1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("settings defaults and reset");
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const HEAD = "71717171-0000-0000-0000-000000000001";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  // the defaults saved by 076 were taken when the migration ran; earlier test sections have changed things since,
+  // so this section saves its own defaults and resets to them
+  await as(ADMIN);
+  const list = (await one("select fn_settings_baseline_save('Test defaults') as v")).v;
+  const base = list.find((b) => b.name === "Test defaults");
+  t.equal("an admin saves today's settings, including the first defaults", [list.some((b) => b.name === "Defaults 2 Oct 2026"), base.settings > 100], [true, true]);
+  t.equal("straight after, nothing would change", (await one("select fn_settings_reset_preview($1) as v", [base.id])).v, []);
+
+  await operator();
+  const appCount = (await one("select count(*)::int as n from applications")).n;
+  await db.query("update feature_flags set enabled = true where flag_key = 'kyc_module'");
+  await db.query("update document_check_rules set threshold = 0.5 where doc_type = 'PAN' and check_code = 'NAME_MATCH'");
+  await db.query("update security_settings set value = 9 where setting_key = 'lockout_threshold'");
+  await db.query("update policy_rules set threshold_value = '600' where rule_id = 'BUR-SCORE-MIN'");
+  await db.query("delete from role_permissions where role_code = 'credit_officer' and permission_code = 'report.export'");
+
+  await as(ADMIN);
+  const preview = (await one("select fn_settings_reset_preview($1) as v", [base.id])).v;
+  const how = Object.fromEntries(preview.map((p) => [`${p.area}|${p.item}`, p.how]));
+  t.equal("the preview lists each change and how it is put back",
+    [how["switch|kyc_module"], how["documents|check.PAN.NAME_MATCH"], how["security|lockout_threshold"], how["policy|rule.BUR-SCORE-MIN"],
+     how["roles|credit_officer"]],
+    ["at once", "at once", "at once", "through policy approval", "at once"]);
+  await t.rejects("the reset needs RESET typed", () => db.query("select fn_settings_reset($1, 'yes')", [base.id]), /type RESET/);
+  const r = (await one("select fn_settings_reset($1, 'RESET') as v", [base.id])).v;
+  await operator();
+  t.equal("switches, document checks, security settings and role rights are back at once",
+    [(await one("select enabled from feature_flags where flag_key = 'kyc_module'")).enabled,
+     Number((await one("select threshold from document_check_rules where doc_type = 'PAN' and check_code = 'NAME_MATCH'")).threshold) !== 0.5,
+     (await one("select value from security_settings where setting_key = 'lockout_threshold'")).value !== 9,
+     (await one("select count(*)::int as n from role_permissions where role_code = 'credit_officer' and permission_code = 'report.export'")).n],
+    [false, true, true, 1]);
+  t.equal("the credit policy is NOT changed directly: a version waits for approval",
+    [(await one("select threshold_value from policy_rules where rule_id = 'BUR-SCORE-MIN'")).threshold_value,
+     (await one("select status from policy_versions where version_code = $1", [r.policy_version_for_approval])).status],
+    ["600", "PENDING_APPROVAL"]);
+  t.equal("the admin can't approve it themselves", (await one("select authored_by = (select id from users where auth_user_id = $2) as v from policy_versions where version_code = $1", [r.policy_version_for_approval, ADMIN])).v, true);
+  t.equal("no case, customer or loan is touched", (await one("select count(*)::int as n from applications")).n, appCount);
+  t.equal("one audit entry lists the changes", (await one("select count(*)::int as n from audit_events where event_type = 'SETTINGS_RESET'")).n, 1);
+
+  // tidy: approve the reset version (as the credit head) and make it live, so later sections see the old rules
+  await as(HEAD);
+  const vid = (await one("select id from policy_versions where version_code = $1", [r.policy_version_for_approval])).id;
+  await one("select fn_policy_approve($1, '2099-12-03T00:00:00+05:30', 'reset') as v", [vid]);
+  await operator();
+  await db.query("update policy_versions set status = 'SUPERSEDED', effective_to = '2099-12-03T00:00:00+05:30' where status = 'ACTIVE' and product = 'CAR_NEW'");
+  await db.query("update policy_versions set status = 'ACTIVE' where id = $1", [vid]);
+  t.equal("approved and live, the rule is back", (await one("select threshold_value from policy_rules where rule_id = 'BUR-SCORE-MIN'")).threshold_value, "650");
+
+  await as(OFFICER);
+  await t.rejects("only an admin may reset", () => db.query("select fn_settings_reset($1, 'RESET')", [base.id]), /permission denied: org.manage/);
+  await operator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 55. The live risk score's inputs match how the model was trained (077, E1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("risk model inputs");
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 40) as v");
+  // the training query itself, read from the export script, so the two can't drift apart
+  const { readFileSync } = await import("node:fs");
+  const script = readFileSync(new URL("../../scripts/local/export-seasoned-training.mjs", import.meta.url), "utf8");
+  const trainingSql = script.match(/const FEATURES_SQL = `([\s\S]*?)`;/)[1];
+  const training = Object.fromEntries((await db.query(trainingSql)).rows.map((r) => [r.application_id, r]));
+  const names = ["bureauScore", "dpd30", "dpd60", "dpd90", "dpdWriteOff", "enquiryVelocity", "bounceCount", "salaryRegularity",
+    "employerTier", "cashWithdrawalRatio", "ltvPercent", "foirPercent", "tenureMonths", "age", "govtEmployee", "employmentYears",
+    "ccServicingPattern", "freeIncomeRatio"];
+  const ids = Object.keys(training);
+  let same = 0;
+  const diffs = [];
+  for (const id of ids) {
+    const live = (await one("select fn_staff_risk_features($1) as v", [id])).v.features;
+    const bad = names.filter((n) => Math.abs(Number(live[n]) - Number(training[id][n])) > 0.05);
+    if (bad.length === 0) same++;
+    else diffs.push(`${id}: ${bad.map((n) => `${n} ${live[n]} vs ${training[id][n]}`).join(", ")}`);
+  }
+  t.equal("all 18 inputs equal the training query's, case by case", [ids.length > 10, same, diffs.slice(0, 3)], [true, ids.length, []]);
+  const f = (await one("select fn_staff_risk_features($1) as v", [ids[0]])).v;
+  t.equal("and it says which detail they came from", [f.from_detail.bureau_summary, f.from_detail.bank_months > 0], [true, true]);
+  await db.query("set role authenticated");
+  await asApi("authenticated", DEMO);
+  await t.ok("the demo login can read a synthetic case's inputs", () => db.query("select fn_staff_risk_features($1)", [ids[0]]));
+  await db.query("set role anon");
+  await t.rejects("the public can't", () => db.query("select fn_staff_risk_features($1)", [ids[0]]), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// H3: the advisor checks (sql/checks/advisor-checks.sql) find nothing
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("advisor checks");
+  await db.query("reset role");
+  await asOperator();
+  const { readFileSync } = await import("node:fs");
+  const file = readFileSync(new URL("../../sql/checks/advisor-checks.sql", import.meta.url), "utf8");
+  const checks = file.split(/;\s*\n/).map((q) => q.replace(/^(\s*--.*\n|\s*\n)*/, "").trim()).filter((q) => /^SELECT/i.test(q));
+  t.equal("the file holds nine checks", checks.length, 9);
+  for (const q of checks) {
+    const name = q.match(/'([a-z_]+)' AS check/)[1];
+    const rows = (await db.query(q)).rows.map((r) => r.object);
+    t.equal(`${name}: nothing found`, rows, []);
+  }
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// H7: weekly backup of the settings and policy tables (079)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("settings backup");
+  await db.query("reset role");
+  await asOperator();
+  const first = (await one("select count(*)::int as n, min(kind) as kind from settings_backups")).n;
+  t.equal("079 took the first backup when it ran", first >= 1, true);
+  const took = (await one("select fn_settings_backup_take('MANUAL') as v")).v;
+  t.equal("a backup copies every settings table that exists", [took.tables >= 30, took.rows > 50], [true, true]);
+  const b = (await one("select fn_settings_backup_latest() as v")).v;
+  t.equal("whole rows: the credit rules come back as rows", b.tables.policy_rules.length, Number((await one("select count(*) as n from policy_rules")).n));
+  t.equal("never personal data or secrets", ["customers", "applications", "users", "documents", "app_secrets"].filter((k) => k in b.tables), []);
+  for (let i = 0; i < 28; i++) await db.query("select fn_settings_backup_take('WEEKLY')");
+  t.equal("keeps the last 26 weekly backups; manual ones stay", Number((await one("select count(*) as n from settings_backups where kind = 'WEEKLY'")).n), 26);
+  await db.query("set role authenticated");
+  await asApi("authenticated", "dddddddd-0000-0000-0000-00000000dd01");
+  await t.rejects("a signed-in user can't take one", () => db.query("select fn_settings_backup_take('MANUAL')"), /permission denied/);
+  await t.rejects("or read one", () => db.query("select fn_settings_backup_latest()"), /permission denied/);
+  await t.rejects("or read the table", () => db.query("select * from settings_backups"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("delete from settings_backups where kind = 'WEEKLY'");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// H6: erase a customer's personal data on request; retention (080)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("personal data erasure");
+  await db.query("reset role");
+  await asOperator();
+  await one("select fn_synthetic_generate(9100, 6) as v");
+  // turn two made-up cases into "real" ones: one with no loan, one with a live loan
+  const apps = (await db.query(`select a.id, a.application_id, a.customer_id from applications a
+                                 where a.origin = 'SYNTHETIC' and exists (select 1 from recommendations r where r.application_id = a.id)
+                                   and exists (select 1 from bureau_accounts b where b.application_id = a.id)
+                                 order by a.created_at desc limit 2`)).rows;
+  const [A, B] = apps;
+  await db.query("update applications set origin = 'CUSTOMER', status = 'REJECTED' where id = $1", [A.id]);
+  await db.query("update applications set origin = 'CUSTOMER', status = 'DISBURSED' where id = $1", [B.id]);
+  await db.query("update customers set email = 'erase.me@example.com' where id = $1", [A.customer_id]);
+  const authId = (await one("insert into auth.users (email) values ('erase.me@example.com') returning id")).id;
+  await db.query("update customers set auth_user_id = $2 where id = $1", [A.customer_id, authId]);
+  await db.query(`insert into customer_addresses (customer_id, address_type, line1, city, state_code, pincode, source)
+                  values ($1, 'CURRENT', '1 Test Street', 'Chennai', (select code from states limit 1), '600001', 'CUSTOMER')`, [A.customer_id]);
+  await db.query(`insert into documents (application_id, doc_type, file_name, file_path, file_hash, file_size_bytes, mime_type, storage_backend, storage_key, upload_status)
+                  values ($1, 'PAN', 'pan.jpg', 'x/pan.jpg', 'abc123', 1000, 'image/jpeg', 'S3', 'applications/' || $2 || '/PAN/front.jpg', 'UPLOADED')`, [A.id, A.application_id]);
+
+  const found = (await one("select fn_erasure_find('Erase.Me@example.com') as v")).v;
+  t.equal("finds the customer by email, ids only", [found.length, found[0].customer_id, Object.keys(found[0]).sort()], [1, A.customer_id, ["applications", "customer_id"]]);
+  const chk = (await one("select fn_erasure_check($1) as v", [A.customer_id])).v;
+  t.equal("a rejected case with no loan can be erased", [chk.erasable, chk.reasons, chk.rows_to_delete.documents >= 1, chk.rows_to_delete.customer_addresses], [true, [], true, 1]);
+
+  // a live loan: refused, and says why
+  const loanNo = "LTEST" + Date.now().toString().slice(-6);
+  await db.query(`insert into loan_accounts (loan_account_no, application_id, customer_id, disbursed_on, disbursed_amount, installment_day, emi_amount, tenure_months, contract_rate_pct, status)
+                  values ($1, $2, $3, current_date - 400, 500000, 5, 11000, 60, 9.9, 'LIVE')`, [loanNo, B.id, B.customer_id]);
+  const live = (await one("select fn_erasure_check($1) as v", [B.customer_id])).v;
+  t.equal("a live loan: refused", [live.erasable, live.reasons.some((r) => /loan is live/.test(r))], [false, true]);
+  await db.query("update loan_accounts set status = 'CLOSED', closed_on = current_date - 30 where loan_account_no = $1", [loanNo]);
+  const kept = (await one("select fn_erasure_check($1) as v", [B.customer_id])).v;
+  t.equal("a loan closed last month: kept 5 years, and it says from when", [kept.erasable, kept.reasons.some((r) => /retention period .* possible from/.test(r))], [false, true]);
+  const reqB = (await one("select fn_erasure_record($1, 'email', 'test') as id", [B.customer_id])).id;
+  await t.rejects("erasing it anyway is refused", () => db.query("select fn_erasure_execute($1, 'ERASE')", [reqB]), /not erased: .*retention/);
+
+  const req = (await one("select fn_erasure_record($1, 'EMAIL', 'asked by email') as id", [A.customer_id])).id;
+  await t.rejects("needs ERASE typed", () => db.query("select fn_erasure_execute($1, 'yes')", [req]), /type ERASE/);
+  const out = (await one("select fn_erasure_execute($1, 'ERASE') as v", [req])).v;
+  t.equal("erased: files queued, rows deleted, sign-in removed", [out.erased.files_queued, out.erased.documents >= 1, out.erased.customer_addresses, out.erased.sign_in_account], [1, true, 1, 1]);
+  const c = await one("select full_name, email, pan_enc, pan_hash, fn_pii_decrypt(mobile_enc) as mobile, mobile_hash, date_of_birth, auth_user_id, first_name from customers where id = $1", [A.customer_id]);
+  t.equal("the customer row is anonymous", [c.full_name, /@erased\.invalid$/.test(c.email), c.pan_enc, c.pan_hash, c.mobile, c.mobile_hash, c.date_of_birth, c.auth_user_id, c.first_name],
+    ["Erased customer", true, null, null, "erased", null, null, null, null]);
+  const left = await one(`select (select count(*) from documents where application_id = $1)::int docs,
+                                 (select count(*) from bureau_accounts where application_id = $1)::int bureau,
+                                 (select count(*) from bank_monthly_summary where application_id = $1)::int bank,
+                                 (select count(*) from salary_slips where application_id = $1)::int slips,
+                                 (select count(*) from applications where id = $1)::int app,
+                                 (select count(*) from recommendations where application_id = $1)::int recs`, [A.id]);
+  t.equal("detail gone; the application and its recommendation kept", [left.docs, left.bureau, left.bank, left.slips, left.app, left.recs > 0], [0, 0, 0, 0, 1, true]);
+  const q = (await db.query("select * from fn_erasure_storage_queue()")).rows;
+  t.equal("the stored file is listed for deletion", q.map((r) => r.storage_key), [`applications/${A.application_id}/PAN/front.jpg`]);
+  t.equal("and marked done once deleted", Number((await one("select fn_erasure_storage_done($1) as n", [[q[0].storage_key]])).n), 1);
+  const audit = await one("select event_detail from audit_events where event_type = 'PERSONAL_DATA_ERASED' order by created_at desc limit 1");
+  t.equal("one audit entry, counts only", [audit.event_detail.request, JSON.stringify(audit.event_detail).includes("erase.me")], [req, false]);
+  const again = (await one("select fn_erasure_check($1) as v", [A.customer_id])).v;
+  t.equal("can't be erased twice", again.reasons, ["already erased"]);
+
+  // retention: listed when past it, ids only
+  await db.query("update loan_accounts set closed_on = current_date - interval '6 years' where loan_account_no = $1", [loanNo]);
+  const due = (await db.query("select * from fn_retention_due()")).rows;
+  t.equal("past retention: listed with the reason", due.filter((r) => r.customer_id === B.customer_id).map((r) => r.reason), ["loan closed over 5 years ago"]);
+  await db.query("select fn_erasure_refuse($1, 'test over')", [reqB]);
+
+  await db.query("set role authenticated");
+  await asApi("authenticated", "dddddddd-0000-0000-0000-00000000dd01");
+  await t.rejects("not from the website", () => db.query("select fn_erasure_find('x@y.z')"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
   failures += t.report();
 }
 
