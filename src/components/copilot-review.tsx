@@ -51,7 +51,6 @@ import {
 import { cn } from "@/lib/utils";
 import { calculateIncome, calculateLTV } from "@/lib/engine";
 import { runAssessment, detectFraudFlags, checkEmployerConsistency, type FraudFlag } from "@/lib/engine";
-import { saveAssessment, getAssessmentHistory, verifyEmployer, verifyVehicle } from "@/lib/api";
 import { IncomeComparison } from "@/components/income-comparison";
 
 const recTone = {

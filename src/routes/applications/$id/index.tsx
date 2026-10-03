@@ -28,6 +28,8 @@ import type { Application } from "@/lib/mock-data";
 import { SlaTimer } from "@/components/sla-timer";
 import { OverridePanel } from "@/components/override-panel";
 import { EscalationDialog } from "@/components/escalation-dialog";
+import { isDemoMode } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuditTrailTimeline } from "@/components/audit-trail-timeline";
 import { CAMPreview } from "@/components/cam-preview";
 import { ApplicationTimeline } from "@/components/application-timeline";
@@ -168,6 +170,7 @@ function ApplicationDetail() {
   const [loadError, setLoadError] = useState<string | null>(null);
   // B3: actions only for roles that can take them
   const rights = useMyRights();
+  const sample = !isSupabaseConfigured || isDemoMode();
 
   const loadApp = () => {
     refreshApplication(id);
@@ -258,7 +261,10 @@ function ApplicationDetail() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <SlaTimer since={app.submitted} />
-          {can(rights, "app.evaluate") && getAvailableTransitions(app.status as ApplicationStatus).map((next) => (
+          {/* H8: status buttons and Escalate have no database function behind them yet (they wrote
+              to the table directly, which the row rules refuse, or to a table that doesn't exist), so
+              they show in sample mode only */}
+          {sample && can(rights, "app.evaluate") && getAvailableTransitions(app.status as ApplicationStatus).map((next) => (
             <Button
               key={next}
               variant="outline"
@@ -274,11 +280,10 @@ function ApplicationDetail() {
           {can(rights, "app.override") && (
             <OverridePanel
               applicationId={app.id}
-              currentDecision={app.recommendation}
               onOverride={() => loadApp()}
             />
           )}
-          {can(rights, "app.evaluate") && (
+          {sample && can(rights, "app.evaluate") && (
             <EscalationDialog
               applicationId={app.id}
               onEscalate={() => loadApp()}

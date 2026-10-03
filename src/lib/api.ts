@@ -24,7 +24,6 @@ import type {
 } from "./mock-data";
 import { z } from "zod";
 
-
 const applicationRowSchema = z.object({
   application_id: z.string().transform((v) => v ?? ""),
   full_name: z.string().optional().default(""),
@@ -162,7 +161,6 @@ function formatDate(iso: string): string {
     year: "numeric",
   });
 }
-
 
 // -- Application Review (sql/061, fix list C5) -----------------------------------
 // Staff can't read the case tables directly (privacy rules), so the review page,
@@ -501,7 +499,6 @@ export async function removeRuleChange(ruleId: string): Promise<void> {
 export async function activateDuePolicy(): Promise<void> {
   await supabase.rpc("fn_policy_activate_due");
 }
-
 
 const rateBandRowSchema = z.object({
   band_label: z.string().optional().default(""),
@@ -980,34 +977,6 @@ export async function getDashboard(from?: string): Promise<DashboardData> {
   };
 }
 
-export async function getDealersByOem() {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return Object.fromEntries(
-      Object.entries(mockMakes || {}).map(([oem, dealers]) => [oem, dealers.map((name) => ({ dealer_name: name, dealer_code: "—", city: "—", state_code: "—", is_active: true }))])
-    );
-  }
-  const { data, error } = await supabase
-    .from("dealers")
-    .select("oem_name, dealer_name, dealer_code, city, state_code, is_active")
-    .eq("is_active", true)
-    .order("oem_name")
-    .order("dealer_name");
-  if (error || !data) return {};
-  const grouped: Record<string, Array<{ dealer_name: string; dealer_code: string; city: string; state_code: string; is_active: boolean }>> = {};
-  for (const row of data as any[]) {
-    const oem = row.oem_name as string;
-    if (!grouped[oem]) grouped[oem] = [];
-    grouped[oem].push({
-      dealer_name: row.dealer_name,
-      dealer_code: row.dealer_code ?? "—",
-      city: row.city ?? "—",
-      state_code: row.state_code ?? "—",
-      is_active: row.is_active,
-    });
-  }
-  return grouped;
-}
-
 export type Document = {
   id: string;
   type: string;
@@ -1118,49 +1087,6 @@ export async function getDocumentUrl(path: string): Promise<string> {
   return data?.signedUrl ?? "https://placehold.co/600x800?text=Preview+Unavailable";
 }
 
-// -- Task 52: Assessment persistence --------------------------------------------
-
-export type SavedAssessment = {
-  id: string;
-  decision: string;
-  score: number;
-  rate: number;
-  timestamp: string;
-};
-
-export async function saveAssessment(
-  applicationId: string,
-  result: Record<string, unknown>,
-): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return new Promise((r) => setTimeout(() => r({ error: null }), 400));
-  }
-  const { error } = await supabase.from("assessments").insert({
-    application_id: applicationId,
-    result_json: result,
-  });
-  return { error: error?.message ?? null };
-}
-
-export async function getAssessmentHistory(
-  applicationId: string,
-): Promise<SavedAssessment[]> {
-  if (!isSupabaseConfigured || isDemoMode()) return [];
-  const { data, error } = await supabase
-    .from("assessments")
-    .select("id, result_json, created_at")
-    .eq("application_id", applicationId)
-    .order("created_at", { ascending: false });
-  if (error || !data) return [];
-  return (data as any[]).map((row) => ({
-    id: row.id,
-    decision: (row.result_json as any)?.decision?.decision ?? "UNKNOWN",
-    score: (row.result_json as any)?.bureau?.score ?? 0,
-    rate: (row.result_json as any)?.decision?.suggestedRate ?? 0,
-    timestamp: row.created_at,
-  }));
-}
-
 // -- Task 53: Status transitions -------------------------------------------------
 
 const reverseStatusMap: Record<string, string> = {
@@ -1187,36 +1113,6 @@ export async function transitionStatus(
     .update({ status: dbStatus })
     .eq("application_id", applicationId);
   return { error: error?.message ?? null };
-}
-
-// -- Task 55: Assignment ---------------------------------------------------------
-
-export async function assignApplication(
-  applicationId: string,
-  userId: string,
-): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return new Promise((r) => setTimeout(() => r({ error: null }), 400));
-  }
-  const { error } = await supabase
-    .from("applications")
-    .update({ assigned_officer_id: userId })
-    .eq("application_id", applicationId);
-  return { error: error?.message ?? null };
-}
-
-export async function getOfficerQueue(
-  officerName: string,
-): Promise<Application[]> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return mockApplications.filter((a) => a.assignedTo === officerName).slice(0, 10);
-  }
-  const { data, error } = await supabase.rpc("fn_list_applications");
-  if (error || !data) return [];
-  return (data as any[])
-    .map(mapToApplication)
-    .filter((a) => a.assignedTo === officerName)
-    .slice(0, 10);
 }
 
 // -- Task 60: Duplicate check ----------------------------------------------------
@@ -1249,35 +1145,24 @@ export async function checkDuplicates(
   }));
 }
 
-// -- Task 61: Override -----------------------------------------------------------
+// -- Override: a decision against the engine's, with the reason (fn_officer_decision
+// writes the override log; it needs app.decide). H8: it used to write to a table that doesn't exist.
 
-export type OverridePayload = {
+export async function overrideDecision(input: {
   applicationId: string;
-  originalDecision: string;
-  overrideDecision: "APPROVE" | "REJECT" | "HOLD";
+  decision: "APPROVE" | "REJECT" | "MAYBE";
   reason: string;
-  overriddenBy: string;
-};
-
-export async function submitOverride(
-  payload: OverridePayload,
-): Promise<{ error: string | null }> {
+}): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured || isDemoMode()) {
     return new Promise((r) => setTimeout(() => r({ error: null }), 500));
   }
-  const { error } = await supabase.from("decision_overrides").insert({
-    application_id: payload.applicationId,
-    original_decision: payload.originalDecision,
-    override_decision: payload.overrideDecision,
-    reason: payload.reason,
-    overridden_by: payload.overriddenBy,
+  const { error } = await supabase.rpc("fn_officer_decision", {
+    p_application_id: input.applicationId,
+    p_decision: input.decision,
+    p_remarks: input.reason,
+    p_override_reason: input.reason,
   });
-  if (error) return { error: error.message };
-  await supabase
-    .from("applications")
-    .update({ status: payload.overrideDecision, is_overridden: true })
-    .eq("application_id", payload.applicationId);
-  return { error: null };
+  return { error: error?.message ?? null };
 }
 
 // -- Task 62: Escalation ---------------------------------------------------------
@@ -1314,141 +1199,7 @@ export async function escalateApplication(
   return { error: null };
 }
 
-export async function getEscalationHistory(
-  applicationId: string,
-): Promise<
-  { reason: string; notes: string; escalatedBy: string; createdAt: string }[]
-> {
-  if (!isSupabaseConfigured || isDemoMode()) return [];
-  const { data, error } = await supabase
-    .from("escalations")
-    .select("reason, notes, escalated_by, created_at")
-    .eq("application_id", applicationId)
-    .order("created_at", { ascending: false });
-  if (error || !data) return [];
-  return (data as any[]).map((row) => ({
-    reason: row.reason,
-    notes: row.notes,
-    escalatedBy: row.escalated_by,
-    createdAt: row.created_at,
-  }));
-}
-
-// -- Task 66: Employer verification ----------------------------------------------
-
-export type EmployerVerification = {
-  employerName: string;
-  found: boolean;
-  category: "CAT_A" | "CAT_B" | "CAT_C" | "UNVERIFIED";
-  rateImpact: string;
-};
-
-export async function verifyEmployer(
-  employerName: string,
-): Promise<EmployerVerification> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    const knownEmployers: Record<string, "CAT_A" | "CAT_B" | "CAT_C"> = {
-      Infosys: "CAT_A",
-      TCS: "CAT_A",
-      Wipro: "CAT_A",
-      HCL: "CAT_A",
-      Reliance: "CAT_A",
-      "HDFC Bank": "CAT_A",
-      SBI: "CAT_A",
-      "Tech Mahindra": "CAT_B",
-      Mindtree: "CAT_B",
-      "L&T": "CAT_B",
-    };
-    const cat = knownEmployers[employerName];
-    return {
-      employerName,
-      found: !!cat,
-      category: cat ?? "UNVERIFIED",
-      rateImpact:
-        cat === "CAT_A"
-          ? "Best rate eligible"
-          : cat === "CAT_B"
-            ? "Standard rate"
-            : cat === "CAT_C"
-              ? "Higher rate bracket"
-              : "Manual verification required",
-    };
-  }
-  // The Employer Master (sql/069): staff read it through fn_employer_list.
-  const { data, error } = await supabase.rpc("fn_employer_list", { p_search: employerName, p_category: null });
-  const match = error
-    ? undefined
-    : ((data as { rows?: { name: string; category: string; verified: boolean }[] })?.rows ?? []).find(
-        (r) => r.name.toLowerCase() === employerName.trim().toLowerCase(),
-      ) ?? ((data as { rows?: { name: string; category: string; verified: boolean }[] })?.rows ?? [])[0];
-  if (!match) {
-    return {
-      employerName,
-      found: false,
-      category: "UNVERIFIED",
-      rateImpact: "Manual verification required",
-    };
-  }
-  const cat = `CAT_${match.category}` as EmployerVerification["category"];
-  return {
-    employerName,
-    found: true,
-    category: cat,
-    rateImpact:
-      cat === "CAT_A"
-        ? "Best rate eligible"
-        : cat === "CAT_B"
-          ? "Standard rate"
-          : "Higher rate bracket",
-  };
-}
-
 // -- Task 67: Vehicle verification -----------------------------------------------
-
-export type VehicleVerification = {
-  make: string;
-  model: string;
-  variant: string;
-  exShowroomVerified: number | null;
-  priceDelta: number | null;
-  dealerFound: boolean;
-  riskTier: "LOW" | "MEDIUM" | "HIGH";
-};
-
-export async function verifyVehicle(
-  make: string,
-  model: string,
-  variant: string,
-  declaredExShowroom: number,
-): Promise<VehicleVerification> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return {
-      make,
-      model,
-      variant,
-      exShowroomVerified: declaredExShowroom,
-      priceDelta: 0,
-      dealerFound: true,
-      riskTier: "LOW",
-    };
-  }
-  const { data: dealer } = await supabase
-    .from("dealers")
-    .select("oem, risk_tier")
-    .ilike("oem", make)
-    .limit(1)
-    .single();
-  return {
-    make,
-    model,
-    variant,
-    exShowroomVerified: declaredExShowroom,
-    priceDelta: 0,
-    dealerFound: !!dealer,
-    riskTier:
-      (dealer?.risk_tier as VehicleVerification["riskTier"]) ?? "MEDIUM",
-  };
-}
 
 // -- Task 68: Application timeline -----------------------------------------------
 
@@ -1668,87 +1419,6 @@ export async function getPortfolioMetrics(): Promise<PortfolioMetrics> {
     par30Pct: book.totals.par_30_pct,
     buckets: book.buckets.map((b) => ({ name: b.bucket, value: b.loans, color: bucketColor(b.bucket) })),
   };
-}
-
-// -- Task 71: Location hierarchy -------------------------------------------------
-
-export type LocationNode = {
-  state: string;
-  cities: { city: string; branches: string[] }[];
-};
-
-export async function getLocationHierarchy(): Promise<LocationNode[]> {
-  if (!isSupabaseConfigured || isDemoMode()) {
-    return [
-      {
-        state: "Tamil Nadu",
-        cities: [
-          {
-            city: "Chennai",
-            branches: ["Anna Nagar", "T. Nagar", "Adyar"],
-          },
-          {
-            city: "Coimbatore",
-            branches: ["RS Puram", "Gandhipuram"],
-          },
-        ],
-      },
-      {
-        state: "Karnataka",
-        cities: [
-          {
-            city: "Bengaluru",
-            branches: ["Koramangala", "Whitefield", "Jayanagar"],
-          },
-          { city: "Mysuru", branches: ["Saraswathipuram"] },
-        ],
-      },
-      {
-        state: "Maharashtra",
-        cities: [
-          {
-            city: "Mumbai",
-            branches: ["Andheri", "Bandra", "Powai"],
-          },
-          { city: "Pune", branches: ["Kothrud", "Hinjewadi"] },
-        ],
-      },
-      {
-        state: "Delhi",
-        cities: [
-          {
-            city: "New Delhi",
-            branches: [
-              "Connaught Place",
-              "Nehru Place",
-              "Karol Bagh",
-            ],
-          },
-        ],
-      },
-    ];
-  }
-  const { data, error } = await supabase
-    .from("branches")
-    .select("state, city, branch_name")
-    .order("state")
-    .order("city")
-    .order("branch_name");
-  if (error || !data) return [];
-  const map = new Map<string, Map<string, string[]>>();
-  for (const row of data as any[]) {
-    if (!map.has(row.state)) map.set(row.state, new Map());
-    const cityMap = map.get(row.state)!;
-    if (!cityMap.has(row.city)) cityMap.set(row.city, []);
-    cityMap.get(row.city)!.push(row.branch_name);
-  }
-  return Array.from(map.entries()).map(([state, cityMap]) => ({
-    state,
-    cities: Array.from(cityMap.entries()).map(([city, branches]) => ({
-      city,
-      branches,
-    })),
-  }));
 }
 
 // -- Task 72: Employer search ----------------------------------------------------

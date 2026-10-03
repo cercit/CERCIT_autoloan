@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import type { AuditEntry } from "@/lib/supabase-audit-trail";
+
+// One line of a case's timeline (the case screen builds these from fn_staff_application_review)
+export interface AuditEntry {
+  id: string;
+  application_id: string;
+  actor: string;
+  action: string;
+  detail: Record<string, unknown>;
+  timestamp: string;
+  ip_address?: string;
+}
 
 export interface AuditTrailTimelineProps {
   entries: AuditEntry[];
