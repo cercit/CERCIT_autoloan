@@ -47,6 +47,8 @@ html:not(.dark) .header-shell.is-scrolled .site-header { background: oklch(1 0 0
 .desktop-nav { display: flex; align-items: center; justify-content: center; gap: clamp(18px,2.4vw,40px); flex: 1; }
 .desktop-nav a { color: var(--h-muted); font-size: 13px; font-weight: 600; text-decoration: none; transition: color 180ms ease; }
 .desktop-nav a:hover { color: var(--h-fg); }
+.nav-decks { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--h-muted); font-size: 13px; font-weight: 600; transition: color 180ms ease; }
+.nav-decks:hover, .nav-decks[data-state="open"] { color: var(--h-fg); }
 .header-actions { display: flex; align-items: center; gap: 10px; }
 .nav-theme button, .nav-login { color: var(--h-fg); height: 44px; border-radius: 999px; }
 .nav-theme button { width: 44px; }
@@ -61,7 +63,8 @@ html:not(.dark) .header-shell.is-scrolled .site-header { background: oklch(1 0 0
 .mobile-menu:hover { color: var(--h-fg); background: oklch(1 0 0 / 12%); }
 .mobile-panel { position: absolute; z-index: 6; left: 0; right: 0; top: var(--header-h, 68px); padding: 18px 18px 22px; background: oklch(0.08 0.022 250 / 96%); backdrop-filter: blur(20px); border-bottom: 1px solid oklch(1 0 0 / 12%); display: grid; gap: 18px; }
 .mobile-panel nav { display: grid; gap: 4px; }
-.mobile-panel nav a { color: var(--h-fg); text-decoration: none; font-weight: 600; font-size: 16px; padding: 12px 6px; border-bottom: 1px solid oklch(1 0 0 / 8%); }
+.mobile-panel nav button { text-align: left; background: none; border: 0; cursor: pointer; }
+.mobile-panel nav a, .mobile-panel nav button { color: var(--h-fg); text-decoration: none; font-weight: 600; font-size: 16px; padding: 12px 6px; border-bottom: 1px solid oklch(1 0 0 / 8%); }
 .mobile-panel-actions { display: grid; gap: 10px; }
 .mobile-login { color: var(--h-muted); text-align: center; font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px; }
 
@@ -329,7 +332,7 @@ html:not(.dark) .nav-theme button:hover, html:not(.dark) .nav-login:hover, html:
 html:not(.dark) .secondary-cta { border-color: oklch(0.21 0.035 256 / 28%); background: oklch(1 0 0 / 55%); }
 html:not(.dark) .secondary-cta:hover { background: oklch(1 0 0 / 88%); border-color: oklch(0.21 0.035 256 / 45%); }
 html:not(.dark) .mobile-panel { background: oklch(0.99 0.004 240 / 97%); border-bottom-color: oklch(0.21 0.035 256 / 10%); }
-html:not(.dark) .mobile-panel nav a { border-bottom-color: oklch(0.21 0.035 256 / 8%); }
+html:not(.dark) .mobile-panel nav a, html:not(.dark) .mobile-panel nav button { border-bottom-color: oklch(0.21 0.035 256 / 8%); }
 html:not(.dark) .trust-strip { background: linear-gradient(90deg, oklch(0.98 0.008 240 / 94%), oklch(0.98 0.008 240 / 62%), transparent); }
 html:not(.dark) .trust-strip p { color: oklch(0.38 0.03 256); }
 html:not(.dark) .trust-strip strong { color: oklch(0.18 0.035 256); }

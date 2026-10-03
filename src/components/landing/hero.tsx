@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { emiFor } from "@/lib/format";
 
+import { openDeck } from "./audience-popup";
 import { DotField } from "./dot-field";
 import { LOAN_LIMITS, rupee, tenureLabel, type LoanState } from "./loan";
 
@@ -119,6 +120,25 @@ export function Hero() {
                 {label}
               </a>
             ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="nav-decks">
+                Decks <ChevronDown className="size-3.5" aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-64">
+                <DropdownMenuItem className="login-choice" onSelect={() => openDeck("investor")}>
+                  <span className="font-medium">Investor deck</span>
+                  <span className="text-xs text-muted-foreground">
+                    The problem, the product, the plan
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="login-choice" onSelect={() => openDeck("lender")}>
+                  <span className="font-medium">Bank / NBFC deck</span>
+                  <span className="text-xs text-muted-foreground">
+                    How cercit fits your credit process
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
           <div className="header-actions">
             <span className="nav-theme">
@@ -172,6 +192,24 @@ export function Hero() {
                   {label}
                 </a>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openDeck("investor");
+                }}
+              >
+                Investor deck
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openDeck("lender");
+                }}
+              >
+                Bank / NBFC deck
+              </button>
             </nav>
             <div className="mobile-panel-actions">
               <Link to="/login" search={{ as: "customer" }} className="mobile-login">

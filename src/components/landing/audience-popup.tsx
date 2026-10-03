@@ -17,6 +17,10 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 export type Audience = "customer" | "investor" | "lender";
 
 const OPEN_EVENT = "cercit:audience";
+const DECK_EVENT = "cercit:deck";
+// The chooser no longer opens by itself on page load (3 Oct 2026): decks are in
+// the menu, and the footer links still open it. Set to true to bring it back.
+const AUTO_OPEN = false;
 const DECKS = `${import.meta.env.BASE_URL}decks/`;
 
 /** Open the popup from anywhere (footer links etc.), optionally straight to one audience. */
@@ -24,8 +28,13 @@ export function openAudiencePopup(audience?: Audience) {
   window.dispatchEvent(new CustomEvent<Audience | undefined>(OPEN_EVENT, { detail: audience }));
 }
 
+/** Open a deck straight from the menu; closing it goes back to the page. */
+export function openDeck(deck: DeckKey) {
+  window.dispatchEvent(new CustomEvent<DeckKey>(DECK_EVENT, { detail: deck }));
+}
+
 type Cta = { label: string; to?: string; href?: string; deck?: DeckKey };
-type DeckKey = "investor" | "lender";
+export type DeckKey = "investor" | "lender";
 
 const DECK_PAGES: Record<DeckKey, { title: string; src: string }> = {
   investor: { title: "cercit investor deck", src: `${DECKS}investor.html` },
@@ -131,16 +140,29 @@ export function AudiencePopup() {
   const [active, setActive] = useState<Audience | null>(null);
   const resetTimer = useRef<number | undefined>(undefined);
   const [deck, setDeck] = useState<DeckKey | null>(null);
+  const deckFromMenu = useRef(false);
 
-  // The chooser steps aside while a deck plays, and comes back on close.
-  const openDeck = (d: DeckKey) => {
+  // The chooser steps aside while a deck plays, and comes back on close
+  // (unless the deck was opened from the menu).
+  const showDeck = (d: DeckKey) => {
+    deckFromMenu.current = false;
     setOpen(false);
     setDeck(d);
   };
   const closeDeck = () => {
     setDeck(null);
-    setOpen(true);
+    if (!deckFromMenu.current) setOpen(true);
   };
+
+  useEffect(() => {
+    const onDeck = (e: Event) => {
+      deckFromMenu.current = true;
+      setOpen(false);
+      setDeck((e as CustomEvent<DeckKey>).detail);
+    };
+    window.addEventListener(DECK_EVENT, onDeck);
+    return () => window.removeEventListener(DECK_EVENT, onDeck);
+  }, []);
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
@@ -150,8 +172,9 @@ export function AudiencePopup() {
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
-  // Shown on every page load, a moment after the hero has painted.
+  // Opens by itself only if AUTO_OPEN is true (off since 3 Oct 2026).
   useEffect(() => {
+    if (!AUTO_OPEN) return;
     const t = window.setTimeout(() => setOpen(true), 1500);
     return () => window.clearTimeout(t);
   }, []);
@@ -263,8 +286,8 @@ export function AudiencePopup() {
                 ))}
               </ul>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <CtaButton cta={panel.primary} variant="default" onDeck={openDeck} />
-                <CtaButton cta={panel.secondary} variant="outline" onDeck={openDeck} />
+                <CtaButton cta={panel.primary} variant="default" onDeck={showDeck} />
+                <CtaButton cta={panel.secondary} variant="outline" onDeck={showDeck} />
               </div>
               <p className="mt-5 text-xs text-muted-foreground">
                 cercit is a product demo, not a licensed lender.
