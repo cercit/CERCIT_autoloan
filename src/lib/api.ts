@@ -6,7 +6,6 @@ import {
   policyRules as mockPolicyRules,
   policyTabs as mockPolicyTabs,
   auditLog as mockAuditLog,
-  employers as mockEmployers,
   makes as mockMakes,
   mockBureauReport,
   mockBankStatementSummary,
@@ -941,28 +940,6 @@ export async function getDashboard(from?: string): Promise<DashboardData> {
   };
 }
 
-export async function getEmployers() {
-  if (!isSupabaseConfigured || isDemoMode()) return mockEmployers;
-
-  const { data, error } = await supabase
-    .from("dealers")
-    .select("oem_name, dealer_name, dealer_code, city, state_code, is_active")
-    .eq("is_active", true);
-
-  if (error) throw new Error(error.message || "Could not load the employers");
-  if (!data) return [];
-  // Transform dealer rows into employer records for UI
-  return (data as any[]).map((d) => ({
-    name: d.oem_name ?? d.dealer_name,
-    category: "B", // default category — can be enhanced with category mapping from policy rules
-    sector: d.city,
-    listed: d.is_active ? "Active" : "Inactive",
-    employees: "—",
-    approved: 0,
-    updated: new Date().toLocaleDateString("en-GB"),
-  }));
-}
-
 export async function getDealersByOem() {
   if (!isSupabaseConfigured || isDemoMode()) {
     return Object.fromEntries(
@@ -1357,13 +1334,14 @@ export async function verifyEmployer(
               : "Manual verification required",
     };
   }
-  const { data, error } = await supabase
-    .from("employers")
-    .select("category")
-    .ilike("name", employerName)
-    .limit(1)
-    .single();
-  if (error || !data) {
+  // The Employer Master (sql/069): staff read it through fn_employer_list.
+  const { data, error } = await supabase.rpc("fn_employer_list", { p_search: employerName, p_category: null });
+  const match = error
+    ? undefined
+    : ((data as { rows?: { name: string; category: string; verified: boolean }[] })?.rows ?? []).find(
+        (r) => r.name.toLowerCase() === employerName.trim().toLowerCase(),
+      ) ?? ((data as { rows?: { name: string; category: string; verified: boolean }[] })?.rows ?? [])[0];
+  if (!match) {
     return {
       employerName,
       found: false,
@@ -1371,7 +1349,7 @@ export async function verifyEmployer(
       rateImpact: "Manual verification required",
     };
   }
-  const cat = data.category as EmployerVerification["category"];
+  const cat = `CAT_${match.category}` as EmployerVerification["category"];
   return {
     employerName,
     found: true,
@@ -1763,13 +1741,11 @@ export async function searchEmployers(
     const q = query.toLowerCase();
     return all.filter((e) => e.name.toLowerCase().includes(q)).slice(0, 8);
   }
-  const { data, error } = await supabase
-    .from("employers")
-    .select("name, category")
-    .ilike("name", `%${query}%`)
-    .limit(8);
+  const { data, error } = await supabase.rpc("fn_employer_list", { p_search: query, p_category: null });
   if (error || !data) return [];
-  return data as EmployerSuggestion[];
+  return ((data as { rows?: { name: string; category: string }[] }).rows ?? [])
+    .slice(0, 8)
+    .map((r) => ({ name: r.name, category: `CAT_${r.category}` })) as EmployerSuggestion[];
 }
 
 export async function getBankingAnalysis(applicationId: string, from?: string): Promise<{

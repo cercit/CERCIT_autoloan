@@ -1063,9 +1063,10 @@ const asOperator = () => asApi("", "");
   // Same rights as the CASE list in 018, role by role
   const counts = Object.fromEntries((await db.query(
     "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
-  // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041
+  // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041;
+  // admin, credit head, credit manager and policy manager: plus employer.manage from 069
   t.equal("every role keeps its 018 rights", counts,
-    { admin: 13, compliance: 13, credit_head: 20, credit_manager: 9, credit_officer: 7, demo_viewer: 5, policy_manager: 11, reviewer: 5, viewer: 3 });
+    { admin: 14, compliance: 13, credit_head: 21, credit_manager: 10, credit_officer: 7, demo_viewer: 5, policy_manager: 12, reviewer: 5, viewer: 3 });
   t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
     ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
   const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
@@ -3174,6 +3175,86 @@ const asOperator = () => asApi("", "");
 
   await db.query("update applications set assigned_officer_id = null where id = any($1)", [ids.map((r) => r.id)]);
   await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 47. Employer Master with checks behind each field (069, G4 / C9)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("employer master");
+  const PM = "33333333-3333-3333-3333-333333333333";
+  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  // a valid GSTIN for a PAN: the check character is mod 36 over the first 14
+  const gstin = (body) => {
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let sum = 0;
+    for (let i = 0; i < 14; i++) { const p = chars.indexOf(body[i]) * (i % 2 ? 2 : 1); sum += Math.floor(p / 36) + (p % 36); }
+    return body + chars[(36 - (sum % 36)) % 36];
+  };
+  await operator();
+  t.equal("one name key for small spelling differences",
+    (await one("select fn_employer_key('Infosys Limited') = fn_employer_key('INFOSYS LTD.') as v")).v, true);
+  const seeded = await one("select count(*)::int as n, count(*) filter (where verified)::int as v, count(*) filter (where source = 'FROM_APPLICATIONS')::int as s from employers");
+  t.equal("employers named on applications are seeded, none verified, nothing made up", [seeded.n > 0, seeded.v, seeded.s === seeded.n, (await one("select count(*)::int as n from employers where cin is not null or gstin is not null")).n], [true, 0, true, 0]);
+
+  await as(PM);
+  const g = gstin("29AABCZ1234F1Z");
+  t.equal("the GSTIN check character is checked", [(await one("select fn_gstin_valid($1) as v", [g])).v, (await one("select fn_gstin_valid($1) as v", [g.slice(0, 14) + (g[14] === "A" ? "B" : "A")])).v], [true, false]);
+  const id1 = (await one("select fn_employer_save(null, $1) as v", [JSON.stringify({ name: "Zephyr Analytics Pvt Ltd", employer_type: "PRIVATE_LTD", cin: "U72200KA2018PTC123456", gstin: g, email_domains: ["zephyr.example"], aliases: ["Zephyr Analytics"] })])).v;
+  const r1 = (await one("select fn_employer_run_checks($1) as v", [id1])).v;
+  const by = Object.fromEntries(r1.checks.map((c) => [c.check, c.result]));
+  t.equal("a private company with 8 years of filings: checks pass, category B, verified",
+    [by.CIN_MCA, by.GSTIN, by.CAUTION, r1.employer.years_of_filings >= 3, r1.employer.category, r1.employer.verified, r1.rule_category], ["PASS", "PASS", "PASS", true, "B", true, "B"]);
+  t.equal("the simulated MCA check says it is simulated", r1.checks.find((c) => c.check === "CIN_MCA").source, "SIMULATED");
+
+  const id2 = (await one("select fn_employer_save(null, $1) as v", [JSON.stringify({ name: "Newco Ventures Pvt Ltd", employer_type: "PRIVATE_LTD", cin: `U72200KA${new Date().getFullYear() - 1}PTC654321` })])).v;
+  const r2 = (await one("select fn_employer_run_checks($1) as v", [id2])).v;
+  t.equal("a company 1 year old falls to C, but only through a request someone else approves",
+    [r2.rule_category, r2.employer.category, r2.changes[0]?.status, r2.changes[0]?.to], ["C", "B", "PENDING", "C"]);
+  await t.rejects("the person who asked can't approve it", () => db.query("select fn_employer_decide_category($1, 'APPROVE')", [r2.changes[0].id]), /second person/);
+  await as(ADMIN);
+  const r3 = (await one("select fn_employer_decide_category($1, 'APPROVE', 'ok') as v", [r2.changes[0].id])).v;
+  t.equal("a second person approves and the category changes", [r3.employer.category, r3.changes[0].status], ["C", "APPROVED"]);
+  await t.rejects("a wrong GSTIN is refused", () => db.query("select fn_employer_save(null, $1)", [JSON.stringify({ name: "Bad GST Ltd", gstin: "29AABCZ1234F1Z0" })]), /not a valid GSTIN/);
+  await t.rejects("a caution flag needs a reason", () => db.query("select fn_employer_save($1, $2)", [id1, JSON.stringify({ name: "Zephyr Analytics Pvt Ltd", caution: true })]), /reason/);
+
+  await operator();
+  await one("select fn_synthetic_generate(1, 20) as v");
+  await one("select fn_employer_seed_from_applications() as v");
+  const infy = (await one("select id from employers where name_key = fn_employer_key('Infosys Ltd')"))?.id;
+  await as(ADMIN);
+  if (infy) {
+    const ri = (await one("select fn_employer_run_checks($1) as v", [infy])).v;
+    t.equal("a company on the NSE list is found there", ri.checks.find((c) => c.check === "LISTED").result, "PASS");
+  }
+
+  await as(OFFICER);
+  const list = (await one("select fn_employer_list('Zephyr') as v")).v;
+  t.equal("an officer can look employers up but not manage them", [list.rows.length, list.can_manage], [1, false]);
+  await t.rejects("and can't add one", () => db.query("select fn_employer_save(null, '{\"name\":\"X Ltd\"}')"), /permission denied: employer.manage/);
+  await t.rejects("or read the table directly", () => db.query("select * from employers"), /permission denied/);
+
+  await operator();
+  const syn = await one("select id from applications where origin = 'SYNTHETIC' limit 1");
+  const m = (await one("select fn_employer_for_application($1) as v", [syn.id])).v;
+  t.equal("a case finds its employer in the master; a synthetic email isn't treated as a work email",
+    [m.found, ["A", "B", "C"].includes(m.category), m.checks.EMAIL_DOMAIN.result], [true, true, "NOT_APPLICABLE"]);
+  await one("select fn_synthetic_purge() as v");
+  await db.query("set role anon");
+  await t.rejects("the public can't list employers", () => db.query("select fn_employer_list()"), /permission denied/);
+  await operator();
   failures += t.report();
 }
 
