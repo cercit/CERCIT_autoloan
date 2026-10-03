@@ -120,11 +120,63 @@ Six-layer assessment, each independent:
 - [ ] Deploy to Cloudflare Workers (SSR build ready, needs account setup)
 - [ ] Security audit (Claude Fable, GPT 5.6, Kimi 3/DeepSeek)
 
-## Credits
+## FAQs
 
-**Product & Domain:** Sameer S Mittimani
-**Engineering:** Built with Claude (Anthropic)
-**UI Prototype:** Lovable
+**What is cercit? Why the name?**
+cercit stands for **C**redit **E**valuation and **R**isk **C**ompliance **I**ntelligence **T**ool. It checks your documents, reads your credit history, works out what you can comfortably repay and stays inside the lending rules, so a car loan is decided in hours, not days. Fun fact: cercit was Sameer's gamer tag long before it was a loan platform.
+
+**Why take my car loan here? What makes it special?**
+We value your time, and we keep improving how we use it. Your documents are read and checked automatically, your credit is assessed the moment you apply, and a person steps in only where a decision really needs one. You came here to plan a new car, not a loan, and we'd like to keep it that way.
+
+**How do I contact you?**
+We're here every working day on chat, email or a call. We don't have a call centre: whoever is free picks up, from the founder to the newest member of the team. If we can't solve it on the spot, we'll understand the problem and arrange a call back. You'll always talk to a person, never a bot.
+
+**What documents do I need?**
+PAN, Aadhaar, a live photo, your last 3 salary slips, 6 months of bank statements, Form 16 and the dealer's quotation. Photos or PDFs from your phone are fine, including password-protected PDFs.
+
+**How long does approval take?**
+Most salaried applications with complete documents get a decision the same day, often within the hour. A closer look by a credit officer can take 1–2 working days. A person signs off every loan.
+
+**Can I prepay my loan?**
+Yes, after your first 6 EMIs. Prepayment is charged at 4% of the amount prepaid, and every charge is in your Key Fact Statement before you sign.
+
+**What if my application is rejected?**
+You'll see the reason in plain words. Fix what can be fixed (a missing or unclear document) and send it again, or apply again after 90 days. You can always ask for a credit officer to take a second look.
+
+## Meet the founders
+
+cercit was built by two founders: one who knows car loans, and one that writes code and designs screens.
+
+### Sameer Shreenivas Mittimani: founder, product and credit
+
+Sameer has spent years close to how car loans really get approved, and to the slow parts nobody enjoys. He is a product manager (Masai × IIT Roorkee Product Management certification) and wrote cercit's product plan, its credit policy and every rule behind a decision, then reviewed the build one step at a time. GitHub: [cercit](https://github.com/cercit).
+
+### Claude (AI by Anthropic): co-builder, code and design
+
+Claude is an AI model made by Anthropic. Working from Sameer's specs and reviews, it wrote the code, designed the screens, built the database and the cloud services, trained and checked the risk model, and wrote the tests and documentation.
+
+### Roles covered in building cercit
+
+| Role | Who |
+|---|---|
+| Founder and CEO | Sameer |
+| Product manager (PRD, roadmap, priorities) | Sameer |
+| Head of credit policy (rules, rate grid, approval bands) | Sameer |
+| Underwriting and domain expert (car-loan benchmarks, synthetic customer profiles) | Sameer |
+| Business analyst (flows, data points, reconciliation) | Sameer |
+| Project manager (Jira, sprints, fix list) | Sameer |
+| Testing and sign-off (live checks, acceptance) | Sameer |
+| Compliance and privacy owner (RBI digital lending, DPDP) | Sameer |
+| Software engineer (website, staff and customer screens) | Claude |
+| Database engineer (Supabase, 80 migrations, privacy rules) | Claude |
+| Cloud engineer (AWS document readers, face match, masking) | Claude |
+| Data scientist (synthetic data, XGBoost risk model) | Claude |
+| UI and UX designer (screens, brand, landing page) | Claude |
+| Test automation (SQL tests, page checks) | Claude |
+| Security reviewer (access rules, audits) | Claude |
+| Technical writer (how-it-works pack, guides) | Claude |
+
+The first UI prototype was made with Lovable.
 
 ## License
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { faqs } from "@/lib/customer-data";
 
 export interface HelpSupportPanelProps {
   onContactSubmit?: (data: { category: string; subject: string; message: string; appId?: string }) => void;
@@ -7,15 +8,13 @@ export interface HelpSupportPanelProps {
   className?: string;
 }
 
+// Same answers as the landing page FAQs (src/lib/customer-data.ts), plus a few
+// that only matter once you have applied.
 const FAQ_ITEMS = [
-  { q: "How long does approval take?", a: "Most applications receive an automated decision within 48-72 hours. Review cases may take up to 5 business days." },
-  { q: "What documents are required?", a: "Salaried applicants need 3 recent salary slips, 6 months bank statement, PAN, Aadhaar, and address proof." },
-  { q: "How is the interest rate decided?", a: "Rates depend on bureau score, employer tier, LTV ratio, and selected scheme. Grade A applicants receive the lowest rates." },
-  { q: "Can I prepay my loan?", a: "Yes, full or partial prepayment is allowed after 6 EMI payments. A 2% charge applies on the prepaid amount." },
-  { q: "What if my application is declined?", a: "You may reapply after 3 months, or contact your relationship manager for a manual review with additional documentation." },
-  { q: "How do I track my application?", a: "Visit the Customer Status Tracker page, or check notifications for real-time updates on your pipeline stage." },
-  { q: "What is a NACH mandate?", a: "NACH (National Automated Clearing House) allows automatic EMI debits from your bank account on the due date." },
-  { q: "How can I contact support?", a: "Use the Contact Us form, call our support line at 1800-123-4567, or email support@cercit.in." },
+  ...faqs.filter((f) => !/Why the name|What makes it special/.test(f.q)),
+  { q: "How is the interest rate decided?", a: "Your rate depends on your credit score band and your employer's category, and it is shown to you before you accept the offer." },
+  { q: "How do I track my application?", a: "Open your application from the link in your email, or sign in with your mobile number. Each step shows where your application is." },
+  { q: "What is a NACH mandate?", a: "NACH (National Automated Clearing House) lets your EMI be debited from your bank account on its due date, so you never miss one." },
 ];
 
 const CATEGORIES = ["Application query", "Document issue", "Payment query", "Technical issue", "Other"];

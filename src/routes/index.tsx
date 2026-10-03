@@ -26,7 +26,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { carBrands, faqs } from "@/lib/customer-data";
+import { carBrands, faqs, founders } from "@/lib/customer-data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -203,6 +203,45 @@ function Landing() {
             </AccordionItem>
           ))}
         </Accordion>
+      </section>
+
+      <section id="founders" className="border-y border-border bg-surface-subtle">
+        <div className="mx-auto max-w-5xl px-4 py-20">
+          <p className="section-eyebrow text-center">Meet the founders</p>
+          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+            One person and one AI, wearing every hat.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-muted-foreground">
+            cercit was built by two founders: one who knows car loans, and one that writes code and designs
+            screens. Here is who did what.
+          </p>
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            {founders.map((f) => (
+              <div key={f.name} className="panel flex flex-col rounded-xl p-6">
+                <div className="flex items-center gap-4">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    {f.initials}
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-semibold leading-tight">{f.name}</h3>
+                    <p className="text-sm text-muted-foreground">{f.role}</p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{f.bio}</p>
+                <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Roles covered
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {f.hats.map((h) => (
+                    <li key={h} className="rounded-full border border-border px-2.5 py-1 text-xs">
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="cta-band">
