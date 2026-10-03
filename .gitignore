@@ -46,3 +46,6 @@ qa-artifacts/
 # Hermes working files
 hermes/
 tasks/
+
+# settings backups exported by scripts/backup-settings.mjs (H7)
+backups/

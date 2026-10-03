@@ -3754,6 +3754,33 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// H7: weekly backup of the settings and policy tables (079)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("settings backup");
+  await db.query("reset role");
+  await asOperator();
+  const first = (await one("select count(*)::int as n, min(kind) as kind from settings_backups")).n;
+  t.equal("079 took the first backup when it ran", first >= 1, true);
+  const took = (await one("select fn_settings_backup_take('MANUAL') as v")).v;
+  t.equal("a backup copies every settings table that exists", [took.tables >= 30, took.rows > 50], [true, true]);
+  const b = (await one("select fn_settings_backup_latest() as v")).v;
+  t.equal("whole rows: the credit rules come back as rows", b.tables.policy_rules.length, Number((await one("select count(*) as n from policy_rules")).n));
+  t.equal("never personal data or secrets", ["customers", "applications", "users", "documents", "app_secrets"].filter((k) => k in b.tables), []);
+  for (let i = 0; i < 28; i++) await db.query("select fn_settings_backup_take('WEEKLY')");
+  t.equal("keeps the last 26 weekly backups; manual ones stay", Number((await one("select count(*) as n from settings_backups where kind = 'WEEKLY'")).n), 26);
+  await db.query("set role authenticated");
+  await asApi("authenticated", "dddddddd-0000-0000-0000-00000000dd01");
+  await t.rejects("a signed-in user can't take one", () => db.query("select fn_settings_backup_take('MANUAL')"), /permission denied/);
+  await t.rejects("or read one", () => db.query("select fn_settings_backup_latest()"), /permission denied/);
+  await t.rejects("or read the table", () => db.query("select * from settings_backups"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("delete from settings_backups where kind = 'WEEKLY'");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

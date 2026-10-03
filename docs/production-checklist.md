@@ -18,3 +18,11 @@ What the demo has switched on, or made up, that a real lender's database must no
 - Every migration in `docs/migration-run-log.md` is ticked as run and checked.
 - `SELECT jobname FROM cron.job;` shows no simulation job.
 - `SELECT count(*) FROM applications WHERE origin = 'SYNTHETIC';` is 0.
+
+## Keep, and check it works
+
+| What | How to check |
+|---|---|
+| **Weekly settings backup** (`sql/079`, job `cercit-settings-backup-weekly`, Sundays 01:00 IST) | `SELECT kind, taken_at, row_count FROM settings_backups ORDER BY taken_at DESC LIMIT 3;` shows one from the last 7 days |
+| **Copy outside the database** (`scripts/backup-settings.mjs`, GitHub job "Settings backup", Sundays 01:30 IST) | Add the repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Settings → Secrets → Actions); the job's run page then has a `settings-backup` file, kept 90 days. Without the secrets the job does nothing |
+| **Advisor checks** (`sql/checks/advisor-checks.sql`) | Paste into the SQL editor; every result is empty. Also look at Supabase → Advisors once a month |
