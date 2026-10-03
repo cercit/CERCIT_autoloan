@@ -3016,6 +3016,57 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 44. Applications list a page at a time (066, fixes C4)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("applications page");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 120) as v");
+  await as(OFFICER);
+  const full = (await db.query("select application_id from fn_list_applications()")).rows.map((r) => r.application_id).sort();
+  const p1 = (await one("select fn_list_applications_page() as v")).v;
+  t.equal("same cases as the full list, 50 to a page", [p1.total, p1.rows.length], [full.length, Math.min(50, full.length)]);
+  const pages = [];
+  for (let p = 1; p <= Math.ceil(p1.total / 50); p++) pages.push(...(await one("select fn_list_applications_page(p_page => $1) as v", [p])).v.rows.map((r) => r.application_id));
+  t.equal("walking every page gives every case exactly once", pages.slice().sort(), full);
+  t.equal("newest first by default", p1.rows.every((r, i) => i === 0 || r.created_at <= p1.rows[i - 1].created_at), true);
+  const byScore = (await one("select fn_list_applications_page(p_sort => 'cibil', p_desc => false) as v")).v.rows.map((r) => r.cibil_score).filter((x) => x !== null);
+  t.equal("sorting by score works in the database", byScore.every((x, i) => i === 0 || x >= byScore[i - 1]), true);
+  await operator();
+  const one_ = await one("select a.application_id, c.pan_last4, c.full_name, a.status from applications a join customers c on c.id = a.customer_id where a.origin = 'SYNTHETIC' limit 1");
+  await as(OFFICER);
+  const byId = (await one("select fn_list_applications_page($1) as v", [one_.application_id])).v;
+  t.equal("search by case number", byId.rows.map((r) => r.application_id), [one_.application_id]);
+  const byPan = (await one("select fn_list_applications_page($1) as v", [one_.pan_last4])).v;
+  t.equal("search by the last 4 of the PAN", byPan.rows.some((r) => r.application_id === one_.application_id), true);
+  const byStatus = (await one("select fn_list_applications_page(p_statuses => array[$1]) as v", [one_.status])).v;
+  t.equal("status filter keeps that status only", byStatus.rows.every((r) => r.status === one_.status) && byStatus.total > 0, true);
+  t.equal("PAN and mobile stay masked", p1.rows.every((r) => /^X{6}/.test(r.pan_number ?? "XXXXXX") && /^X{6}/.test(r.mobile ?? "XXXXXX")), true);
+  await t.ok("a page asks for at most 200 rows", async () => {
+    const big = (await one("select fn_list_applications_page(p_page_size => 100000) as v")).v;
+    if (big.page_size !== 200) throw new Error(String(big.page_size));
+  });
+  await as(DEMO);
+  t.equal("the demo login still sees no real customers",
+    (await one("select fn_list_applications_page(p_page_size => 200) as v")).v.rows.some((r) => r.origin === "CUSTOMER"), false);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

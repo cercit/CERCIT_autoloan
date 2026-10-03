@@ -142,6 +142,7 @@ function mapStatus(status: string): Application["status"] {
     UNDER_ASSESSMENT: "Under Review",
     UNDER_REVIEW: "Referred",
     APPROVED: "Sanctioned",
+    DISBURSED: "Disbursed",
     REJECTED: "Rejected",
   };
   return map[status] ?? "New";
@@ -225,32 +226,72 @@ export async function getBureauReport(applicationId: string): Promise<BureauRepo
   };
 }
 
-export async function getApplications(): Promise<Application[]> {
-  if (!isSupabaseConfigured || isDemoMode()) return mockApplications;
+// -- Applications list, a page at a time (sql/066, fix list C4) -------------------
 
-  const { data, error } = await supabase.rpc("fn_list_applications");
-  // C2: an error is shown on the page, never replaced with sample cases
-  if (error) throw new Error(error.message || "Could not load the applications");
-  if (!data) return [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const apps = (data as any[]).map(mapToApplication);
-  // Batch-fetch engine decisions for these IDs
-  let engineOutcomes: Record<string, string> = {};
-  if (isSupabaseConfigured && !isDemoMode() && apps.length > 0) {
-    const ids = apps.map((a: Application) => a.id);
-    const { data: edData } = await supabase
-      .from("engine_decisions")
-      .select("application_id, decision")
-      .in("application_id", ids);
-    if (edData) {
-      for (const row of edData as any[]) {
-        const d = String(row.decision).toUpperCase();
-        const mapped = d === "APPROVE" ? "APPROVE" : d === "REVIEW" ? "MAYBE" : d === "DECLINE" ? "REJECT" : undefined;
-        if (mapped) engineOutcomes[String(row.application_id)] = mapped;
-      }
-    }
+/** The list's status filter, in the database's words. */
+export const STATUS_FILTER: Record<string, string[]> = {
+  New: ["DRAFT", "SUBMITTED", "IN_PRINCIPLE_APPROVED"],
+  "Documents Uploaded": ["DOCUMENTS_SUBMITTED"],
+  "Under Review": ["UNDER_ASSESSMENT"],
+  Referred: ["UNDER_REVIEW"],
+  Sanctioned: ["APPROVED"],
+  Disbursed: ["DISBURSED"],
+  Rejected: ["REJECTED"],
+};
+
+export type ApplicationsQuery = {
+  search?: string;
+  status?: string;
+  sort?: "submitted" | "name" | "loan" | "cibil" | "status";
+  desc?: boolean;
+  page?: number;
+  pageSize?: number;
+};
+
+export type ApplicationsPage = { total: number; page: number; pageSize: number; rows: Application[] };
+
+const engineOutcome = (d: unknown): string | undefined => {
+  const v = String(d ?? "").toUpperCase();
+  return v === "APPROVE" ? "APPROVE" : v === "REVIEW" ? "MAYBE" : v === "DECLINE" ? "REJECT" : undefined;
+};
+
+/**
+ * One page of the Applications list, searched, filtered and sorted in the
+ * database, with the server engine's decision on each row. Throws on an error.
+ */
+export async function getApplicationsPage(q: ApplicationsQuery = {}): Promise<ApplicationsPage> {
+  const page = q.page ?? 1;
+  const pageSize = q.pageSize ?? 50;
+  if (!isSupabaseConfigured || isDemoMode()) {
+    const term = (q.search ?? "").trim().toLowerCase();
+    const rows = mockApplications.filter(
+      (a) =>
+        (!q.status || q.status === "All statuses" || a.status === q.status) &&
+        (!term || [a.name, a.id, a.pan, a.employer].some((v) => v.toLowerCase().includes(term))),
+    );
+    return { total: rows.length, page, pageSize, rows: rows.slice((page - 1) * pageSize, page * pageSize) };
   }
-  return apps.map((a) => ({ ...a, ...(engineOutcomes[a.id] ? { engineOutcome: engineOutcomes[a.id] } : {}) }));
+  const { data, error } = await supabase.rpc("fn_list_applications_page", {
+    p_search: q.search?.trim() || null,
+    p_statuses: q.status && STATUS_FILTER[q.status] ? STATUS_FILTER[q.status] : null,
+    p_sort: q.sort ?? "submitted",
+    p_desc: q.desc ?? true,
+    p_page: page,
+    p_page_size: pageSize,
+  });
+  if (error) throw new Error(error.message || "Could not load the applications");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = (data ?? {}) as { total?: number; page?: number; page_size?: number; rows?: any[] };
+  return {
+    total: Number(d.total) || 0,
+    page: Number(d.page) || page,
+    pageSize: Number(d.page_size) || pageSize,
+    rows: (d.rows ?? []).map((row) => {
+      const app = mapToApplication(row);
+      const engine = engineOutcome(row.engine_decision);
+      return engine ? { ...app, engineOutcome: engine } : app;
+    }),
+  };
 }
 
 export async function getApplication(

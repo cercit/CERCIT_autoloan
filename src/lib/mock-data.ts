@@ -5,6 +5,7 @@ export type AppStatus =
   | "Under Review"
   | "Referred"
   | "Sanctioned"
+  | "Disbursed"
   | "Rejected";
 
 export type Obligation = {
