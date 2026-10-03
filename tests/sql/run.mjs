@@ -1068,20 +1068,22 @@ const asOperator = () => asApi("", "");
   const counts = Object.fromEntries((await db.query(
     "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
   // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041;
-  // admin, credit head, credit manager and policy manager: plus employer.manage from 069
+  // admin, credit head, credit manager and policy manager: plus employer.manage from 069; the practice roles from 072
   t.equal("every role keeps its 018 rights", counts,
-    { admin: 14, compliance: 13, credit_head: 21, credit_manager: 10, credit_officer: 7, demo_viewer: 5, policy_manager: 12, reviewer: 5, viewer: 3 });
+    { admin: 14, compliance: 13, credit_head: 21, credit_manager: 10, credit_officer: 7, demo_viewer: 5, policy_manager: 12,
+      practice_head: 10, practice_manager: 7, practice_officer: 4, reviewer: 5, viewer: 3 });
   t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
     ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
   const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
-  t.equal("six current roles, plus the public demo role (042)", six, ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "demo_viewer", "policy_manager"]);
+  t.equal("six current roles, plus the public demo role (042) and the three practice roles (072)", six,
+    ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "demo_viewer", "policy_manager", "practice_head", "practice_manager", "practice_officer"]);
   const mfa = (await db.query("select code from roles where mfa_required order by code")).rows.map((r) => r.code);
   t.equal("MFA marked for the four privileged roles", mfa, ["admin", "compliance", "credit_head", "policy_manager"]);
   t.equal("admin idles out at 10 minutes", (await one("select idle_timeout_minutes as v from roles where code = 'admin'")).v, 10);
 
   // Conflicting pairs
   const conflicts = (await db.query("select role_code, waived from v_role_conflicts order by role_code")).rows;
-  t.equal("only waived conflicts exist", conflicts, [{ role_code: "admin", waived: true }, { role_code: "credit_head", waived: true }]);
+  t.equal("only waived conflicts exist", conflicts, [{ role_code: "admin", waived: true }, { role_code: "credit_head", waived: true }, { role_code: "practice_head", waived: true }]);
   await db.query("insert into roles (code, name, description) values ('test_role', 'Test', 'x')");
   await db.query("insert into role_permissions (role_code, permission_code) values ('test_role', 'app.decide')");
   await t.rejects("a role cannot get decide and author together",
@@ -3394,6 +3396,57 @@ const asOperator = () => asApi("", "");
   const cv = (await one("select fn_rate_grid_product_create('cv salaried', 'Commercial vehicle, salaried') as v")).v;
   t.equal("a new product starts as a draft copied from the car grid", [cv.product_code, cv.status, cv.bands.length], ["CV_SALARIED", "DRAFT", engineBefore.length]);
   await operator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 50. Practice logins: synthetic cases only (072, D1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("practice logins");
+  const PO = "72727272-0000-0000-0000-000000000001";
+  const PHEAD = "72727272-0000-0000-0000-000000000003";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query("update users set auth_user_id = $1 where email = 'cercit+practice.officer@gmail.com'", [PO]);
+  await db.query("update users set auth_user_id = $1 where email = 'cercit+practice.head@gmail.com'", [PHEAD]);
+  await one("select fn_synthetic_generate(1, 30) as v");
+  const syn = await one("select a.id, a.application_id, a.status from applications a where origin = 'SYNTHETIC' and status = 'UNDER_REVIEW' and assigned_officer_id is null limit 1");
+  const staff = await one("select application_id from applications where origin = 'STAFF' limit 1");
+  const cust = await one("select id from customers where auth_user_id is not null limit 1");
+
+  await as(PO);
+  const me = (await one("select fn_my_permissions() as v")).v;
+  t.equal("a practice officer may not see real customers or reveal PAN", [me.role, me.sees_real_customers, me.permissions.includes("pii.reveal")], ["practice_officer", false, false]);
+  t.equal("and the list has no real customers' cases", (await db.query("select origin from fn_list_applications() where origin = 'CUSTOMER'")).rows.length, 0);
+  await t.ok("a practice officer decides a synthetic case", () => db.query("select fn_officer_decision($1, 'REJECT', 'practice')", [syn.application_id]));
+  await t.rejects("but not a staff case", () => db.query("select fn_officer_decision($1, 'REJECT', 'practice')", [staff.application_id]), /synthetic cases only/);
+  if (cust) await t.rejects("nor reveals a customer's PAN", () => db.query("select * from fn_customer_pii($1, 'x')", [cust.id]), /permission denied: pii.reveal/);
+  const created = (await one("select fn_submit_full_application(p_full_name => 'Real Person', p_email => 'real@t.in', p_mobile => '9000000099') as v")).v;
+  t.equal("and doesn't create applications (no real details typed in)", created.summary, "permission denied: app.create");
+  await operator();
+  const snap = await one("select s.status from practice_case_snapshots s join applications a on a.id = s.application_id where a.application_id = $1", [syn.application_id]);
+  t.equal("the case as it was is kept before the first practice change", snap?.status, syn.status);
+
+  await as(PHEAD);
+  const draft = (await one("select fn_policy_draft_create('P-TEST-1', 'practice draft') as v")).v;
+  const draftId = draft.versionId;
+  await t.rejects("a practice head's policy draft can't be sent for approval", () => db.query("select fn_policy_submit($1, 'Try to make it live')", [draftId]), /practice draft stays a draft/);
+
+  await operator();
+  await t.rejects("a practice role can't be given a stronger right", () => db.query("insert into role_permissions (role_code, permission_code) values ('practice_officer', 'pii.reveal')"), /practice role may not hold/);
+  await t.rejects("a practice account keeps its role", () => db.query("update users set role = 'admin' where email = 'cercit+practice.officer@gmail.com'"), /keeps its practice role/);
+  for (let i = 0; i < 6; i++) await db.query("select fn_record_failed_login('cercit+practice.officer@gmail.com')");
+  t.equal("and is never locked out", (await one("select locked_until from users where email = 'cercit+practice.officer@gmail.com'")).locked_until, null);
   failures += t.report();
 }
 

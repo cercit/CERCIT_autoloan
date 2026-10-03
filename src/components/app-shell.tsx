@@ -45,7 +45,7 @@ import {
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { canOpen, forgetMyRights, useMyRights } from "@/lib/permissions";
 import { getPendingChanges } from "@/lib/policy-api";
-import { getCurrentUser, isDemoMode, requireAuth, roleLabel, signOut } from "@/lib/auth";
+import { getCurrentUser, isDemoMode, isPracticeRole, requireAuth, roleLabel, signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { NotificationDropdown } from "@/components/notification-dropdown";
 import type { NotificationItem } from "@/components/notification-dropdown";
@@ -469,6 +469,12 @@ export function AppShell({
             </div>
             {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
           </div>
+          {isPracticeRole(rights?.role) && (
+            <p className="mb-4 rounded-md border border-info/40 bg-info/10 px-3 py-2 text-sm">
+              Practice login: you work on synthetic customers only. Real customers, full PAN and mobile numbers are never shown, and
+              policy drafts can be simulated but not made live. Practice cases are reset to fresh regularly.
+            </p>
+          )}
           {pageAllowed ? (
             children
           ) : (

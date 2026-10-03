@@ -18,7 +18,8 @@ export interface AppUser {
 // the database checks it on every call, so the browser keeps only the names.
 export type UserRole =
   | "credit_officer" | "credit_manager" | "credit_head" | "policy_manager" | "compliance" | "admin"
-  | "reviewer" | "viewer";
+  | "reviewer" | "viewer"
+  | "demo_viewer" | "practice_officer" | "practice_manager" | "practice_head";
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   credit_officer: "Credit Officer",
@@ -29,7 +30,14 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
   reviewer: "Reviewer (old role)",
   viewer: "Viewer (old role)",
+  demo_viewer: "Demo visitor",
+  practice_officer: "Practice Officer",
+  practice_manager: "Practice Manager",
+  practice_head: "Practice Head",
 };
+
+/** The visitor practice roles (sql/072): they work on synthetic customers only. */
+export const isPracticeRole = (role: string | null | undefined) => !!role && role.startsWith("practice_");
 
 export function roleLabel(role: string): string {
   return ROLE_LABELS[role as UserRole] ?? role;
