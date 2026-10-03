@@ -331,26 +331,31 @@ function mapSeverityToAction(
   return "Approve";
 }
 
+export type PolicyInForce = {
+  versionCode: string;
+  effectiveFrom: string | null;
+  approvedBy: string | null;
+  lastChange: { versionCode: string; toStatus: string; at: string; by: string } | null;
+};
+
 export async function getMappedPolicyRules(): Promise<{
   rules: Record<string, PolicyRule[]>;
   tabs: string[];
+  inForce: PolicyInForce | null;
 }> {
   if (!isSupabaseConfigured || isDemoMode()) {
-    return { rules: mockPolicyRules, tabs: mockPolicyTabs };
+    return { rules: mockPolicyRules, tabs: mockPolicyTabs, inForce: null };
   }
 
-  const { data, error } = await supabase
-    .from("policy_rules")
-    .select("*")
-    .order("display_order");
-
-  if (error || !data || data.length === 0) {
-    console.error("Failed to fetch policy rules:", error);
-    return { rules: mockPolicyRules, tabs: mockPolicyTabs };
-  }
+  // Signed-in staff read the rules through fn_staff_policy_rules (sql/063); an
+  // error is shown on the page, never replaced with sample rules.
+  const { data, error } = await supabase.rpc("fn_staff_policy_rules");
+  if (error) throw new Error(error.message || "Could not load the credit rules");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload = (data ?? {}) as { rules?: any[]; version?: any; last_change?: any };
 
   const grouped: Record<string, PolicyRule[]> = {};
-  for (const row of data) {
+  for (const row of payload.rules ?? []) {
     const tab = categoryLabel[row.category] ?? row.category;
     const rule: PolicyRule = {
       id: row.rule_id,
@@ -369,7 +374,20 @@ export async function getMappedPolicyRules(): Promise<{
     grouped[tab].push(rule);
   }
 
-  return { rules: grouped, tabs: Object.keys(grouped) };
+  const v = payload.version;
+  const c = payload.last_change;
+  return {
+    rules: grouped,
+    tabs: Object.keys(grouped),
+    inForce: v
+      ? {
+          versionCode: v.version_code,
+          effectiveFrom: v.effective_from ?? null,
+          approvedBy: v.approved_by ?? null,
+          lastChange: c ? { versionCode: c.version_code, toStatus: c.to_status, at: c.at, by: c.by } : null,
+        }
+      : null,
+  };
 }
 
 export async function togglePolicyRule(ruleId: string, isActive: boolean): Promise<boolean> {

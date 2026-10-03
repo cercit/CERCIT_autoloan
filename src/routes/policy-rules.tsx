@@ -6,7 +6,7 @@ import { AppShell, SectionCard } from "@/components/app-shell";
 import { Pill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getMappedPolicyRules, togglePolicyRule } from "@/lib/api";
+import { getMappedPolicyRules, togglePolicyRule, type PolicyInForce } from "@/lib/api";
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { PolicyControl } from "@/components/policy/policy-control";
 import type { PolicyRule } from "@/lib/mock-data";
@@ -39,12 +39,20 @@ function PolicyRulesPage() {
   const [policyTabs, setPolicyTabs] = useState<string[]>([]);
   const [tab, setTab] = useState<string>("");
 
+  const [inForce, setInForce] = useState<PolicyInForce | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
-    getMappedPolicyRules().then(({ rules, tabs }) => {
-      setPolicyRules(rules);
-      setPolicyTabs(tabs);
-      setTab(tabs[0] ?? "");
-    });
+    getMappedPolicyRules()
+      .then(({ rules, tabs, inForce }) => {
+        setPolicyRules(rules);
+        setPolicyTabs(tabs);
+        setTab(tabs[0] ?? "");
+        setInForce(inForce);
+      })
+      .catch((e: Error) => setLoadError(e.message))
+      .finally(() => setLoaded(true));
   }, []);
 
   const rules = policyRules[tab] ?? [];
@@ -80,6 +88,15 @@ function PolicyRulesPage() {
         </Button>
       }
     >
+      {loadError ? (
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          The credit rules could not be loaded: {loadError}
+        </div>
+      ) : loaded && policyTabs.length === 0 ? (
+        <div className="mb-4 rounded-md border border-border p-3 text-sm text-muted-foreground">
+          No credit rules are stored yet.
+        </div>
+      ) : null}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
           {policyTabs.map((t) => (
@@ -173,13 +190,19 @@ function PolicyRulesPage() {
         </div>
       </SectionCard>
 
-      <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-surface-subtle p-3 text-sm text-muted-foreground">
-        <History className="mt-0.5 size-4 shrink-0" />
-        <p>
-          Last updated: 28 Aug 2026 by Anand Gopal — FOIR limit changed from 55% to 50%. Previous
-          version retained as inactive for audit.
-        </p>
-      </div>
+      {inForce && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-surface-subtle p-3 text-sm text-muted-foreground">
+          <History className="mt-0.5 size-4 shrink-0" />
+          <p>
+            Policy version in force: {inForce.versionCode}
+            {inForce.effectiveFrom ? `, since ${new Date(inForce.effectiveFrom).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+            {inForce.approvedBy ? `, approved by ${inForce.approvedBy}` : ""}.
+            {inForce.lastChange
+              ? ` Last change: version ${inForce.lastChange.versionCode} became ${inForce.lastChange.toStatus.toLowerCase()} on ${new Date(inForce.lastChange.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} by ${inForce.lastChange.by}.`
+              : ""}
+          </p>
+        </div>
+      )}
     </AppShell>
   );
 }

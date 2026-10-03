@@ -2881,6 +2881,42 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 41. Policy Rules page reads the real rules (063, fixes C7)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("policy rules for staff");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  const CUSTOMER = "55555555-5555-5555-5555-555555555555";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  const stored = await one("select count(*)::int as n, (select threshold_value from policy_rules where rule_id = 'BUR-SCORE-MIN') as min_score from policy_rules");
+  const inForce = await one("select version_code from policy_versions where id = fn_policy_version_at()");
+  await as(OFFICER);
+  const r = (await one("select fn_staff_policy_rules() as v")).v;
+  t.equal("an officer gets every stored rule, with the real score cut-off", [r.rules.length, r.rules.find((x) => x.rule_id === "BUR-SCORE-MIN")?.threshold_value],
+    [stored.n, stored.min_score]);
+  t.equal("and the version in force", r.version?.version_code ?? null, inForce?.version_code ?? null);
+  t.equal("the last change names who made it", r.last_change === null || typeof r.last_change.by === "string", true);
+  await as(DEMO);
+  await t.ok("the demo login can read the rules", () => db.query("select fn_staff_policy_rules()"));
+  await as(CUSTOMER);
+  await t.rejects("a customer login can't", () => db.query("select fn_staff_policy_rules()"), /no active cercit user/);
+  await db.query("set role anon");
+  await t.rejects("nor can the public", () => db.query("select fn_staff_policy_rules()"), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
