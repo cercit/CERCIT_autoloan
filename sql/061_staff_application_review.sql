@@ -18,12 +18,42 @@
 --   * duplicates: other applications with the same PAN or mobile (by blind
 --     index; up to 5), shown with the same privacy rule
 --
--- Same rules as fn_list_applications: any app.view right, and a real
--- customer's case only for staff who may see real customers
--- (fn_sees_real_customers). Otherwise "application not found".
+-- Same rules as the Applications list: any app.view right, a real customer's
+-- case only for staff who may see real customers (fn_sees_real_customers), and
+-- for officers only their own or unassigned cases (fn_staff_case_scope, below).
+-- Otherwise "application not found".
+--
+-- Also here, because every list after it uses it (fix list B2): which cases a
+-- staff member sees. fn_staff_case_scope() answers once per call:
+--   * sees_all: credit managers, heads, compliance, admins, the demo login
+--     (app.view.team or app.view.all) and the SQL editor see every case
+--   * otherwise (officers, app.view.own) only cases assigned to them, plus
+--     cases nobody has taken yet when the setting officers_see_unassigned is 1
+--     (the default, so new work is never invisible; set it to 0 to hide them)
+-- The real-customer rule (fn_sees_real_customers) applies on top, as before.
 --
 -- Read only. Run order: after 060. Safe to re-run.
 -- =============================================================================
+
+INSERT INTO security_settings (setting_key, value, description) VALUES
+  ('officers_see_unassigned', 1, '1 = officers (own cases only) also see cases nobody has taken yet, so they can pick them up; 0 = only cases assigned to them')
+ON CONFLICT (setting_key) DO UPDATE SET description = EXCLUDED.description;
+
+CREATE OR REPLACE FUNCTION fn_staff_case_scope(OUT sees_all BOOLEAN, OUT me UUID, OUT unassigned BOOLEAN)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  sees_all := fn_is_trusted_operator() OR fn_has_permission('app.view.all') OR fn_has_permission('app.view.team');
+  me := fn_current_staff_id();
+  unassigned := coalesce((SELECT value FROM security_settings WHERE setting_key = 'officers_see_unassigned'), 1) = 1;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION fn_staff_case_scope() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION fn_staff_case_scope() TO authenticated;
 
 CREATE OR REPLACE FUNCTION fn_staff_application_review(p_application_id TEXT)
 RETURNS JSONB
@@ -38,12 +68,16 @@ DECLARE
   v_cust   customers%ROWTYPE;
   v_bank   bank_statement_analyses%ROWTYPE;
   v_case   JSONB;
+  v_scope  RECORD;
 BEGIN
   PERFORM fn_require_any_permission(ARRAY['app.view.own', 'app.view.team', 'app.view.all']);
   v_real := fn_sees_real_customers();
 
   SELECT * INTO v_app FROM applications WHERE application_id = p_application_id;
-  IF v_app.id IS NULL OR (v_app.origin = 'CUSTOMER' AND NOT v_real) THEN
+  SELECT * INTO v_scope FROM fn_staff_case_scope();
+  IF v_app.id IS NULL OR (v_app.origin = 'CUSTOMER' AND NOT v_real)
+     OR NOT (v_scope.sees_all OR v_app.assigned_officer_id = v_scope.me
+             OR (v_app.assigned_officer_id IS NULL AND v_scope.unassigned)) THEN
     RAISE EXCEPTION 'application not found' USING ERRCODE = 'P0002';
   END IF;
   SELECT * INTO v_cust FROM customers WHERE id = v_app.customer_id;

@@ -3101,6 +3101,82 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 46. Officers see their own cases; user limits; old roles retired (068: B2, B5, C3)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("case scope and limits");
+  const O1 = "68686868-0000-0000-0000-000000000001";
+  const O2 = "68686868-0000-0000-0000-000000000002";
+  const MGR = "68686868-0000-0000-0000-000000000003";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query(`insert into users (email, full_name, role, auth_user_id) values
+    ('o1@scope.t', 'Officer One', 'credit_officer', $1), ('o2@scope.t', 'Officer Two', 'credit_officer', $2),
+    ('m@scope.t', 'Manager', 'credit_manager', $3)`, [O1, O2, MGR]);
+  await one("select fn_synthetic_generate(1, 30) as v");
+  const ids = (await db.query("select a.id, a.application_id from applications a where origin = 'SYNTHETIC' and status in ('SUBMITTED','UNDER_REVIEW') order by application_id limit 3")).rows;
+  await db.query("update applications set assigned_officer_id = (select id from users where auth_user_id = $1) where id = $2", [O1, ids[0].id]);
+  await db.query("update applications set assigned_officer_id = (select id from users where auth_user_id = $1) where id = $2", [O2, ids[1].id]);
+  const listed = async () => new Set((await db.query("select application_id from fn_list_applications()")).rows.map((r) => r.application_id));
+
+  await as(O1);
+  let l = await listed();
+  t.equal("an officer sees their own case and unassigned ones, not another officer's", [l.has(ids[0].application_id), l.has(ids[2].application_id), l.has(ids[1].application_id)], [true, true, false]);
+  const page = (await one("select fn_list_applications_page(p_page_size => 200) as v")).v.rows.map((r) => r.application_id);
+  t.equal("the paged list agrees", page.includes(ids[1].application_id), false);
+  await t.rejects("and can't open the other officer's case by its number", () => db.query("select fn_staff_application_review($1)", [ids[1].application_id]), /application not found/);
+  await operator();
+  await db.query("update security_settings set value = 0 where setting_key = 'officers_see_unassigned'");
+  await as(O1);
+  l = await listed();
+  t.equal("with officers_see_unassigned = 0, only their own", [l.has(ids[0].application_id), l.has(ids[2].application_id)], [true, false]);
+  await operator();
+  await db.query("update security_settings set value = 1 where setting_key = 'officers_see_unassigned'");
+  await as(MGR);
+  l = await listed();
+  t.equal("a manager sees every case", [l.has(ids[0].application_id), l.has(ids[1].application_id), l.has(ids[2].application_id)], [true, true, true]);
+
+  // B5: limits
+  await operator();
+  const cases = (await db.query("select application_id, loan_amount_requested from applications where origin = 'SYNTHETIC' and status in ('SUBMITTED','UNDER_REVIEW') and assigned_officer_id is null order by application_id limit 3")).rows;
+  await db.query("update users set daily_case_limit = 1, max_sanction_amount = 100000 where auth_user_id = $1", [O1]);
+  await as(O1);
+  await t.rejects("an approval above the sanction limit is refused", () => db.query("select fn_officer_decision($1, 'APPROVE', 'x', null, 500000)", [cases[0].application_id]), /above your sanction limit/);
+  await t.ok("a referral is not limited by amount", () => db.query("select fn_officer_decision($1, 'MAYBE', 'x', null, 500000)", [cases[0].application_id]));
+  await t.ok("deciding the same case again doesn't count twice", () => db.query("select fn_officer_decision($1, 'REJECT', 'x')", [cases[0].application_id]));
+  await t.rejects("a second case the same day is over the daily limit", () => db.query("select fn_officer_decision($1, 'REJECT', 'x')", [cases[1].application_id]), /daily case limit reached/);
+  await as(O2);
+  await t.ok("another officer, with no limits set, can decide", () => db.query("select fn_officer_decision($1, 'REJECT', 'x')", [cases[1].application_id]));
+  await operator();
+  await t.ok("system decisions are never limited", () => db.query("update credit_decisions set sanctioned_amount = 99999999 where decided_by = 'SYSTEM' and decision = 'APPROVE'"));
+
+  // C3
+  // live, nobody holds them, so they are removed; here the 002 seed logins still do, so they stay, retired
+  const old = await one(`select count(*)::int as n,
+      count(*) filter (where not is_active and is_legacy)::int as retired,
+      count(*) filter (where exists (select 1 from users u where u.role = r.code))::int as held
+    from roles r where code in ('ADMIN','CREDIT_OFFICER','STATE_HEAD')`);
+  t.equal("the three old capitalised roles are removed, or retired where a login still holds one", [old.n, old.retired], [old.held, old.held]);
+  t.equal("with one audit entry", (await one("select count(*)::int as n from audit_events where event_type = 'ROLES_RETIRED'")).n >= 1, true);
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../../sql/068_case_scope_limits_roles.sql", import.meta.url), "utf8"));
+  t.equal("running 068 again changes nothing more", (await one("select count(*)::int as n from audit_events where event_type = 'ROLES_RETIRED'")).n, 1);
+
+  await db.query("update applications set assigned_officer_id = null where id = any($1)", [ids.map((r) => r.id)]);
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

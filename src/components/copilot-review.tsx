@@ -8,7 +8,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { LabelValue, SectionCard } from "@/components/app-shell";
 import { CategoryBadge, MeterBar, Pill, StatusPill } from "@/components/status";
@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { submitOfficerDecision } from "@/lib/api";
-import { isDemoMode } from "@/lib/auth";
+import { getCurrentUser, isDemoMode } from "@/lib/auth";
 import { can, useMyRights } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -101,6 +101,12 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   // B3: only a role with app.decide can record a decision
   const rights = useMyRights();
   const canDecide = can(rights, "app.decide");
+  // B5: the person's own sanction limit (Users page), checked by the database on approval
+  const [myLimit, setMyLimit] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (sample) return;
+    void getCurrentUser().then((me) => setMyLimit(me?.maxSanctionAmount ?? null)).catch(() => setMyLimit(undefined));
+  }, [sample]);
   const checks = app.ruleChecks ?? (sample ? policyChecks : []);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
   const [decision, setDecision] = useState("Approve");
@@ -177,7 +183,11 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {manager && <Pill tone="primary">Delegation authority: up to Rs 25,00,000</Pill>}
+          {sample
+            ? manager && <Pill tone="primary">Delegation authority: up to Rs 25,00,000</Pill>
+            : canDecide && myLimit !== undefined && (
+                <Pill tone="primary">{myLimit === null ? "Your sanction limit: none set" : `Your sanction limit: ${inr(myLimit)}`}</Pill>
+              )}
           {result ? (
             <Pill tone={result.decision === "APPROVE" ? "success" : result.decision === "REJECT" ? "destructive" : "warning"}>
               Decision recorded: {result.decision}

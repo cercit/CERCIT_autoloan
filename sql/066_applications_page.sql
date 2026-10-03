@@ -21,7 +21,8 @@
 --
 -- Same visibility as fn_list_applications: any app.view right; a real
 -- customer's case only for staff who may see real customers, and never a
--- draft they have not sent.
+-- draft they have not sent; officers see their own and unassigned cases
+-- (fn_staff_case_scope, 061; fix list B2).
 --
 -- Read only. Run order: after 065. Safe to re-run. fn_list_applications stays
 -- as it is for the other screens that use it.
@@ -74,8 +75,10 @@ BEGIN
            a.created_at
     FROM applications a
     JOIN customers c ON c.id = a.customer_id
+    CROSS JOIN fn_staff_case_scope() sc
     LEFT JOIN vehicle_quotations q ON q.application_id = a.id AND v_sort = 'loan'
     WHERE (a.origin IS DISTINCT FROM 'CUSTOMER' OR (v_real AND a.status <> 'DRAFT'))
+      AND (sc.sees_all OR a.assigned_officer_id = sc.me OR (a.assigned_officer_id IS NULL AND sc.unassigned))
       AND (p_statuses IS NULL OR cardinality(p_statuses) = 0 OR a.status = ANY (p_statuses))
       AND (v_q IS NULL
            OR a.application_id ILIKE '%' || v_q || '%'
