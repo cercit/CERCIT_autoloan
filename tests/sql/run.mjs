@@ -3566,6 +3566,60 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 53. Daily simulation (075, G7)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("daily simulation");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await one("select fn_synthetic_generate(1, 60) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  const day = (await one("select (current_date + 40)::text as d")).d;
+  const realBefore = (await one("select count(*)::int as n from loan_repayments r join loan_accounts l on l.id = r.loan_id join applications a on a.id = l.application_id where a.origin is distinct from 'SYNTHETIC'")).n;
+  const hash = async () => (await one(`select md5(string_agg(row(l.loan_account_no, r.paid_on, r.amount, r.outcome, r.reference_no)::text, '|' order by l.loan_account_no, r.reference_no)) as h,
+      count(*)::int as n from loan_repayments r join loan_accounts l on l.id = r.loan_id where r.reference_no like 'SIMD%'`));
+
+  const out = (await one("select fn_sim_daily($1::date) as v", [day])).v;
+  const d = out.days[0];
+  t.equal("one day runs: new leads dated that day, payments made", [out.days.length, d.leads > 0, d.paid_on_time + d.bounced > 0], [1, true, true]);
+  const dated = await one("select count(*)::int as n from applications where origin = 'SYNTHETIC' and created_at::date between $1::date - 1 and $1::date + 1 and application_id >= 'SYN0002001'", [day]);
+  t.equal("the day's leads carry that day's date", dated.n, d.leads);
+  t.equal("no instalment due by that day is left without an attempt",
+    (await one(`select count(*)::int as n from loan_installments li join loan_accounts l on l.id = li.loan_id join applications a on a.id = l.application_id
+      where a.origin = 'SYNTHETIC' and li.due_date <= $1::date and not exists (select 1 from loan_repayments r where r.installment_id = li.id)`, [day])).n, 0);
+  t.equal("only synthetic loans get payments", (await one("select count(*)::int as n from loan_repayments r join loan_accounts l on l.id = r.loan_id join applications a on a.id = l.application_id where a.origin is distinct from 'SYNTHETIC'")).n, realBefore);
+  t.equal("the summary is kept", (await one("select count(*)::int as n from sim_daily_runs where day = $1::date", [day])).n, 1);
+  const again = (await one("select fn_sim_daily($1::date) as v", [day])).v;
+  t.equal("running the same day twice does nothing more", again.days.length, 0);
+  t.equal("the portfolio's stored status is up to date", (await one("select count(*)::int as n from loan_status_stale")).n, 0);
+
+  // replay: the same customers on the same day get the same payments
+  const h1 = await hash();
+  await one("select fn_synthetic_purge() as v");
+  await db.query("delete from sim_daily_runs");
+  await one("select fn_synthetic_generate(1, 60) as v");
+  await one("select fn_synthetic_disburse(1000) as v");
+  await one("select fn_sim_daily($1::date) as v", [day]);
+  t.equal("a replayed day gives the same payments", await hash(), h1);
+
+  await db.query("update simulation_settings set simulation_enabled = false");
+  t.equal("the switch stops it", (await one("select fn_sim_daily($1::date + 1) as v", [day])).v, { skipped: "simulation_enabled is off" });
+  await db.query("update simulation_settings set simulation_enabled = true");
+  await db.query("set role authenticated");
+  await asApi("authenticated", OFFICER);
+  await t.rejects("the website can't run it", () => db.query("select fn_sim_daily()"), /permission denied/);
+  await operator();
+  await one("select fn_synthetic_purge() as v");
+  await db.query("delete from sim_daily_runs");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

@@ -85,6 +85,9 @@ See `docs/supabase_integration_guide.md` for full setup instructions.
 | [Supabase guide](docs/supabase_integration_guide.md) | Connection setup, data flow, API architecture |
 | [Security audit plan](docs/security_audit_plan.md) | Post-demo audit by 3 AI models |
 | [Scheme design](docs/scheme_design_template.xlsx) | Rate grid and product norms |
+| [Production checklist](docs/production-checklist.md) | What to switch off and remove before real customers |
+
+> **REMOVE BEFORE REAL USE: the daily simulation.** `sql/075` makes synthetic customers, loans and payments every day (job `cercit-simulation-daily`). Before a real lender uses this database: `SELECT cron.unschedule('cercit-simulation-daily');`, then `SELECT fn_synthetic_purge();`. See the production checklist.
 
 ## Decision methodology
 
