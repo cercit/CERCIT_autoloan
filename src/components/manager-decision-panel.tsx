@@ -56,6 +56,9 @@ export function ManagerDecisionPanel({ app }: { app: Application }) {
     }
   }
 
+  // A case with a final decision is not decided again (the review header shows it)
+  if (app.status === "Sanctioned" || app.status === "Disbursed" || app.status === "Rejected") return null;
+
   return (
     <div className="space-y-4">
       {/* Referral details */}

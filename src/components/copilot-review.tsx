@@ -151,6 +151,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const variance =
     ((Math.max(...incomeSources.map((s) => s.amount)) - computedIncome) / computedIncome) * 100;
   const overrideNeeded = decision !== app.recommendation;
+  // A case that already has a final decision shows it, not the decision buttons
+  const decided = app.status === "Sanctioned" || app.status === "Disbursed" || app.status === "Rejected";
   const incomeAssessment = calculateIncome(app);
   const ltvAssessment = calculateLTV(app);
   const assessment = useMemo(() => runAssessment(app), [app]);
@@ -191,6 +193,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             <Pill tone={result.decision === "APPROVE" ? "success" : result.decision === "REJECT" ? "destructive" : "warning"}>
               Decision recorded: {result.decision}
             </Pill>
+          ) : decided ? (
+            <Pill tone={app.status === "Rejected" ? "destructive" : "success"}>Decided: {app.status}</Pill>
           ) : !canDecide ? null : (
             <>
               <Button
@@ -950,7 +954,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </SectionCard>
 
-          {canDecide && (
+          {canDecide && (!decided || result) && (
           <SectionCard title="Decision">
             <div className="space-y-3">
               <div className="space-y-1.5">
