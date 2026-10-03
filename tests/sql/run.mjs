@@ -3450,6 +3450,54 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 51. Reset the practice cases to fresh (073, D2)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("practice reset");
+  const PO = "72727272-0000-0000-0000-000000000001";
+  const PM2 = "72727272-0000-0000-0000-000000000002";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query("update users set auth_user_id = $1 where email = 'cercit+practice.manager@gmail.com'", [PM2]);
+  // the state of every synthetic case before this section's practice changes
+  const state = async () => (await db.query(`select a.application_id, a.status, a.assigned_officer_id,
+      (select row(d.decision, d.decided_by, d.sanctioned_amount, d.sanctioned_rate)::text from credit_decisions d where d.application_id = a.id order by d.created_at desc limit 1) as d
+    from applications a where origin = 'SYNTHETIC' order by 1`)).rows;
+  // section 50 already changed one case; reset first so this section starts clean
+  await one("select fn_practice_reset() as v");
+  const before = await state();
+  const cases = (await db.query("select application_id from applications where origin = 'SYNTHETIC' and status = 'UNDER_REVIEW' and assigned_officer_id is null order by application_id limit 2")).rows;
+  await as(PO);
+  await db.query("select fn_officer_decision($1, 'APPROVE', 'practice approve')", [cases[0].application_id]);
+  await as(PM2);
+  await db.query("select fn_officer_decision($1, 'REJECT', 'practice reject', null, null, null, null, 'manager says no')", [cases[1].application_id]);
+  await operator();
+  t.equal("practice logins changed two cases", (await state()).filter((r, i) => JSON.stringify(r) !== JSON.stringify(before[i])).length, 2);
+
+  await as(PO);
+  await t.rejects("a practice login can't reset", () => db.query("select fn_practice_reset()"), /permission denied|operator/);
+  await operator();
+  const r = (await one("select fn_practice_reset() as v")).v;
+  t.equal("the reset restores both cases", r.cases_restored, 2);
+  t.equal("every synthetic case is back exactly as it was", await state(), before);
+  t.equal("a second reset finds nothing to do", (await one("select fn_practice_reset() as v")).v, { cases_released: 0, cases_restored: 0, overrides_removed: 0, policy_drafts_cancelled: 0 });
+  t.equal("the practice head's policy draft from before was cancelled, not deleted",
+    (await one("select status from policy_versions where version_code = 'P-TEST-1'"))?.status, "CANCELLED");
+  t.equal("the reset is in the audit log", (await one("select count(*)::int as n from audit_events where event_type = 'PRACTICE_RESET'")).n >= 1, true);
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
