@@ -3694,6 +3694,47 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 55. The live risk score's inputs match how the model was trained (077, E1)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("risk model inputs");
+  const DEMO = "dddddddd-0000-0000-0000-00000000dd01";
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 40) as v");
+  // the training query itself, read from the export script, so the two can't drift apart
+  const { readFileSync } = await import("node:fs");
+  const script = readFileSync(new URL("../../scripts/local/export-seasoned-training.mjs", import.meta.url), "utf8");
+  const trainingSql = script.match(/const FEATURES_SQL = `([\s\S]*?)`;/)[1];
+  const training = Object.fromEntries((await db.query(trainingSql)).rows.map((r) => [r.application_id, r]));
+  const names = ["bureauScore", "dpd30", "dpd60", "dpd90", "dpdWriteOff", "enquiryVelocity", "bounceCount", "salaryRegularity",
+    "employerTier", "cashWithdrawalRatio", "ltvPercent", "foirPercent", "tenureMonths", "age", "govtEmployee", "employmentYears",
+    "ccServicingPattern", "freeIncomeRatio"];
+  const ids = Object.keys(training);
+  let same = 0;
+  const diffs = [];
+  for (const id of ids) {
+    const live = (await one("select fn_staff_risk_features($1) as v", [id])).v.features;
+    const bad = names.filter((n) => Math.abs(Number(live[n]) - Number(training[id][n])) > 0.05);
+    if (bad.length === 0) same++;
+    else diffs.push(`${id}: ${bad.map((n) => `${n} ${live[n]} vs ${training[id][n]}`).join(", ")}`);
+  }
+  t.equal("all 18 inputs equal the training query's, case by case", [ids.length > 10, same, diffs.slice(0, 3)], [true, ids.length, []]);
+  const f = (await one("select fn_staff_risk_features($1) as v", [ids[0]])).v;
+  t.equal("and it says which detail they came from", [f.from_detail.bureau_summary, f.from_detail.bank_months > 0], [true, true]);
+  await db.query("set role authenticated");
+  await asApi("authenticated", DEMO);
+  await t.ok("the demo login can read a synthetic case's inputs", () => db.query("select fn_staff_risk_features($1)", [ids[0]]));
+  await db.query("set role anon");
+  await t.rejects("the public can't", () => db.query("select fn_staff_risk_features($1)", [ids[0]]), /permission denied/);
+  await db.query("reset role");
+  await asOperator();
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

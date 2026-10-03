@@ -1,6 +1,8 @@
 import type { Application, BureauReport, BankStatementSummary } from "@/lib/mock-data";
 import type { RiskFeatures } from "@/lib/risk-score-model";
 import type { PolicyInput } from "@/lib/policy-rule-engine";
+import { isDemoMode } from "@/lib/auth";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const GOVT_PATTERN =
   /\b(govt|government|ministry|railways?|municipal|corporation of|state of|psu|public sector|nagar|panchayat|police|defence|army|navy|air force|bsnl|ongc|ntpc|bhel|sail|isro|drdo|university|zilla)\b/i;
@@ -108,4 +110,28 @@ export function buildPolicyInput(
     ltvOnRoad: app.ltvOnRoad,
     incomeVerified: opts.incomeVerified ?? true,
   };
+}
+
+export type RiskFeatureSource = {
+  bureau_summary: boolean;
+  bureau_accounts: boolean;
+  bank_months: number;
+  employer_type: boolean;
+  foir: boolean;
+  on_road_price: boolean;
+};
+
+/**
+ * The 18 model inputs for a case, worked out in the database from the two-bureau
+ * detail (053) and the bank month summary (054) exactly as the training data was
+ * (fn_staff_risk_features, sql/077, fix list E1). Null in sample mode; throws on
+ * an error so the card can fall back and say so.
+ */
+export async function getCaseRiskFeatures(applicationId: string): Promise<{ features: RiskFeatures; source: RiskFeatureSource } | null> {
+  if (!isSupabaseConfigured || isDemoMode()) return null;
+  const { data, error } = await supabase.rpc("fn_staff_risk_features", { p_application_id: applicationId });
+  if (error) throw new Error(error.message || "Could not read the case's model inputs");
+  const d = data as { features: Record<string, number | string>; from_detail: RiskFeatureSource };
+  const f = Object.fromEntries(Object.entries(d.features).map(([k, v]) => [k, Number(v)])) as unknown as RiskFeatures;
+  return { features: f, source: d.from_detail };
 }
