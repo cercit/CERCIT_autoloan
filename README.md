@@ -4,121 +4,109 @@
 
 **Live demo:** https://cercit.github.io/CERCIT_autoloan/
 
-AI-powered credit appraisal system for new vehicle finance. Automates the Credit Appraisal Memo (CAM) process: customer submits an application, the policy engine assesses it against 16 rules, and a loan officer reviews the AI recommendation with full evidence.
+A credit appraisal system for salaried new-car loans. A customer applies from their phone; documents are read and checked automatically, two credit bureaus are pulled, income is checked three ways, versioned policy rules and a risk model recommend Approve, a closer look, or Decline, and a credit officer signs off with the reasons in plain English. After approval: offer, e-sign, e-mandate, dealer paid, and a loan book that tracks every repayment.
 
-Built as an end-to-end product — PRD, database design, backend logic, frontend, and documentation — demonstrating PM + technical execution.
+A product management project for the Masai × IIT Roorkee programme, built end to end: PRD, policy, database, cloud, risk model, screens, tests and documentation. Every customer in the demo is synthetic.
+
+## Try it
+
+1. Open the [live demo](https://cercit.github.io/CERCIT_autoloan/) and go to **Login → Official**.
+2. Next to the sign-in form, pick **Login as Head**, **Manager** or **Officer**. The login fills in; press **Sign in**.
+3. Decide cases, change rules, try to break it. Anything changed outside a case can be undone by the Admin.
+4. When you sign out, a short form asks how it went, where you got lost and what broke.
+
+The landing page's **Decks** menu has three decks: Investor, Bank / NBFC and **Tech** (how cercit is built, also as a PDF).
 
 ## What it does
 
-**For customers:**
-- Landing page with EMI calculator, car brand showcase, and eligibility guidance
-- 4-step online loan application: personal details, employment & income, car & loan selection, document upload
-- Application tracking portal with stage timeline, loan metrics, and progress updates
+**For customers**
+- Eligibility check that follows the live policy bands, and an application from the phone: car, details, documents, live photo
+- Documents read automatically; Aadhaar digits and QR code masked before storage
+- Application tracking, offer, e-sign, e-mandate, and a My Loan page with the repayment schedule
 
-**For loan officers:**
-- Dashboard queue with live stats from Supabase
-- 5-step internal application form submitting to the assessment pipeline
-- 16 policy rules evaluated automatically (CIBIL, FOIR, LTV, DBR, employer, age, DPD)
-- Structured recommendation: APPROVE (8.99%) / MAYBE (9.9%, manual review) / REJECT with explanation
-- Detailed review screen with income assessment, bureau summary, policy pass/fail grid
-- RBI-compliant approval and sanction letters with KFS disclosures and APR
+**For the credit team**
+- Case queue and dashboard; a review screen showing the engine's recommendation, FOIR, LTV, the rules not met, bureau detail and income from three sources
+- Officer decisions with overrides and reasons; manager review for referred cases
+- Policy rules, rate grid, risk model and roles change through draft → impact test → approval → live on a date; the Credit Head proposes, only the Admin approves
+- Employer master with checks, document-check rules, loan portfolio (PAR, vintages), audit log with filters, users and roles
 
-## Tech stack
+## How it's built
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, TanStack Router, shadcn/ui, Tailwind CSS v4, Vite, Recharts |
-| Backend | Supabase (PostgreSQL), 9 RPC functions, SECURITY DEFINER |
-| Database | 22 tables, 293 columns, 132 dealers, 16 policy rules |
-| Hosting | [GitHub Pages](https://cercit.github.io/CERCIT_autoloan/) (SPA, live) / Cloudflare Workers (SSR, planned) |
-| Auth | Smart login routing (demo mode, domain-based detection). Full Supabase Auth planned. |
+| Website | React 19, TanStack Router, Vite 8, Tailwind CSS 4, shadcn/ui; hosted on GitHub Pages |
+| Risk model | XGBoost v2 exported to ONNX, run in the browser (onnxruntime-web); trained on 16,995 synthetic customers |
+| Database | Supabase Postgres in Mumbai: 100 tables, row-level security on every table, 460 functions (204 permission-checked), pg_cron jobs |
+| Documents | AWS Mumbai: API Gateway, 9 Python Lambdas, S3, Textract (reading), Rekognition (face match) |
+| Access | Supabase Auth; 8 roles, 32 rights, conflicting rights blocked; PAN and mobile encrypted at rest |
+| Tests | 60+ SQL test sections on PGlite; policy, rules and parity checks; Lambda unit tests; Playwright page checks |
 
-## Quick start
+The full picture: [behind-the-scenes/how-it-works/](behind-the-scenes/how-it-works/) (flows, schema, functions, components, where each model and piece of data lives) and the Tech deck.
+
+## Roles and logins
+
+| Role | Can do | Login |
+|---|---|---|
+| Admin | Approves rule, rate, model and role changes; users, organisation, settings; undoes team changes | Private |
+| Credit Head | Proposes rule, rate, model and role changes; every case; compliance (AML, consent, complaints) | Head button on the sign-in page |
+| Credit Manager | Every case, decisions up to Rs 25 lakh, overrides | Manager button |
+| Credit Officer | Checks and decides cases up to Rs 18 lakh | Officer button |
+| Practice roles, demo visitor | Synthetic cases only, read-only or reset regularly | Not shown on the sign-in page |
+
+## Running it locally
 
 ```bash
 git clone https://github.com/cercit/CERCIT_autoloan.git
-cd cercit
+cd CERCIT_autoloan
 npm install
-cp .env.example .env
-# Fill in your Supabase anon key in .env
+cp .env.example .env   # add the Supabase URL and anon key
 npm run dev
 ```
 
-The app works without Supabase credentials — it falls back to mock data automatically.
+Without Supabase details the site runs on built-in sample data.
 
-### Database setup
-
-Run the SQL migrations in order in the Supabase SQL Editor:
-
-1. `sql/001_schema.sql` — tables
-2. `sql/002_seed_lookups.sql` — states, rate grid, policy rules, users
-3. `sql/003_seed_dealers.sql` — 132 dealers
-4. `sql/004_functions.sql` — backend functions
-5. `sql/006_submit_application.sql` — submission RPC + recommendation fix
-6. `sql/007_officer_decision.sql` — officer approve/reject/refer
-7. `sql/008_demo_scenarios.sql` — 3 demo applications (APPROVE/REJECT/MAYBE)
-
-See `docs/supabase_integration_guide.md` for full setup instructions.
+**Database:** run `sql/001` to the latest file in order in the Supabase SQL editor. [docs/migration-run-log.md](docs/migration-run-log.md) records what each file does and when it went live. Tests: `npm run test:sql` (database), `npm run test:policy`, `npm run test:rules`, `npm run test:parity`.
 
 ## Project structure
 
 ```
-├── sql/          Database migrations (run in order)
-├── docs/         Documentation, logos, templates
-├── data/         Seed CSV data (OEM dealers and models)
-├── src/
-│   ├── lib/      Supabase client + API layer
-│   ├── routes/   Page components (TanStack Router)
-│   └── components/ Shared UI components
-├── PRD.md        Product requirements document (v3.0)
-└── .env.example  Template for Supabase credentials
+├── src/                 Website (routes, components, lib: data access and engines)
+├── public/decks/        Investor, Bank / NBFC and Tech decks (HTML + PDF)
+├── public/models/       Risk model (ONNX)
+├── sql/                 Database migrations, run in order, each logged
+├── aws/lambdas/         Document readers, finaliser (masking), presigned uploads, policy engine
+├── tests/               SQL tests (PGlite), policy tests, Playwright page checks
+├── scripts/             Training, test cases, deck PDFs, erasure, backups
+├── behind-the-scenes/   How it works (flows, schema, functions) and the synthetic training data
+├── docs/                Fix list, audits, migration log, learnings, guides
+└── PRD.md               Product requirements (v3.0)
 ```
 
 ## Documentation
 
 | Document | What it covers |
 |---|---|
-| [PRD](PRD.md) | Full product requirements, scope, architecture, decisions |
-| [Build progress](docs/build_progress.md) | What's done, what's next, known issues |
-| [Application flow](docs/application_flow.md) | Step-by-step form design with field specs |
-| [Current state workflow](docs/current_state_workflow.md) | How manual credit appraisal works today at Indian banks/NBFCs |
-| [Supabase guide](docs/supabase_integration_guide.md) | Connection setup, data flow, API architecture |
-| [Security audit plan](docs/security_audit_plan.md) | Post-demo audit by 3 AI models |
-| [Scheme design](docs/scheme_design_template.xlsx) | Rate grid and product norms |
+| [How it works](behind-the-scenes/how-it-works/) | Flows, schema, functions, components, where things live |
+| [Migration run log](docs/migration-run-log.md) | Every database change, what it does, when it went live |
+| [Fix list](docs/fix-list.md) | Known issues, decisions and pre-launch items |
+| [Audit review, 4 Oct](docs/audit-review-2026-10-04.md) | An outside audit, checked finding by finding |
+| [Risk model v2](docs/risk-model-v2.md) | Training data, inputs, results |
+| [Data protection](docs/data-protection.md) | Erasure on request, retention |
 | [Production checklist](docs/production-checklist.md) | What to switch off and remove before real customers |
+| Learnings | `docs/learnings-*.md`: what went wrong, what we changed |
 
 > **REMOVE BEFORE REAL USE: the daily simulation.** `sql/075` makes synthetic customers, loans and payments every day (job `cercit-simulation-daily`). Before a real lender uses this database: `SELECT cron.unschedule('cercit-simulation-daily');`, then `SELECT fn_synthetic_purge();`. See the production checklist.
 
 ## Decision methodology
 
-Six-layer assessment, each independent:
+AI assists, policy decides, a person signs off:
 
-1. **Hard filters** — KYC, negative list, age, geography
-2. **Bureau scoring** — CIBIL band, DPD history, enquiry velocity
-3. **Income & obligation** — FOIR, DBR, net surplus
-4. **Collateral** — LTV, vehicle make/model risk tier
-5. **AI/ML model score** — propensity/default prediction (Phase 2)
-6. **Policy rule engine** — product norms, MoU-specific rules
-
-## Roadmap
-
-- [x] PRD and scope (all 20 open items closed)
-- [x] Database schema (22 tables on Supabase)
-- [x] Backend functions (8 RPCs, policy engine)
-- [x] Frontend prototype (18 routes)
-- [x] E2E flow (submit -> assess -> review)
-- [x] Approve/reject actions wired to DB
-- [x] Dashboard live stats from Supabase
-- [x] Demo scenarios (APPROVE/REJECT/MAYBE)
-- [x] Deploy to GitHub Pages (SPA build + GitHub Actions)
-- [x] Customer landing page with EMI calculator
-- [x] Customer loan application form (4-step)
-- [x] Smart login routing (customer vs employee)
-- [x] Customer application status portal
-- [ ] Supabase Auth + RLS
-- [ ] Sanction letter PDF
-- [ ] Deploy to Cloudflare Workers (SSR build ready, needs account setup)
-- [ ] Security audit (Claude Fable, GPT 5.6, Kimi 3/DeepSeek)
+1. **Documents**: read, masked and cross-checked (name, birth date, address, face, payslip age)
+2. **Bureau**: two bureaus, the worse score counts; DPD, enquiries, write-offs, settled accounts
+3. **Income and obligations**: declared, payslip and bank salary compared, the lowest counts; FOIR
+4. **Collateral**: LTV on ex-showroom and on-road price
+5. **Risk model**: chance of going 30+ days late, grade A to E
+6. **Policy rules**: 16 versioned rules; missing bureau, bank or income data sends the case to a person
 
 ## FAQs
 
@@ -168,7 +156,7 @@ Claude is an AI model made by Anthropic and cercit's chief architect: the lead o
 | Testing and sign-off (live checks, acceptance) | Sameer |
 | Compliance and privacy owner (RBI digital lending, DPDP) | Sameer |
 | Software engineer (website, staff and customer screens) | Claude |
-| Database engineer (Supabase, 80 migrations, privacy rules) | Claude |
+| Database engineer (Supabase, 89 migrations, privacy rules) | Claude |
 | Cloud engineer (AWS document readers, face match, masking) | Claude |
 | Data scientist (synthetic data, XGBoost risk model) | Claude |
 | UI and UX designer (screens, brand, landing page) | Claude |
