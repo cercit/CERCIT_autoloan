@@ -27,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { listFeedback, type FeedbackRow } from "@/lib/feedback-api";
+import { listFeedback, PROFILE_LABEL, type FeedbackRow, type Profile } from "@/lib/feedback-api";
 import {
   getTeamPending,
   resetTeam,
@@ -620,12 +620,19 @@ function FeedbackCard() {
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>{new Date(r.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
                 {r.role_name && <Pill tone="muted">{r.role_name}</Pill>}
+                {r.profile && <span>{PROFILE_LABEL[r.profile as Profile] ?? r.profile}</span>}
                 {r.experience !== null && <span className="font-medium text-foreground">{"★".repeat(r.experience)}{"☆".repeat(5 - r.experience)}</span>}
                 {r.findability && <span>{find[r.findability] ?? r.findability}</span>}
                 {r.page && <span className="font-mono">{r.page}</span>}
               </div>
+              {r.lost_where && <p><span className="font-medium">Couldn't find:</span> {r.lost_where}</p>}
               {r.needed && <p><span className="font-medium">Missing:</span> {r.needed}</p>}
               {r.bugs && <p><span className="font-medium text-destructive">Broken:</span> {r.bugs}</p>}
+              {r.contact && (
+                <p className="text-xs text-muted-foreground">
+                  Reply to {r.name || "them"}: <span className="font-mono text-foreground">{r.contact}</span>
+                </p>
+              )}
             </li>
           ))}
         </ul>

@@ -3965,12 +3965,20 @@ const asOperator = () => asApi("", "");
   await t.rejects("stars are 1 to 5", () => send({ experience: 6 }), /rate from 1 to 5/);
   await t.rejects("findability is yes, mostly or no", () => send({ findability: "maybe" }), /yes, mostly or no/);
   await t.ok("an officer sends feedback", () => send({ experience: 4, findability: "mostly", needed: "A search box on the case list", bugs: "", page: "/applications" }));
+  // 087: who they are, where they got lost, and contact only with consent
+  await t.rejects("contact needs the consent tick", () => send({ experience: 5, contact: "asha@example.com" }), /tick the box/);
+  await t.rejects("contact is an email or a LinkedIn link", () => send({ experience: 5, contact: "call me", contact_ok: true }), /email address or a LinkedIn link/);
+  await t.rejects("who you are comes from the list", () => send({ experience: 5, profile: "ceo" }), /from the list/);
+  await t.ok("a full answer with a name and LinkedIn", () => send({ experience: 2, findability: "NO", lost_where: "Where to approve a rate change",
+    profile: "lending", name: "Asha", contact: "linkedin.com/in/asha-test", contact_ok: true }));
   await t.rejects("but can't read anyone's", () => db.query("select * from fn_feedback_list()"), /permission denied/);
   await t.rejects("or the table", () => db.query("select * from app_feedback"), /permission denied/);
   await as(ADM);
   const rows = (await db.query("select * from fn_feedback_list()")).rows;
-  t.equal("the Admin reads it with the role, newest first", [rows[0].role_name, rows[0].experience, rows[0].findability, rows[0].needed, rows[0].bugs],
+  t.equal("the Admin reads it with the role, newest first", [rows[1].role_name, rows[1].experience, rows[1].findability, rows[1].needed, rows[1].bugs],
     ["Credit Officer", 4, "MOSTLY", "A search box on the case list", null]);
+  t.equal("and who they are, where they got lost, how to reply", [rows[0].profile, rows[0].lost_where, rows[0].name, rows[0].contact],
+    ["LENDING", "Where to approve a rate change", "Asha", "linkedin.com/in/asha-test"]);
   await db.query("reset role");
   await asOperator();
   await db.query("select set_config('request.jwt.claims', '', false)");
