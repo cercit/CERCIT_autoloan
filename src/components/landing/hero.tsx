@@ -131,6 +131,10 @@ export function Hero() {
                     The problem, the product, the plan
                   </span>
                 </DropdownMenuItem>
+                <DropdownMenuItem className="login-choice" onSelect={() => openDeck("tech")}>
+                  <span className="font-medium">Tech</span>
+                  <span className="text-xs text-muted-foreground">How cercit is built</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem className="login-choice" onSelect={() => openDeck("lender")}>
                   <span className="font-medium">Bank / NBFC deck</span>
                   <span className="text-xs text-muted-foreground">
@@ -209,6 +213,15 @@ export function Hero() {
                 }}
               >
                 Bank / NBFC deck
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openDeck("tech");
+                }}
+              >
+                Tech deck
               </button>
             </nav>
             <div className="mobile-panel-actions">

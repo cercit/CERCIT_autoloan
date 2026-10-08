@@ -34,11 +34,12 @@ export function openDeck(deck: DeckKey) {
 }
 
 type Cta = { label: string; to?: string; href?: string; deck?: DeckKey };
-export type DeckKey = "investor" | "lender";
+export type DeckKey = "investor" | "lender" | "tech";
 
 const DECK_PAGES: Record<DeckKey, { title: string; src: string }> = {
   investor: { title: "cercit investor deck", src: `${DECKS}investor.html` },
   lender: { title: "cercit for banks and NBFCs", src: `${DECKS}bank-nbfc.html` },
+  tech: { title: "cercit tech deck", src: `${DECKS}tech.html` },
 };
 
 type Panel = {

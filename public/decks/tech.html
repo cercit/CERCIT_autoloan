@@ -1,0 +1,262 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>cercit tech deck</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+* { box-sizing: border-box; margin: 0 }
+a { color: inherit }
+ul, ol { padding-left: 1.2em }
+section { position: relative; width: 1920px; height: 1080px; overflow: hidden }
+html, body { height: 100%; margin: 0; background: #0B1320; overflow: hidden; font-family: 'Public Sans', Arial, sans-serif }
+#stage { position: absolute; left: 50%; top: calc(50% - 26px); width: 1920px; height: 1080px; transform-origin: center center; box-shadow: 0 20px 60px rgba(0,0,0,.45) }
+#stage section { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .35s ease }
+#stage section.active { opacity: 1; visibility: visible }
+.nav { position: absolute; top: calc(50% - 26px); transform: translateY(-50%); width: 48px; height: 48px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: rgba(16,27,46,.7); color: #F4F6FA; font-size: 22px; cursor: pointer; display: grid; place-items: center }
+.nav:hover { background: rgba(47,95,208,.9) }
+.nav:disabled { opacity: .3; cursor: default }
+#prev { left: 14px } #next { right: 14px }
+#bar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; display: flex; align-items: center; justify-content: center; gap: 18px; color: #C9D3E3; font-size: 14px }
+#progress { position: absolute; left: 0; bottom: 0; height: 3px; background: #2F5FD0; transition: width .35s ease }
+button:focus-visible, a:focus-visible { outline: 2px solid #8FB0FF; outline-offset: 2px }
+@media (prefers-reduced-motion: reduce) { #stage section { transition: none } }
+
+/* slide styles */
+.dark { background: #101B2E; color: #F4F6FA }
+.light { background: #F4F6FA; color: #101B2E }
+.pad { padding: 112px 128px 136px; display: flex; flex-direction: column; gap: 48px }
+.eyebrow { font: 600 24px/1 'Public Sans', Arial, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #2F5FD0 }
+.dark .eyebrow { color: #8FB0FF }
+h1 { font: 800 112px/1.02 'Manrope', Arial, sans-serif; letter-spacing: -0.02em }
+h2 { font: 800 72px/1.08 'Manrope', Arial, sans-serif; letter-spacing: -0.015em; max-width: 1500px; text-wrap: balance }
+.lead { font-size: 36px; line-height: 1.4; color: #4A5872; max-width: 1400px }
+.dark .lead { color: #B9C4D6 }
+.mono { font-family: 'JetBrains Mono', Consolas, monospace; font-size: .86em }
+.grid { display: grid; gap: 28px }
+.g2 { grid-template-columns: repeat(2, 1fr) } .g3 { grid-template-columns: repeat(3, 1fr) } .g4 { grid-template-columns: repeat(4, 1fr) }
+.card { background: #FFFFFF; border: 1px solid #DCE2EC; border-radius: 20px; padding: 32px 36px; display: flex; flex-direction: column; gap: 12px }
+.dark .card { background: #17243B; border-color: #2A3A57 }
+.card h3 { font: 700 34px/1.2 'Manrope', Arial, sans-serif }
+.card p, .card li { font-size: 26px; line-height: 1.45; color: #4A5872 }
+.dark .card p, .dark .card li { color: #B9C4D6 }
+.card ul { display: flex; flex-direction: column; gap: 6px }
+.tag { display: inline-block; font: 600 20px/1 'Public Sans', Arial, sans-serif; padding: 8px 14px; border-radius: 999px; background: #E3EAFB; color: #2F5FD0; align-self: flex-start }
+.dark .tag { background: #1F3463; color: #A9C1FF }
+.big { font: 800 84px/1 'Manrope', Arial, sans-serif; color: #2F5FD0 }
+.dark .big { color: #8FB0FF }
+.foot { position: absolute; left: 128px; bottom: 56px; font-size: 20px; color: #7A879D }
+/* architecture */
+.arch { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 36px; align-items: stretch }
+.zone { border: 2px dashed #9FB2D6; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 16px }
+.zone .zt { font: 700 28px/1.2 'Manrope', Arial, sans-serif } .zone .zs { font-size: 22px; color: #4A5872 }
+.box { background: #FFFFFF; border: 1px solid #DCE2EC; border-radius: 14px; padding: 16px 20px; font-size: 24px; line-height: 1.35 }
+.box b { font-family: 'Manrope', Arial, sans-serif }
+.flowline { display: flex; align-items: center; gap: 12px; font-size: 22px; color: #4A5872 }
+/* pipeline */
+.pipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px }
+.step { background: #FFFFFF; border: 1px solid #DCE2EC; border-radius: 16px; padding: 22px 24px; display: flex; flex-direction: column; gap: 8px; position: relative }
+.step .n { font: 800 22px/1 'Manrope', Arial, sans-serif; color: #2F5FD0 }
+.step .t { font: 700 28px/1.2 'Manrope', Arial, sans-serif }
+.step .d { font-size: 21px; line-height: 1.4; color: #4A5872 }
+.step .w { font-size: 18px; color: #7A879D; margin-top: auto }
+/* flow arrows */
+.chain { display: flex; align-items: stretch; gap: 0 }
+.chain .stage { flex: 1; background: #FFFFFF; border: 1px solid #DCE2EC; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 8px }
+.chain .arrow { width: 56px; display: grid; place-items: center; font-size: 40px; color: #2F5FD0 }
+.chain .stage b { font: 700 30px/1.2 'Manrope', Arial, sans-serif } .chain .stage span { font-size: 22px; line-height: 1.4; color: #4A5872 }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px }
+.stat { border-top: 4px solid #2F5FD0; padding-top: 18px; display: flex; flex-direction: column; gap: 8px }
+.stat .k { font-size: 24px; color: #4A5872 } .dark .stat .k { color: #B9C4D6 }
+</style></head><body tabindex="-1">
+<div id="stage">
+
+<section class="dark pad" style="justify-content:space-between">
+  <p class="eyebrow">cercit · technical deck</p>
+  <div style="display:flex;flex-direction:column;gap:36px">
+    <h1>How cercit is built.</h1>
+    <p class="lead" style="font-size:40px">A credit appraisal system for salaried new-car loans: documents read automatically, two bureaus, versioned policy rules, a risk model, and a person who signs off.</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="big">100</span><span class="k">database tables</span></div>
+    <div class="stat"><span class="big">460</span><span class="k">database functions</span></div>
+    <div class="stat"><span class="big">9</span><span class="k">AWS Lambda services</span></div>
+    <div class="stat"><span class="big">87</span><span class="k">migrations, each tested and logged</span></div>
+  </div>
+</section>
+
+<section class="light pad">
+  <p class="eyebrow">The principle</p>
+  <h2>AI assists. Policy decides. A person signs off.</h2>
+  <p class="lead">Four parts, kept apart on purpose, so each can be checked on its own.</p>
+  <div class="grid g4">
+    <div class="card"><span class="tag">1 · Document AI</span><h3>What does the document say?</h3><p>Reads PAN, Aadhaar, payslips, Form 16 and bank statements, and matches them against each other.</p></div>
+    <div class="card"><span class="tag">2 · Data engine</span><h3>How does this person handle money?</h3><p>Bureau history, income from three sources, EMIs already running, bank behaviour.</p></div>
+    <div class="card"><span class="tag">3 · Risk model</span><h3>How likely is a late payment?</h3><p>XGBoost, trained on synthetic loans, gives a grade and a probability.</p></div>
+    <div class="card"><span class="tag">4 · Policy engine</span><h3>Does it qualify under our rules?</h3><p>Deterministic, versioned, auditable. The model informs; the rules decide.</p></div>
+  </div>
+</section>
+
+<section class="light pad" style="gap:40px">
+  <p class="eyebrow">Architecture</p>
+  <h2>Three places, all customer data in Mumbai.</h2>
+  <div class="arch">
+    <div class="zone">
+      <p class="zt">The browser</p><p class="zs">Served from GitHub Pages, holds no customer data</p>
+      <div class="box"><b>React 19</b>, TanStack Router, Vite 8, Tailwind 4</div>
+      <div class="box"><b>Risk model v2</b> in ONNX, run by onnxruntime-web on the visitor's device</div>
+      <div class="box"><b>Supabase client</b>: every read and write goes through checked database functions</div>
+    </div>
+    <div class="zone" style="border-color:#2F5FD0">
+      <p class="zt">Supabase Postgres · Mumbai</p><p class="zs">The system of record</p>
+      <div class="box"><b>100 tables</b> with row-level security (100 policies)</div>
+      <div class="box"><b>Policy engine</b>, recommendation, bureau and income simulators, loan book</div>
+      <div class="box"><b>Auth</b>, 8 roles, 32 rights, audit log; <b>pg_cron</b> jobs</div>
+    </div>
+    <div class="zone">
+      <p class="zt">AWS · Mumbai</p><p class="zs">Documents and heavy lifting</p>
+      <div class="box"><b>API Gateway + 9 Lambdas</b> (Python)</div>
+      <div class="box"><b>S3</b> private bucket, signed upload links, old versions removed</div>
+      <div class="box"><b>Textract</b> reads documents · <b>Rekognition</b> matches faces</div>
+    </div>
+  </div>
+  <div class="flowline">Browser → Supabase for everything about a case · Browser → AWS only to upload a file · AWS → Supabase to save what it read</div>
+</section>
+
+<section class="light pad" style="gap:36px">
+  <p class="eyebrow">Life of an application</p>
+  <h2>From a phone upload to a decision.</h2>
+  <div class="pipe">
+    <div class="step"><span class="n">01</span><span class="t">Upload</span><span class="d">A signed link puts the file straight into S3. The website never handles it.</span><span class="w mono">presigned_url</span></div>
+    <div class="step"><span class="n">02</span><span class="t">Check and mask</span><span class="d">Real PDF/JPG/PNG under 10 MB, or deleted. Aadhaar digits and QR blacked out.</span><span class="w mono">document_finalize · zxing-cpp</span></div>
+    <div class="step"><span class="n">03</span><span class="t">Read</span><span class="d">Textract plus cercit's own readers for each document type.</span><span class="w mono">kyc · salary_slip · form16 · bank</span></div>
+    <div class="step"><span class="n">04</span><span class="t">Cross-check</span><span class="d">Name, birth date, address, face, payslip age. Rules are rows in a table.</span><span class="w mono">cross_validator · document_check_rules</span></div>
+    <div class="step"><span class="n">05</span><span class="t">Bureau</span><span class="d">Two bureaus pulled; the worse score counts. Simulated in this demo.</span><span class="w mono">fn_bureau_sim_raw</span></div>
+    <div class="step"><span class="n">06</span><span class="t">Income</span><span class="d">Declared, payslip and bank salary compared; the lowest counts.</span><span class="w mono">income assessment</span></div>
+    <div class="step"><span class="n">07</span><span class="t">Decide</span><span class="d">16 policy rules, FOIR, LTV, rate grid, then the risk model. Approve, closer look or decline, with reasons.</span><span class="w mono">fn_run_policy_engine</span></div>
+    <div class="step"><span class="n">08</span><span class="t">Sign off and pay</span><span class="d">Officer decides. Offer, e-sign, e-mandate, dealer paid, repayments tracked.</span><span class="w mono">loan_accounts · schedules</span></div>
+  </div>
+</section>
+
+<section class="light pad">
+  <p class="eyebrow">Policy engine</p>
+  <h2>Rules are data, and no one approves their own change.</h2>
+  <div class="chain">
+    <div class="stage"><b>Draft</b><span>The Credit Head edits a copy: switch a rule, change a limit, a rate, a role.</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><b>Impact test</b><span>The draft is run against recent cases (Zen rules engine on Lambda) to show which decisions would flip.</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><b>Approve</b><span>Only the Admin approves. The database refuses an approval by the author.</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><b>Live on a date</b><span>The version starts on its date; the old one is kept as history.</span></div>
+  </div>
+  <div class="grid g3">
+    <div class="card"><h3>Every decision is traceable</h3><p>It stores the policy version, a fingerprint of the rules it used, and the model version that scored it.</p></div>
+    <div class="card"><h3>Conflicting rights blocked</h3><p>5 pairs of rights can't sit on one role (e.g. decide cases and manage users) unless a waiver says why.</p></div>
+    <div class="card"><h3>Same for rates and roles</h3><p>The rate grid, risk models and role changes all go draft → approve → live.</p></div>
+  </div>
+</section>
+
+<section class="dark pad">
+  <p class="eyebrow">Risk model</p>
+  <h2>A risk score that runs on the visitor's own device.</h2>
+  <div class="grid g2" style="gap:36px">
+    <div class="card"><h3>What it is</h3><ul><li>XGBoost classifier, exported to ONNX</li><li>Predicts the chance of going 30+ days late</li><li>18 inputs: bureau accounts, bank months, FOIR and more</li><li>Version v2 is live; v1 kept for older decisions</li></ul></div>
+    <div class="card"><h3>How it was trained</h3><ul><li>16,995 synthetic customers, published as training data</li><li>The live inputs are worked out the same way as the training data, and a test checks it case by case</li><li>Gives a grade (A to E) and a probability</li></ul></div>
+  </div>
+  <p class="lead">It informs the decision. It never overrides a policy rule.</p>
+</section>
+
+<section class="light pad">
+  <p class="eyebrow">Security and privacy</p>
+  <h2>Built as if the data were real.</h2>
+  <div class="grid g3">
+    <div class="card"><span class="tag">Access</span><h3>Least privilege</h3><p>8 roles, 32 rights. Row-level security on every table. Pages read through 204 checked database functions, never straight from tables.</p></div>
+    <div class="card"><span class="tag">Personal data</span><h3>Masked and encrypted</h3><p>PAN and mobile encrypted at rest, shown masked. Aadhaar masked before it is stored. Full PAN only with a logged "reveal".</p></div>
+    <div class="card"><span class="tag">Location</span><h3>Data stays in India</h3><p>Database, documents, readers and face match all run in Mumbai (ap-south-1).</p></div>
+    <div class="card"><span class="tag">DPDP Act</span><h3>Erase on request</h3><p>Personal data can be erased on request, except where KYC rules require keeping it for 5 years. Every file version is deleted too.</p></div>
+    <div class="card"><span class="tag">Audit</span><h3>Who did what, when</h3><p>Every decision, override, rule change and sign-in is written to the audit log by the database itself.</p></div>
+    <div class="card"><span class="tag">Sign-in</span><h3>Locks and timeouts</h3><p>Lockout after failed tries, idle timeout per role, and two-step sign-in ready for the Admin and Head (off in this demo).</p></div>
+  </div>
+</section>
+
+<section class="light pad">
+  <p class="eyebrow">Running it</p>
+  <h2>A demo that keeps moving on its own.</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Every morning, 06:00 IST</h3><p>A scheduled database job (pg_cron) adds 10 synthetic applications, pays out approved loans, and makes the day's repayments, including some that bounce or go late. The loan book and PAR figures stay current.</p></div>
+    <div class="card"><h3>Every Sunday</h3><p>A full copy of every settings, policy and pricing table is saved. No personal data is in it.</p></div>
+    <div class="card"><h3>Try it as the team</h3><p>Visitors sign in as Head, Manager or Officer with one click. Anything they change outside a case is journaled, and the Admin undoes it with one button.</p></div>
+    <div class="card"><h3>Feedback on the way out</h3><p>Signing out asks how it went, where people got lost, and what broke, with contact details only with consent.</p></div>
+  </div>
+</section>
+
+<section class="light pad">
+  <p class="eyebrow">Quality</p>
+  <h2>Nothing is "done" without proof.</h2>
+  <div class="stats">
+    <div class="stat"><span class="big">60</span><span class="k">SQL test sections, run on a local Postgres (PGlite)</span></div>
+    <div class="stat"><span class="big">87</span><span class="k">migrations in order, each logged as run and checked live</span></div>
+    <div class="stat"><span class="big">2,050</span><span class="k">synthetic applications on the live system</span></div>
+    <div class="stat"><span class="big">635</span><span class="k">synthetic loans in the loan book</span></div>
+  </div>
+  <div class="grid g3">
+    <div class="card"><h3>Test first</h3><p>A database change gets its test before it goes live. Lambda code has its own Python tests.</p></div>
+    <div class="card"><h3>Checked live</h3><p>After each change: a read-only check on the live database, a browser check, or a call to the live service.</p></div>
+    <div class="card"><h3>Audited from outside</h3><p>An outside AI audit was checked finding by finding; the real ones went on the fix list.</p></div>
+  </div>
+</section>
+
+<section class="dark pad">
+  <p class="eyebrow">How it was built</p>
+  <h2>One product person, one AI architect, a few helpers.</h2>
+  <div class="grid g2" style="gap:36px">
+    <div class="card"><h3>Who did what</h3><ul><li><b>Sameer</b>: product, credit policy, testing, sign-off, and every live change</li><li><b>Claude</b> (Claude Code): architecture, code, database, cloud, model, tests</li><li>Lovable, Google Stitch, ChatGPT, Gemini, Copilot, Hermes, Qwen and others: prototypes, research, drafts</li></ul></div>
+    <div class="card"><h3>How the work ran</h3><ul><li>Decide → plan in small steps → test → build → commit each step → check it live</li><li>Live database changes are run by a person, never by the AI on its own</li><li>No AI tool ever received real customer data</li></ul></div>
+  </div>
+</section>
+
+<section class="light pad">
+  <p class="eyebrow">Honest limits and what's next</p>
+  <h2>A working demo, not a licensed lender.</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Simulated today</h3><ul><li>Credit bureaus, income and bank detail, and employer lookups are simulators</li><li>All customers and loans are synthetic</li><li>Two-step sign-in is built but switched off for the demo</li></ul></div>
+    <div class="card"><h3>Next</h3><ul><li>The case screen shows only the database's decision (one engine, not two)</li><li>Missing bureau, bank or income data sends a case to a person</li><li>Real bureau and Account Aggregator connections; commercial vehicles, three-wheelers and co-applicants</li></ul></div>
+  </div>
+  <p class="lead">Try it at <b>cercit.github.io/CERCIT_autoloan</b>: pick Head, Manager or Officer on the sign-in page.</p>
+</section>
+
+</div>
+<button id="prev" class="nav" type="button" aria-label="Previous slide">&#8249;</button>
+<button id="next" class="nav" type="button" aria-label="Next slide">&#8250;</button>
+<div id="bar"><span id="counter" aria-live="polite"></span><span aria-hidden="true">·</span><span>Arrow keys or swipe</span></div>
+<div id="progress"></div>
+<script>
+const slides = [...document.querySelectorAll('#stage section')];
+const stage = document.getElementById('stage');
+const counter = document.getElementById('counter');
+const progress = document.getElementById('progress');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let i = 0;
+function fit() {
+  const side = innerWidth < 700 ? 16 : 120;
+  const s = Math.min((innerWidth - side) / 1920, (innerHeight - 64) / 1080);
+  stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+}
+function show(n) {
+  i = Math.max(0, Math.min(slides.length - 1, n));
+  slides.forEach((el, k) => el.classList.toggle('active', k === i));
+  counter.textContent = (i + 1) + ' / ' + slides.length;
+  progress.style.width = ((i + 1) / slides.length * 100) + '%';
+  prev.disabled = i === 0; next.disabled = i === slides.length - 1;
+}
+prev.onclick = () => show(i - 1);
+next.onclick = () => show(i + 1);
+addEventListener('keydown', (e) => {
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); show(i + 1); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+  else if (e.key === 'Home') show(0);
+  else if (e.key === 'End') show(slides.length - 1);
+  else if (e.key === 'Escape') parent.postMessage({ type: 'cercit-deck-close' }, '*');
+});
+let sx = null;
+addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+addEventListener('touchend', (e) => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); sx = null; });
+addEventListener('resize', fit);
+fit(); show(0); document.body.focus();</script></body></html>
