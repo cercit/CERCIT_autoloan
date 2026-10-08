@@ -170,6 +170,29 @@ export async function setUserActive(id: string, active: boolean, reason: string)
   if (error) throw new Error(message(error));
 }
 
+/** What the team logins (Head, Manager, Officer) changed outside cases (085). */
+export interface TeamPending {
+  policy_drafts: number;
+  rate_drafts: number;
+  role_requests: number;
+  category_requests: number;
+  simulations: number;
+  settings_rows: number;
+}
+
+export async function getTeamPending(): Promise<TeamPending> {
+  const { data, error } = await supabase.rpc("fn_team_pending");
+  if (error) throw new Error(message(error));
+  return data as TeamPending;
+}
+
+/** Undo it all; their work on cases stays. Admin only. */
+export async function resetTeam(): Promise<TeamPending & { settings_rows_restored: number; settings_rows_kept: number }> {
+  const { data, error } = await supabase.rpc("fn_team_reset");
+  if (error) throw new Error(message(error));
+  return data as TeamPending & { settings_rows_restored: number; settings_rows_kept: number };
+}
+
 export async function unlockUser(id: string): Promise<void> {
   const { error } = await supabase.rpc("fn_unlock_user", { p_user_id: id });
   if (error) throw new Error(message(error));

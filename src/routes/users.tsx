@@ -28,6 +28,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
+  getTeamPending,
+  resetTeam,
+  type TeamPending,
   listRoleOptions,
   listStaff,
   listStates,
@@ -233,6 +236,8 @@ function Users() {
           </div>
         )}
       </SectionCard>
+
+      {list && !list.sample && list.canManage && <TeamResetCard />}
 
       {editing && (
         <UserDialog
@@ -516,5 +521,76 @@ function StatusDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** 085: the Head / Manager / Officer logins are on the sign-in page; undo what they changed outside cases. */
+function TeamResetCard() {
+  const [pending, setPending] = useState<TeamPending | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    getTeamPending().then(setPending).catch((e: Error) => toast.error(e.message));
+  }, []);
+  useEffect(load, [load]);
+
+  const items: [string, number][] = pending
+    ? [
+        ["policy drafts", pending.policy_drafts],
+        ["rate grid drafts", pending.rate_drafts],
+        ["role change requests", pending.role_requests],
+        ["employer category requests", pending.category_requests],
+        ["policy simulations", pending.simulations],
+        ["employers, document checks and rate products changed", pending.settings_rows],
+      ]
+    : [];
+  const total = items.reduce((n, [, v]) => n + v, 0);
+
+  async function run() {
+    if (!window.confirm("Undo everything the Head, Manager and Officer logins changed outside cases? Their work on cases stays.")) return;
+    setBusy(true);
+    try {
+      const out = await resetTeam();
+      toast.success(
+        out.settings_rows_kept
+          ? `Undone. ${out.settings_rows_kept} item(s) kept because a case already uses them.`
+          : "Undone. Everything is back as it was.",
+      );
+      load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <SectionCard
+      className="mt-6"
+      title="Team logins: undo their changes"
+      description="The Head, Manager and Officer logins can be filled in from the sign-in page. Their work on cases stays; anything else they changed can be undone here."
+    >
+      <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm">
+          {!pending ? (
+            <span className="text-muted-foreground">Checking...</span>
+          ) : total === 0 ? (
+            <span className="text-muted-foreground">Nothing to undo.</span>
+          ) : (
+            <ul className="space-y-0.5">
+              {items
+                .filter(([, v]) => v > 0)
+                .map(([label, v]) => (
+                  <li key={label}>
+                    <span className="font-semibold tabular-nums">{v}</span> {label}
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+        <Button variant="destructive" disabled={busy || !pending || total === 0} onClick={run}>
+          {busy ? "Undoing..." : "Undo team changes"}
+        </Button>
+      </div>
+    </SectionCard>
   );
 }
