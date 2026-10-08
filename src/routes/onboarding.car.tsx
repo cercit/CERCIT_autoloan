@@ -407,7 +407,7 @@ function CarForm({
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">
-                EMI at {INDICATIVE_RATE}% (indicative)
+                EMI from {INDICATIVE_RATE}% (best rate; yours is set after the credit check)
               </dt>
               <dd className="font-semibold tabular-nums text-primary">
                 {emi ? `${inr(emi)}/month` : "—"}

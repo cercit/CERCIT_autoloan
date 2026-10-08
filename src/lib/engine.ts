@@ -699,12 +699,14 @@ export function quickEligibility(
     };
   }
 
+  // Audit A4: the same bands and limits as the live policy (rate grid and policy rules):
+  // CIBIL 750+ at 8.99% with FOIR up to 50%; 650-749 at 9.90% with FOIR up to 45%;
+  // below 650 declined. The live grid's figures win when loaded.
   const reasons: string[] = [];
-  let rate = cibilScore >= 750 ? 8.99 : cibilScore >= 700 ? 9.5 : 10.5;
-  if (cachedGrid?.bands?.length) {
-    const label = cibilScore >= 750 ? "APPROVE" : cibilScore >= 650 ? "MAYBE" : "REJECT";
-    rate = cachedGrid.bands.find((b) => b.label === label)?.baseRate || rate;
-  }
+  const label = cibilScore >= 750 ? "APPROVE" : cibilScore >= 650 ? "MAYBE" : "REJECT";
+  const band = cachedGrid?.bands?.find((b) => b.label === label);
+  const rate = band?.baseRate || (label === "APPROVE" ? 8.99 : 9.9);
+  const foirLimit = band?.maxFoirPct || (label === "APPROVE" ? 50 : 45);
   const months = tenure ?? 60;
   const monthlyRate = rate / 100 / 12;
   const emi = Math.round(
@@ -714,15 +716,17 @@ export function quickEligibility(
   const totalEmi = emi + (existingEmi ?? 0);
   const foir = Math.round((totalEmi / monthlyIncome) * 100 * 10) / 10;
 
-  if (cibilScore < 650) reasons.push("CIBIL below 650 threshold");
-  if (cibilScore >= 750) reasons.push("Strong CIBIL score");
-  if (foir > 65) reasons.push(`FOIR ${foir}% exceeds 65% limit`);
-  else if (foir > 50) reasons.push(`FOIR ${foir}% is elevated`);
-  else reasons.push(`FOIR ${foir}% is healthy`);
+  if (cibilScore < 650) reasons.push("CIBIL below 650: the policy declines");
+  else if (cibilScore < 750) reasons.push("CIBIL 650-749: a credit officer reviews the case");
+  else reasons.push("Strong CIBIL score");
+  if (label !== "REJECT") {
+    if (foir > foirLimit) reasons.push(`FOIR ${foir}% is above the ${foirLimit}% limit: a credit officer reviews it`);
+    else reasons.push(`FOIR ${foir}% is within the ${foirLimit}% limit`);
+  }
 
   let signal: QuickEligibilityResult["signal"];
-  if (cibilScore < 650 || foir > 65) signal = "LIKELY_REJECT";
-  else if (cibilScore < 700 || foir > 50) signal = "MAYBE";
+  if (label === "REJECT") signal = "LIKELY_REJECT";
+  else if (label === "MAYBE" || foir > foirLimit) signal = "MAYBE";
   else signal = "LIKELY_APPROVE";
 
   return { signal, reasons, foir, emi };

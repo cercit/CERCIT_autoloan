@@ -130,7 +130,7 @@ function CheckEligibility() {
 
         {show && loanNum && tenureNum && (
           <p className="text-center text-xs text-muted-foreground">
-            Estimated EMI at 8.99%: {inr(emiFor(loanNum, 8.99, tenureNum))} / month
+            EMI at our best rate (8.99%): {inr(emiFor(loanNum, 8.99, tenureNum))} / month. Your rate is set after the credit check.
           </p>
         )}
       </div>
