@@ -43,9 +43,9 @@ const PRACTICE_LOGINS = [
 // secrets), never this file. The Admin can undo their changes outside cases (085).
 const env = (k: string) => (import.meta.env[k] as string | undefined)?.trim();
 const TEAM_LOGINS = [
-  { label: "Head", email: "cercit+head@gmail.com", password: env("VITE_TEAM_HEAD_PASSWORD") },
-  { label: "Manager", email: "cercit+manager@gmail.com", password: env("VITE_TEAM_MANAGER_PASSWORD") },
-  { label: "Officer", email: "cercit+officer@gmail.com", password: env("VITE_TEAM_OFFICER_PASSWORD") },
+  { label: "Head", email: "cercit+head@gmail.com", password: env("VITE_TEAM_HEAD_PASSWORD"), note: "rules, rates, team" },
+  { label: "Manager", email: "cercit+manager@gmail.com", password: env("VITE_TEAM_MANAGER_PASSWORD"), note: "every case, overrides" },
+  { label: "Officer", email: "cercit+officer@gmail.com", password: env("VITE_TEAM_OFFICER_PASSWORD"), note: "checks and decides" },
 ].filter((t) => isSupabaseConfigured && !!t.password);
 const DEMO_LOGIN = LIVE_DEMO
   ? { email: LIVE_DEMO_EMAIL!, password: LIVE_DEMO_PASSWORD! }
@@ -297,21 +297,46 @@ function StaffLogin() {
             )}
           </form>
 
-          {as !== "customer" && (
-            // Live demo: a read-only account on the real database (042). Its email and
-            // password come from the build (GitHub secrets), never from this file.
-            // Without them, the sample-data demo that stays in the browser.
+          {as !== "customer" && TEAM_LOGINS.length > 0 && (
+            // Team logins (084): one click fills in the login; the password is never shown.
+            <div className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm">
+              <p className="font-medium">Try cercit as the credit team</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Pick a role, then press Sign in. Every customer here is made up, so look around, decide cases and
+                try the rules.
+              </p>
+              <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
+                {TEAM_LOGINS.map((t) => (
+                  <Button
+                    key={t.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-auto flex-col gap-0 whitespace-normal py-1.5 text-center"
+                    onClick={() => {
+                      setByCode(false);
+                      setCodeSent(false);
+                      setError(null);
+                      setEmail(t.email);
+                      setPassword(t.password ?? "");
+                    }}
+                  >
+                    <span>Login as {t.label}</span>
+                    <span className="text-[11px] font-normal text-muted-foreground">{t.note}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {as !== "customer" && TEAM_LOGINS.length === 0 && (
+            // Fallback when the team passwords aren't in the build (local runs): the
+            // read-only demo (042), or the sample-data demo that stays in the browser.
             <div className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm">
               <p className="font-medium">{LIVE_DEMO ? "Try the live demo" : "Try the demo"}</p>
-              <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground">
-                <dt>Email</dt>
-                <dd className="break-all font-mono text-foreground">{DEMO_LOGIN.email}</dd>
-                <dt>Password</dt>
-                <dd className="break-all font-mono text-foreground">{DEMO_LOGIN.password}</dd>
-              </dl>
               <p className="mt-1.5 text-xs text-muted-foreground">
                 {LIVE_DEMO
-                  ? "Read-only: look around real cases, rules and rates. Nothing can be changed. All data is synthetic."
+                  ? "Read-only: look around cases, rules and rates. All data is synthetic."
                   : "Sample data only. Nothing you do is saved."}
               </p>
               <Button
@@ -329,30 +354,6 @@ function StaffLogin() {
               >
                 Fill in the demo login
               </Button>
-              {TEAM_LOGINS.length > 0 && (
-                <>
-                  <p className="mt-3 text-xs text-muted-foreground">Or sign in as a member of the credit team:</p>
-                  <div className="mt-1.5 grid grid-cols-3 gap-2">
-                    {TEAM_LOGINS.map((t) => (
-                      <Button
-                        key={t.label}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setByCode(false);
-                          setCodeSent(false);
-                          setError(null);
-                          setEmail(t.email);
-                          setPassword(t.password ?? "");
-                        }}
-                      >
-                        {t.label}
-                      </Button>
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
           )}
 
