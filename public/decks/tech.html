@@ -14,6 +14,7 @@ html, body { height: 100%; margin: 0; background: #0B1320; overflow: hidden; fon
 .nav:disabled { opacity: .3; cursor: default }
 #prev { left: 14px } #next { right: 14px }
 #bar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; display: flex; align-items: center; justify-content: center; gap: 18px; color: #C9D3E3; font-size: 14px }
+#bar a { color: #8FB0FF; text-decoration: none } #bar a:hover { text-decoration: underline }
 #progress { position: absolute; left: 0; bottom: 0; height: 3px; background: #2F5FD0; transition: width .35s ease }
 button:focus-visible, a:focus-visible { outline: 2px solid #8FB0FF; outline-offset: 2px }
 @media (prefers-reduced-motion: reduce) { #stage section { transition: none } }
@@ -225,7 +226,7 @@ h2 { font: 800 72px/1.08 'Manrope', Arial, sans-serif; letter-spacing: -0.015em;
 </div>
 <button id="prev" class="nav" type="button" aria-label="Previous slide">&#8249;</button>
 <button id="next" class="nav" type="button" aria-label="Next slide">&#8250;</button>
-<div id="bar"><span id="counter" aria-live="polite"></span><span aria-hidden="true">·</span><span>Arrow keys or swipe</span></div>
+<div id="bar"><span id="counter" aria-live="polite"></span><span aria-hidden="true">·</span><span>Arrow keys or swipe</span><span aria-hidden="true">·</span><a href="cercit-tech-deck.pdf" download>Download PDF</a></div>
 <div id="progress"></div>
 <script>
 const slides = [...document.querySelectorAll('#stage section')];
