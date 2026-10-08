@@ -4021,6 +4021,31 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 089: a credit decision records who made it
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("decision records the officer");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_generate(1, 40) as v");
+  const c = await one("select application_id from applications where origin = 'SYNTHETIC' and status = 'UNDER_REVIEW' limit 1");
+  const officerId = (await one("select id from users where auth_user_id = $1", [OFFICER])).id;
+  await db.query("set role authenticated");
+  await asApi("authenticated", OFFICER);
+  await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub: OFFICER, role: "authenticated" })]);
+  await t.ok("an officer decides a case", () => db.query("select fn_officer_decision($1, 'REJECT', 'checked: income too low')", [c.application_id]));
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  const d = await one("select cd.officer_id, cd.decided_by from credit_decisions cd join applications a on a.id = cd.application_id where a.application_id = $1 order by cd.decided_at desc limit 1", [c.application_id]);
+  t.equal("the decision row names the officer", [d.officer_id, d.decided_by], [officerId, "OFFICER"]);
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
