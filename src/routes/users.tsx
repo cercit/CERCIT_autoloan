@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { listFeedback, type FeedbackRow } from "@/lib/feedback-api";
 import {
   getTeamPending,
   resetTeam,
@@ -238,6 +239,7 @@ function Users() {
       </SectionCard>
 
       {list && !list.sample && list.canManage && <TeamResetCard />}
+      {list && !list.sample && list.canManage && <FeedbackCard />}
 
       {editing && (
         <UserDialog
@@ -591,6 +593,43 @@ function TeamResetCard() {
           {busy ? "Undoing..." : "Undo team changes"}
         </Button>
       </div>
+    </SectionCard>
+  );
+}
+
+/** 086: what people said when they signed out. */
+function FeedbackCard() {
+  const [rows, setRows] = useState<FeedbackRow[] | null>(null);
+  useEffect(() => {
+    listFeedback(50).then(setRows).catch((e: Error) => toast.error(e.message));
+  }, []);
+  const rated = (rows ?? []).filter((r) => r.experience !== null);
+  const avg = rated.length ? (rated.reduce((n, r) => n + (r.experience ?? 0), 0) / rated.length).toFixed(1) : null;
+  const find = { YES: "Found it easily", MOSTLY: "Mostly found it", NO: "Got lost" } as Record<string, string>;
+
+  return (
+    <SectionCard
+      className="mt-6"
+      title="Feedback from sign-out"
+      description={rows === null ? "Loading..." : rows.length === 0 ? "No feedback yet." : `${rows.length} answers${avg ? ` · average ${avg} of 5 stars` : ""}`}
+    >
+      {rows && rows.length > 0 && (
+        <ul className="divide-y divide-border">
+          {rows.map((r) => (
+            <li key={r.id} className="space-y-1 px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>{new Date(r.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                {r.role_name && <Pill tone="muted">{r.role_name}</Pill>}
+                {r.experience !== null && <span className="font-medium text-foreground">{"★".repeat(r.experience)}{"☆".repeat(5 - r.experience)}</span>}
+                {r.findability && <span>{find[r.findability] ?? r.findability}</span>}
+                {r.page && <span className="font-mono">{r.page}</span>}
+              </div>
+              {r.needed && <p><span className="font-medium">Missing:</span> {r.needed}</p>}
+              {r.bugs && <p><span className="font-medium text-destructive">Broken:</span> {r.bugs}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
     </SectionCard>
   );
 }

@@ -45,6 +45,7 @@ import {
 import { useFeatureStatus } from "@/lib/feature-flags";
 import { canOpen, forgetMyRights, useMyRights } from "@/lib/permissions";
 import { getPendingChanges } from "@/lib/policy-api";
+import { FeedbackDialog } from "@/components/feedback-dialog";
 import { getCurrentUser, isDemoMode, isPracticeRole, requireAuth, roleLabel, signOut } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { NotificationDropdown } from "@/components/notification-dropdown";
@@ -262,12 +263,21 @@ export function AppShell({
           .slice(0, 2)
           .toUpperCase();
         setCurrentUser({ name: me.fullName, role: roleLabel(me.role), initials });
+        setRoleCode(me.role);
       }
     });
     return () => {
       cancelled = true;
     };
   }, [navigate]);
+
+  // 086: ask for feedback on the way out (not the Admin, not the in-browser sample)
+  const [roleCode, setRoleCode] = useState("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const askThenSignOut = () => {
+    if (isDemoMode() || !roleCode || roleCode === "admin") void signOutToLogin();
+    else setFeedbackOpen(true);
+  };
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const notifications = useNotifications();
@@ -320,7 +330,7 @@ export function AppShell({
           <Button
             variant="outline"
             className="w-full justify-start gap-2 text-sm"
-            onClick={() => void signOutToLogin()}
+            onClick={askThenSignOut}
           >
             <LogOut className="size-4" />
             Sign out
@@ -368,7 +378,7 @@ export function AppShell({
           <Button
             variant="outline"
             className="w-full justify-start gap-2 text-sm"
-            onClick={() => void signOutToLogin()}
+            onClick={askThenSignOut}
           >
             <LogOut className="size-4" />
             Sign out
@@ -454,7 +464,7 @@ export function AppShell({
               variant="ghost"
               size="icon"
               aria-label="Sign out"
-              onClick={() => void signOutToLogin()}
+              onClick={askThenSignOut}
             >
               <LogOut className="size-4" />
             </Button>
@@ -488,6 +498,7 @@ export function AppShell({
         </main>
       </div>
       <ShortcutOverlay visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <FeedbackDialog open={feedbackOpen} onDone={() => void signOutToLogin()} />
       <Dialog
         open={showWarning}
         onOpenChange={(open) => {
