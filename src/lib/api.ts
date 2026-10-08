@@ -77,8 +77,9 @@ const applicationRowSchema = z.object({
   rate: row.rate,
   tenure: row.tenure_months,
   foir: row.foir_pct,
-  ltvExShowroom: row.ltv_pct,
-  ltvOnRoad: 0,
+  // Audit A5: the recommendation's LTV is on the on-road price; ex-showroom is worked out here.
+  ltvExShowroom: row.ex_showroom_price ? Math.round((row.loan_amount_requested / row.ex_showroom_price) * 1000) / 10 : 0,
+  ltvOnRoad: row.ltv_pct,
   netIncome: row.declared_net_salary,
   age: row.age_at_application,
   pan: row.pan_number,

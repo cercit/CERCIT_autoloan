@@ -57,9 +57,10 @@ export function calculateIncome(
       : 0;
   const incomeVarianceFlag = variancePct > 10;
 
+  // Audit A2: declared income is already take-home (net) salary, as in the database
+  // engine; no tax is taken off it again.
   const grossMonthlyIncome = declaredMonthlyIncome;
-  const estimatedTax = grossMonthlyIncome > 50000 ? (grossMonthlyIncome - 50000) * 0.2 : 0;
-  const netMonthlyIncome = grossMonthlyIncome - estimatedTax;
+  const netMonthlyIncome = grossMonthlyIncome;
 
   const existingEmiTotal = app.obligations.reduce((sum, o) => sum + o.emi, 0) + undeclaredEmi;
   const proposedEmi = emiFor(app.loanAmount, app.rate, app.tenure || 60);

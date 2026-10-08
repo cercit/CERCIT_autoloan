@@ -151,6 +151,10 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const variance =
     ((Math.max(...incomeSources.map((s) => s.amount)) - computedIncome) / computedIncome) * 100;
   const overrideNeeded = decision !== app.recommendation;
+  // Audit A1: a real case shows what the database engine decided. The browser engine
+  // below (runAssessment and friends) is only for the sample cases in prototype mode.
+  const headFoir = sample ? foir : app.foir;
+  const failedChecks = (app.ruleChecks ?? []).filter((c) => !c.pass);
   // A case that already has a final decision shows it, not the decision buttons
   const decided = app.status === "Sanctioned" || app.status === "Disbursed" || app.status === "Rejected";
   const incomeAssessment = calculateIncome(app);
@@ -232,22 +236,22 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">CIBIL</p>
           <p className={cn(
             "mt-1 text-2xl font-bold tabular tracking-tight",
-            app.cibil >= 750 ? "text-success" : app.cibil >= 650 ? "text-warning" : "text-destructive",
-          )}>{app.cibil}</p>
-          <p className="text-[11px] text-muted-foreground">{app.cibil >= 750 ? "Above threshold" : app.cibil >= 650 ? "Marginal" : "Below threshold"}</p>
+            !app.cibil ? "text-muted-foreground" : app.cibil >= 750 ? "text-success" : app.cibil >= 650 ? "text-warning" : "text-destructive",
+          )}>{app.cibil || "—"}</p>
+          <p className="text-[11px] text-muted-foreground">{!app.cibil ? "No bureau report yet" : app.cibil >= 750 ? "Above threshold" : app.cibil >= 650 ? "Marginal" : "Below threshold"}</p>
         </div>
         <div className="panel p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">FOIR</p>
           <p className={cn(
             "mt-1 text-2xl font-bold tabular tracking-tight",
-            foir > 50 ? "text-destructive" : "text-success",
-          )}>{foir.toFixed(1)}%</p>
-          <p className="text-[11px] text-muted-foreground">Threshold: 50%</p>
+            headFoir > 50 ? "text-destructive" : "text-success",
+          )}>{headFoir.toFixed(1)}%</p>
+          <p className="text-[11px] text-muted-foreground">{sample ? "Threshold: 50%" : "From the engine · limit 50%"}</p>
         </div>
         <div className="panel p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">LTV (ex-showroom)</p>
           <p className="mt-1 text-2xl font-bold tabular tracking-tight">{app.ltvExShowroom}%</p>
-          <p className="text-[11px] text-muted-foreground">Max: 120%</p>
+          <p className="text-[11px] text-muted-foreground">Max: 120%{app.ltvOnRoad ? ` · on-road ${app.ltvOnRoad}%` : ""}</p>
         </div>
         <div className="panel p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Loan amount</p>
@@ -283,7 +287,9 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                 AI Recommendation
               </p>
               <p className="mt-1 text-base font-semibold sm:text-lg">
-                {assessment.decision.decision} — {assessment.decision.reasons[0] ?? `${inr(app.loanAmount)} at ${assessment.decision.suggestedRate}% for ${app.tenure} months`}
+                {sample
+                  ? <>{assessment.decision.decision} — {assessment.decision.reasons[0] ?? `${inr(app.loanAmount)} at ${assessment.decision.suggestedRate}% for ${app.tenure} months`}</>
+                  : <>{app.recommendation} — {failedChecks[0]?.rule ?? app.flags[0] ?? `${inr(app.loanAmount)} at ${app.rate}% for ${app.tenure} months`}</>}
               </p>
             </div>
             <div className="p-4">
@@ -321,6 +327,28 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </SectionCard>
 
+          {!sample ? (
+          <Collapsible title="Assessment Breakdown" defaultOpen>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <LabelValue label="Recommendation" value={app.recommendation} />
+              <LabelValue label="Rate" value={app.rate ? `${app.rate}%` : "Not priced"} />
+              <LabelValue label="FOIR (engine)" value={`${app.foir}%`} />
+              <LabelValue label="LTV ex-showroom" value={`${app.ltvExShowroom}%`} />
+              <LabelValue label="LTV on-road" value={app.ltvOnRoad ? `${app.ltvOnRoad}%` : "Not worked out"} />
+              <LabelValue label="Rules not met" value={`${failedChecks.length} of ${(app.ruleChecks ?? []).length}`} />
+            </div>
+            {failedChecks.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                {failedChecks.map((c) => (
+                  <li key={c.rule} className="flex gap-2">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+                    {c.rule}: {c.actual || "missing"} (needs {c.expected})
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Collapsible>
+          ) : (
           <Collapsible title="Assessment Breakdown" defaultOpen>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <LabelValue label="Decision" value={assessment.decision.decision} />
@@ -341,8 +369,9 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               </ul>
             )}
           </Collapsible>
+          )}
 
-          {assessment.bureau.flags.length > 0 && (
+          {sample && assessment.bureau.flags.length > 0 && (
             <Collapsible title="Bureau Red Flags" defaultOpen right={
               <Pill tone="warning">{assessment.bureau.flags.length} flag{assessment.bureau.flags.length === 1 ? "" : "s"}</Pill>
             }>
@@ -360,7 +389,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </Collapsible>
           )}
 
-          {fraudCheck.flags.length > 0 && (
+          {sample && fraudCheck.flags.length > 0 && (
             <Collapsible title="Risk Flags" defaultOpen right={
               fraudCheck.hasCritical ? <Pill tone="destructive">Critical</Pill> : <Pill tone="warning">{fraudCheck.flags.length} flags</Pill>
             }>
@@ -585,6 +614,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </Collapsible>
 
+          {sample && (
           <Collapsible title="Income & Affordability (Engine)">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <LabelValue
@@ -656,6 +686,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               </div>
             </div>
           </Collapsible>
+          )}
 
           <Collapsible title="Vehicle & LTV">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -687,6 +718,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </div>
           </Collapsible>
 
+          {sample && (
           <Collapsible title="LTV Assessment (Engine)">
             <div className="space-y-4">
               <div>
@@ -744,6 +776,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               </div>
             </div>
           </Collapsible>
+          )}
 
           <Collapsible title="Policy Check Results">
             {checks.length === 0 && (
