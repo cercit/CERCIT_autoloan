@@ -3985,6 +3985,42 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 088 (audit A3): a rule that can't be checked sends the case to a person
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("missing data refers");
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("the engine is patched", (await one("select pg_get_functiondef('fn_run_policy_engine(uuid)'::regprocedure) like '%088 (audit A3)%' as v")).v, true);
+  await one("select fn_synthetic_generate(1, 60) as v");
+  // a case with a bureau score, a bank analysis and an income check that the engine approves
+  const ids = (await db.query(`select a.id from applications a
+      where a.origin = 'SYNTHETIC'
+        and exists (select 1 from bureau_reports b where b.application_id = a.id and b.score is not null)
+        and exists (select 1 from bank_statement_analyses k where k.application_id = a.id)
+        and exists (select 1 from income_assessments i where i.application_id = a.id)`)).rows.map((r) => r.id);
+  let clean = null;
+  for (const id of ids) {
+    const r = (await one("select fn_run_policy_engine($1) as v", [id])).v;
+    if (r.decision === "APPROVE") { clean = id; break; }
+  }
+  t.equal("found a case the engine approves with all its data", clean !== null, true);
+  if (clean) {
+    await db.query("delete from bank_statement_analyses where application_id = $1", [clean]);
+    const r = (await one("select fn_run_policy_engine($1) as v", [clean])).v;
+    const miss = r.results.find((x) => x.rule_id === "MISSING_DATA");
+    t.equal("without its bank analysis it goes to a person, not approved", r.decision, "MAYBE");
+    t.equal("what is missing is named", miss?.rule_name, "Data missing: bank statement analysis");
+    t.equal("the balance rule is missing, not a 100% pass",
+      r.results.filter((x) => /AMB|BAL/i.test(x.rule_id ?? "")).every((x) => x.result === "SKIPPED"), true);
+    t.equal("never an automatic reject for missing data", r.decision !== "REJECT", true);
+  }
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
