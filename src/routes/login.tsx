@@ -38,6 +38,15 @@ const PRACTICE_LOGINS = [
   { label: "Manager", email: "cercit+practice.manager@gmail.com", note: "sees every case, can override" },
   { label: "Head", email: "cercit+practice.head@gmail.com", note: "also drafts and simulates policy" },
 ];
+// Team logins (084): the real Head, Manager and Officer accounts. A button fills in
+// the login; the password is never printed. Passwords come from the build (GitHub
+// secrets), never this file. The Admin can undo their changes outside cases (085).
+const env = (k: string) => (import.meta.env[k] as string | undefined)?.trim();
+const TEAM_LOGINS = [
+  { label: "Head", email: "cercit+head@gmail.com", password: env("VITE_TEAM_HEAD_PASSWORD") },
+  { label: "Manager", email: "cercit+manager@gmail.com", password: env("VITE_TEAM_MANAGER_PASSWORD") },
+  { label: "Officer", email: "cercit+officer@gmail.com", password: env("VITE_TEAM_OFFICER_PASSWORD") },
+].filter((t) => isSupabaseConfigured && !!t.password);
 const DEMO_LOGIN = LIVE_DEMO
   ? { email: LIVE_DEMO_EMAIL!, password: LIVE_DEMO_PASSWORD! }
   : { email: DEMO_EMAIL, password: "demo" };
@@ -320,6 +329,30 @@ function StaffLogin() {
               >
                 Fill in the demo login
               </Button>
+              {TEAM_LOGINS.length > 0 && (
+                <>
+                  <p className="mt-3 text-xs text-muted-foreground">Or sign in as a member of the credit team:</p>
+                  <div className="mt-1.5 grid grid-cols-3 gap-2">
+                    {TEAM_LOGINS.map((t) => (
+                      <Button
+                        key={t.label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setByCode(false);
+                          setCodeSent(false);
+                          setError(null);
+                          setEmail(t.email);
+                          setPassword(t.password ?? "");
+                        }}
+                      >
+                        {t.label}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

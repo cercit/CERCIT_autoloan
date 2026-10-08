@@ -25,6 +25,11 @@ jobs:
       VITE_DEMO_PASSWORD: ${{ secrets.VITE_DEMO_PASSWORD }}
       # Shared password of the three practice logins (072, D3), shown on the sign-in page.
       VITE_PRACTICE_PASSWORD: ${{ secrets.VITE_PRACTICE_PASSWORD }}
+      # Team logins (084, 9 Oct): filled in by the Head / Manager / Officer buttons.
+      # Sameer's choice; the Admin can undo their non-case changes (085).
+      VITE_TEAM_HEAD_PASSWORD: ${{ secrets.VITE_TEAM_HEAD_PASSWORD }}
+      VITE_TEAM_MANAGER_PASSWORD: ${{ secrets.VITE_TEAM_MANAGER_PASSWORD }}
+      VITE_TEAM_OFFICER_PASSWORD: ${{ secrets.VITE_TEAM_OFFICER_PASSWORD }}
       # AWS document service (upload links, readers). A public API address, not a secret.
       VITE_AWS_API_URL: https://awycwf3qlk.execute-api.ap-south-1.amazonaws.com/prod
     steps:
