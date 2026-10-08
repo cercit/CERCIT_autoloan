@@ -186,7 +186,7 @@ const asOperator = () => asApi("", "");
 {
   const t = makeChecker("versioned policy");
   await asOperator();
-  await db.query(`insert into users (id, email, full_name, role) values ($1, 'pm@t.in', 'Policy Manager', 'policy_manager'), ($2, 'ch@t.in', 'Credit Head', 'credit_head')`, [A, B]);
+  await db.query(`insert into users (id, email, full_name, role) values ($1, 'pm@t.in', 'Policy Author', 'credit_head'), ($2, 'ch@t.in', 'Approver', 'admin')`, [A, B]);
 
   const base = await one("select id, status, is_baseline from policy_versions where version_code = '2026.08'");
   t.equal("baseline is active", [base.status, base.is_baseline], ["ACTIVE", true]);
@@ -291,8 +291,8 @@ const asOperator = () => asApi("", "");
   const CLERK = "cccccccc-0000-0000-0000-000000000003";
   await asOperator();
   await db.query(`insert into users (email, full_name, role, auth_user_id) values
-    ('author@t.in', 'Policy Author', 'policy_manager', $1),
-    ('head@t.in', 'Credit Head', 'credit_head', $2),
+    ('author@t.in', 'Policy Author', 'credit_head', $1),
+    ('head@t.in', 'Approver', 'admin', $2),
     ('clerk@t.in', 'Officer', 'credit_officer', $3)`, [AUTHOR, HEAD, CLERK]);
   const authorId = (await one("select id from users where auth_user_id = $1", [AUTHOR])).id;
   const headId = (await one("select id from users where auth_user_id = $1", [HEAD])).id;
@@ -325,7 +325,7 @@ const asOperator = () => asApi("", "");
   await asApi("authenticated", HEAD);
   await t.rejects("start date in the past", () => db.query("select fn_policy_approve($1, now() - interval '1 day')", [v.id]), /cannot start in the past/);
   await t.rejects("rejecting without a reason", () => db.query("select fn_policy_reject($1, '  ')", [v.id]), /a reason is required/);
-  await t.rejects("someone else withdraws it", () => db.query("select fn_policy_withdraw($1)", [v.id]), /proposed by someone else/);
+  await t.rejects("someone else withdraws it", () => db.query("select fn_policy_withdraw($1)", [v.id]), /proposed by someone else|permission denied: policy.author/);
 
   // The author takes it back, then sends it again
   await asApi("authenticated", AUTHOR);
@@ -338,7 +338,12 @@ const asOperator = () => asApi("", "");
   const own = await one("insert into policy_versions (product, version_code, rationale, tier) values ($1, 'T.9', 'Written by the approver', 'STANDARD') returning id", [P]);
   await db.query("insert into policy_documents (policy_version_id, document) select $1, document from policy_documents where policy_version_id = $2", [own.id, oldV.id]);
   await asApi("authenticated", HEAD);
-  await t.ok("credit head may also write policy", () => db.query("select fn_policy_submit($1, 'Own change')", [own.id]));
+  await t.rejects("since 083 the approver can't write policy", () => db.query("select fn_policy_submit($1, 'Own change')", [own.id]), /permission denied: policy.author/);
+  // a role holding both rights still can't approve its own change
+  await asOperator();
+  await db.query("insert into role_permissions (role_code, permission_code) values ('admin', 'policy.author')");
+  await asApi("authenticated", HEAD);
+  await t.ok("an approver who may also write policy proposes", () => db.query("select fn_policy_submit($1, 'Own change')", [own.id]));
   await t.rejects("approver approves own change", () => db.query("select fn_policy_approve($1, $2)", [own.id, later]), /someone else must approve/);
   await t.rejects("approver rejects own change", () => db.query("select fn_policy_reject($1, 'no')", [own.id]), /someone else must review/);
   t.equal("own change is marked as the approver's own in the queue",
@@ -346,6 +351,8 @@ const asOperator = () => asApi("", "");
   t.equal("author of the other change is unchanged",
     (await one("select authored_by = $1 as v from policy_versions where id = $2", [authorId, v.id])).v, true);
   void headId;
+  await asOperator();
+  await db.query("delete from role_permissions where role_code = 'admin' and permission_code = 'policy.author'");
 
   await asApi("authenticated", HEAD);
   await t.ok("credit head approves with a start date", () => db.query("select fn_policy_approve($1, $2, 'Agreed at the credit committee')", [v.id, later]));
@@ -420,8 +427,8 @@ const asOperator = () => asApi("", "");
 
   // Somebody else's draft
   await asApi("authenticated", HEAD);
-  await t.rejects("another person edits the draft", () => db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '9.5'::jsonb)", [draftId]), /belongs to someone else/);
-  await t.rejects("another person discards the draft", () => db.query("select fn_policy_draft_discard($1)", [draftId]), /belongs to someone else/);
+  await t.rejects("another person edits the draft", () => db.query("select fn_policy_draft_set_param($1, 'pricing.base_rate.approve', '9.5'::jsonb)", [draftId]), /belongs to someone else|permission denied: policy.author/);
+  await t.rejects("another person discards the draft", () => db.query("select fn_policy_draft_discard($1)", [draftId]), /belongs to someone else|permission denied: policy.author/);
 
   // The settings view shows draft against live
   await asApi("authenticated", AUTHOR);
@@ -900,10 +907,10 @@ const asOperator = () => asApi("", "");
     "Drafted", "Sent for approval", "Taken back by its author", "Sent for approval", "Approved", "Came into force",
   ], JSON.stringify(steps));
   t.equal("each step names who did it", steps.map((h) => h.actor), [
-    "Policy Author", "Policy Author", "Policy Author", "Policy Author", "Credit Head", "System",
+    "Policy Author", "Policy Author", "Policy Author", "Policy Author", "Approver", "System",
   ]);
   t.equal("recorded as it happened, not rebuilt", steps.every((h) => h.reconstructed === false), true);
-  t.equal("the reviewer's comment is there", hist.some((h) => h.event === "Review: approve" && h.actor === "Credit Head"), true);
+  t.equal("the reviewer's comment is there", hist.some((h) => h.event === "Review: approve" && h.actor === "Approver"), true);
   const note = (await db.query("select note from fn_policy_history($1) where event = 'Change request'", [id])).rows.map((r) => r.note).join(" ");
   t.equal("the withdrawal reason is kept", /wrong figure/.test(note), true, note);
   const replaced = (await one("select h.event, h.actor from fn_policy_history() h join policy_versions v on v.id = h.version_id where v.version_code = $1 and v.product = 'CAR_TEST' order by h.at desc limit 1", [liveCode]));
@@ -1068,22 +1075,23 @@ const asOperator = () => asApi("", "");
   const counts = Object.fromEntries((await db.query(
     "select role_code, count(*)::int as n from role_permissions group by role_code order by role_code")).rows.map((r) => [r.role_code, r.n]));
   // compliance: the 12 from 018, plus role.approve from 039; admin: 12, plus org.manage from 041;
-  // admin, credit head, credit manager and policy manager: plus employer.manage from 069; the practice roles from 072
+  // admin, credit head, credit manager and policy manager: plus employer.manage from 069; the practice roles from 072;
+  // admin: all 32 (081) less the 4 it no longer proposes (083); credit head: 26 (082) less 4 approvals plus role.manage (083)
   t.equal("every role keeps its 018 rights", counts,
-    { admin: 14, compliance: 13, credit_head: 21, credit_manager: 10, credit_officer: 7, demo_viewer: 5, policy_manager: 12,
+    { admin: 28, compliance: 13, credit_head: 23, credit_manager: 10, credit_officer: 7, demo_viewer: 5, policy_manager: 12,
       practice_head: 10, practice_manager: 7, practice_officer: 4, reviewer: 5, viewer: 3 });
   t.equal("officer rights read from the table", (await one("select fn_role_permissions('credit_officer') as v")).v,
     ["app.create", "app.decide", "app.evaluate", "app.view.own", "pii.reveal", "report.export", "report.view"]);
   const six = (await db.query("select code from roles where not is_legacy and is_active order by code")).rows.map((r) => r.code);
-  t.equal("six current roles, plus the public demo role (042) and the three practice roles (072)", six,
-    ["admin", "compliance", "credit_head", "credit_manager", "credit_officer", "demo_viewer", "policy_manager", "practice_head", "practice_manager", "practice_officer"]);
+  t.equal("current roles (policy manager and compliance merged into the credit head, 082), the demo role and the practice roles", six,
+    ["admin", "credit_head", "credit_manager", "credit_officer", "demo_viewer", "practice_head", "practice_manager", "practice_officer"]);
   const mfa = (await db.query("select code from roles where mfa_required order by code")).rows.map((r) => r.code);
   t.equal("MFA marked for the four privileged roles", mfa, ["admin", "compliance", "credit_head", "policy_manager"]);
   t.equal("admin idles out at 10 minutes", (await one("select idle_timeout_minutes as v from roles where code = 'admin'")).v, 10);
 
   // Conflicting pairs
   const conflicts = (await db.query("select role_code, waived from v_role_conflicts order by role_code")).rows;
-  t.equal("only waived conflicts exist", conflicts, [{ role_code: "admin", waived: true }, { role_code: "credit_head", waived: true }, { role_code: "practice_head", waived: true }]);
+  t.equal("only waived conflicts exist", conflicts, [{ role_code: "admin", waived: true }, { role_code: "admin", waived: true }, { role_code: "credit_head", waived: true }, { role_code: "practice_head", waived: true }]);
   await db.query("insert into roles (code, name, description) values ('test_role', 'Test', 'x')");
   await db.query("insert into role_permissions (role_code, permission_code) values ('test_role', 'app.decide')");
   await t.rejects("a role cannot get decide and author together",
@@ -1180,7 +1188,7 @@ const asOperator = () => asApi("", "");
   await t.rejects("bad email", () => save({ email: "not-an-email", role: "credit_officer" }), /valid email/);
   await t.rejects("unknown role", () => save({ email: "n2@t.in", role: "superuser" }), /does not exist/);
   await t.rejects("older role for a new person", () => save({ email: "n3@t.in", role: "viewer" }), /older role/);
-  await t.rejects("a sanction limit for a role that does not decide", () => save({ email: "n4@t.in", role: "policy_manager", limit: 100000 }), /has no sanction limit/);
+  await t.rejects("a sanction limit for a role that does not decide", () => save({ email: "n4@t.in", role: "viewer", limit: 100000 }), /has no sanction limit/);
   await t.rejects("unknown state", () => save({ email: "n5@t.in", role: "credit_officer", state: "ZZ" }), /unknown state/);
 
   await t.ok("admin changes the officer's limit", () => save({ id: created, email: "new.officer@t.in", name: "New Officer", role: "credit_manager", state: "KA", limit: 3000000, daily: 20 }));
@@ -1208,7 +1216,7 @@ const asOperator = () => asApi("", "");
   await t.rejects("an officer cannot list staff", () => db.query("select * from fn_admin_list_users()"), /permission denied: user.view/);
 
   await asOperator();
-  const ev = (await db.query("select event_type from audit_events where event_type like 'USER_%' order by created_at")).rows.map((r) => r.event_type);
+  const ev = (await db.query("select event_type from audit_events where event_type like 'USER_%' and actor_type <> 'SYSTEM' order by created_at")).rows.map((r) => r.event_type);
   t.equal("every change is audited", ev, ["USER_CREATED", "USER_CHANGED", "USER_SUSPENDED", "USER_REACTIVATED"]);
   const changed = await one("select event_detail->'before'->>'role' as b, event_detail->'after'->>'role' as a from audit_events where event_type = 'USER_CHANGED'");
   t.equal("the change keeps before and after", changed, { b: "credit_officer", a: "credit_manager" });
@@ -1224,11 +1232,13 @@ const asOperator = () => asApi("", "");
 {
   const t = makeChecker("role change approval");
   await asOperator();
-  const ADMIN = "abababab-0000-0000-0000-0000000000ab";
+  // since 083 the credit head proposes role changes and the admin approves them
+  const ADMIN = "abababab-0000-0000-0000-0000000000ac"; // the proposer (a credit head)
   const COMP = "c0c0c0c0-0000-0000-0000-0000000000c0";
   const OFFICER = "22222222-2222-2222-2222-222222222222";
-  await db.query("insert into users (email, full_name, role, auth_user_id) values ('comp@t.in', 'Compliance', 'compliance', $1)", [COMP]);
-  await db.query("insert into users (email, full_name, role, auth_user_id) values ('adm2@t.in', 'Second Admin', 'admin', 'adadadad-0000-0000-0000-0000000000ad')");
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('hd@t.in', 'Head', 'credit_head', $1)", [ADMIN]);
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('comp@t.in', 'Approver', 'admin', $1)", [COMP]);
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('hd2@t.in', 'Second Head', 'credit_head', 'adadadad-0000-0000-0000-0000000000ad')");
   const submit = (code, perms, opts = {}) => db.query(
     "select fn_role_request_submit($1, $2, $3, $4, $5, $6, $7, $8) as id",
     [code, opts.name ?? "Branch Auditor", opts.desc ?? "Reads cases for audits", perms, opts.mfa ?? false, opts.idle ?? 15, opts.active ?? true, opts.reason ?? "branch audit team needs read access"]);
@@ -1271,7 +1281,7 @@ const asOperator = () => asApi("", "");
 
   // Nobody approves their own proposal, even with both rights (operator sets up a test role)
   await asOperator();
-  await t.rejects("no role may hold propose and approve", () => db.query("insert into role_permissions (role_code, permission_code) values ('admin', 'role.approve')"), /cannot hold both/);
+  await t.rejects("no role may hold propose and approve", () => db.query("insert into role_permissions (role_code, permission_code) values ('credit_head', 'role.approve')"), /cannot hold both/);
 
   const ov = (await one("select fn_roles_overview() as v")).v;
   t.equal("overview lists roles, rights and requests", [ov.roles.some((r) => r.code === "branch_auditor"), ov.permissions.length > 25, ov.requests.length], [true, true, 3]);
@@ -1865,7 +1875,7 @@ const asOperator = () => asApi("", "");
     await asOperator();
     await db.query("select set_config('request.jwt.claims', '', false)");
   };
-  await db.query("insert into users (email, full_name, role, auth_user_id) values ('pm5@t.in', 'Rules Owner', 'policy_manager', $1)", [PM]);
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('pm5@t.in', 'Rules Owner', 'credit_head', $1)", [PM]);
 
   // A clean customer, start to submit.
   await db.query("set role authenticated");
@@ -3092,9 +3102,16 @@ const asOperator = () => asApi("", "");
   t.equal("an officer gets the officer's rights, the same list the database checks",
     [o.role, o.permissions.slice().sort()], ["credit_officer", (await one("select fn_role_permissions('credit_officer') as v")).v.slice().sort()]);
   t.equal("officers may see real customers", o.sees_real_customers, true);
-  await as(PM);
+  // the policy manager role is off since 082; a test role sees totals only, as it did
+  await db.query("reset role");
+  await asOperator();
+  await db.query("insert into roles (code, name, description) values ('test_totals', 'Totals viewer', 'test') on conflict (code) do nothing");
+  await db.query("insert into role_permissions (role_code, permission_code) values ('test_totals', 'app.view.aggregate'), ('test_totals', 'policy.view') on conflict do nothing");
+  const TOT = "33333333-3333-3333-3333-3333333333aa";
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('totals@t.in', 'Totals', 'test_totals', $1) on conflict (email) do nothing", [TOT]);
+  await as(TOT);
   const pm = (await one("select fn_my_permissions() as v")).v;
-  t.equal("the policy manager can't view users or decide cases", [pm.permissions.includes("user.view"), pm.permissions.includes("app.decide")], [false, false]);
+  t.equal("a totals-only role can't view users or decide cases", [pm.permissions.includes("user.view"), pm.permissions.includes("app.decide")], [false, false]);
   const dash = (await one("select fn_staff_dashboard(null) as v")).v;
   t.equal("with app.view.aggregate the dashboard gives totals but no case lists",
     [typeof dash.totals.total, dash.my_queue.length, dash.exceptions.length, dash.activity.length], ["number", 0, 0, 0]);
@@ -3190,6 +3207,10 @@ const asOperator = () => asApi("", "");
 {
   const t = makeChecker("employer master");
   const PM = "33333333-3333-3333-3333-333333333333";
+  // the policy manager role is off since 082: this login is a credit head now
+  await db.query("reset role");
+  await asOperator();
+  await db.query("update users set role = 'credit_head' where auth_user_id = $1", [PM]);
   const ADMIN = "abababab-0000-0000-0000-0000000000ab";
   const OFFICER = "22222222-2222-2222-2222-222222222222";
   const as = async (sub) => {
@@ -3348,7 +3369,7 @@ const asOperator = () => asApi("", "");
     await db.query("select set_config('request.jwt.claims', '', false)");
   };
   await operator();
-  await db.query("insert into users (email, full_name, role, auth_user_id) values ('head@rg.t', 'Head RG', 'credit_head', $1) on conflict do nothing", [HEAD]);
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('head@rg.t', 'Approver RG', 'admin', $1) on conflict do nothing", [HEAD]);
   const engineBefore = (await db.query("select band_label, rate_pct::float as r from rate_grid where is_active order by score_band_min desc")).rows;
 
   await as(OFFICER);
@@ -3382,6 +3403,8 @@ const asOperator = () => asApi("", "");
   t.equal("each moment has one grid in force", [(await one("select fn_rate_grid_version_at('CAR_NEW_SALARIED', '2026-09-01') as v")).v.version_no,
     (await one("select fn_rate_grid_version_at('CAR_NEW_SALARIED') as v")).v.version_no], [1, 2]);
 
+  // since 083 the approver doesn't write grids; give it the right briefly to show it still can't approve its own
+  await db.query("insert into role_permissions (role_code, permission_code) values ('admin', 'pricing.author')");
   await as(HEAD);
   const own = (await one("select fn_rate_grid_draft_create('CAR_NEW_SALARIED', 'put it back') as v")).v;
   const back = own.bands.map((b) => ({ ...b, rate_pct: engineBefore.find((e) => e.band_label === b.band_label).r }));
@@ -3390,6 +3413,7 @@ const asOperator = () => asApi("", "");
   await t.rejects("a credit head can't approve their own grid", () => db.query("select fn_rate_grid_decide($1, true)", [own.id]), /second person/);
   await operator();
   await db.query("select fn_rate_grid_decide($1, true, 'restore after test')", [own.id]);
+  await db.query("delete from role_permissions where role_code = 'admin' and permission_code = 'pricing.author'");
   t.equal("and a grid approved later restores the rates", (await db.query("select band_label, rate_pct::float as r from rate_grid where is_active order by score_band_min desc")).rows, engineBefore);
 
   await as(PM);
@@ -3855,6 +3879,66 @@ const asOperator = () => asApi("", "");
   await t.rejects("not from the website", () => db.query("select fn_erasure_find('x@y.z')"), /permission denied/);
   await db.query("reset role");
   await asOperator();
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 085: the Admin undoes what the team logins changed outside cases
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("team reset");
+  const HEAD = "85858585-0000-0000-0000-000000000001";
+  const ADM = "85858585-0000-0000-0000-000000000009";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated", aal: "aal2" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  await operator();
+  await db.query("update users set auth_user_id = $1 where email = 'cercit+head@gmail.com'", [HEAD]);
+  await db.query("insert into users (email, full_name, role, is_active, auth_user_id) values ('t.admin@t.in', 'T Admin', 'admin', true, $1) on conflict (email) do update set auth_user_id = $1, role = 'admin', is_active = true", [ADM]);
+  const before = await one("select enabled from document_auto_settings limit 1");
+  const rule = await one("select doc_type, check_code, enabled from document_check_rules order by doc_type, check_code limit 1");
+  const emp = await one("select id, name from employers order by name limit 1");
+
+  // the Head changes settings, drafts, adds things
+  await as(HEAD);
+  await db.query("select fn_staff_set_auto_rule($1)", [JSON.stringify({ settings: { enabled: !before.enabled } })]);
+  await db.query("select fn_staff_set_auto_rule($1)", [JSON.stringify({ doc_type: rule.doc_type, check: rule.check_code, enabled: !rule.enabled })]);
+  await db.query("select fn_employer_save($1, $2)", [emp.id, JSON.stringify({ name: emp.name + " (edited by team)" })]);
+  const added = (await one("select fn_employer_save(null, $1) as v", [JSON.stringify({ name: "Team Added Employer Pvt Ltd" })])).v;
+  await db.query("select fn_policy_draft_create('T85.1', 'team draft', 'STANDARD', 'CAR_NEW')");
+  await db.query("select fn_rate_grid_product_create('TEAM_PRODUCT', 'Team product', 'added by the team')");
+
+  // the Admin's own change is not journaled and must stay
+  await as(ADM);
+  const pend = (await one("select fn_team_pending() as v")).v;
+  t.equal("the Admin sees what the team changed", [pend.policy_drafts >= 1, pend.rate_drafts >= 1, pend.settings_rows >= 4], [true, true, true]);
+  await operator();
+  t.equal("nothing journaled for the Admin", Number((await one("select count(*) as n from team_change_journal where actor_id <> (select id from users where email = 'cercit+head@gmail.com')")).n), 0);
+
+  // a team login can't run the reset
+  await as(HEAD);
+  await t.rejects("the Head can't undo", () => db.query("select fn_team_reset()"), /permission denied/);
+
+  // the Admin undoes it
+  await as(ADM);
+  const out = (await one("select fn_team_reset() as v")).v;
+  await operator();
+  t.equal("settings rows put back", out.settings_rows_restored >= 4, true);
+  t.equal("auto-check switch as it was", (await one("select enabled from document_auto_settings limit 1")).enabled, before.enabled);
+  t.equal("check rule as it was", (await one("select enabled from document_check_rules where doc_type = $1 and check_code = $2", [rule.doc_type, rule.check_code])).enabled, rule.enabled);
+  t.equal("edited employer has its name back", (await one("select name from employers where id = $1", [emp.id])).name, emp.name);
+  t.equal("added employer removed", Number((await one("select count(*) as n from employers where id = $1", [added])).n), 0);
+  t.equal("policy draft cancelled", (await one("select status from policy_versions where version_code = 'T85.1'")).status, "CANCELLED");
+  t.equal("new rate product removed", Number((await one("select count(*) as n from pricing_products where code = 'TEAM_PRODUCT'")).n), 0);
+  t.equal("nothing left to undo", (await one("select fn_team_pending() as v")).v.settings_rows, 0);
+  t.equal("one audit entry", Number((await one("select count(*) as n from audit_events where event_type = 'TEAM_RESET'")).n) >= 1, true);
   failures += t.report();
 }
 
