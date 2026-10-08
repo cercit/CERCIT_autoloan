@@ -3942,6 +3942,41 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 086: feedback when someone signs out
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("sign-out feedback");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const ADM = "85858585-0000-0000-0000-000000000009";
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated", aal: "aal2" })]);
+  };
+  const send = (p) => db.query("select fn_feedback_submit($1) as id", [JSON.stringify(p)]);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("set role anon");
+  await t.rejects("the public can't send it", () => send({ experience: 5 }), /permission denied/);
+  await db.query("reset role");
+  await as(OFFICER);
+  await t.rejects("an empty form isn't saved", () => send({ needed: "  " }), /nothing to send/);
+  await t.rejects("stars are 1 to 5", () => send({ experience: 6 }), /rate from 1 to 5/);
+  await t.rejects("findability is yes, mostly or no", () => send({ findability: "maybe" }), /yes, mostly or no/);
+  await t.ok("an officer sends feedback", () => send({ experience: 4, findability: "mostly", needed: "A search box on the case list", bugs: "", page: "/applications" }));
+  await t.rejects("but can't read anyone's", () => db.query("select * from fn_feedback_list()"), /permission denied/);
+  await t.rejects("or the table", () => db.query("select * from app_feedback"), /permission denied/);
+  await as(ADM);
+  const rows = (await db.query("select * from fn_feedback_list()")).rows;
+  t.equal("the Admin reads it with the role, newest first", [rows[0].role_name, rows[0].experience, rows[0].findability, rows[0].needed, rows[0].bugs],
+    ["Credit Officer", 4, "MOSTLY", "A search box on the case list", null]);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
