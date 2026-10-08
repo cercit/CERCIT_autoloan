@@ -200,6 +200,8 @@ function StaffLogin() {
     }
   };
 
+  const showTeam = as !== "customer" && TEAM_LOGINS.length > 0;
+
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 via-background to-slate-100 dark:from-background dark:via-background dark:to-surface-subtle px-4 py-10">
       <div className="flex items-center justify-between px-2">
@@ -208,12 +210,14 @@ function StaffLogin() {
       </div>
 
       <div className="flex flex-1 items-center justify-center">
-        <div className="w-full max-w-sm">
+        <div className={showTeam ? "w-full max-w-sm md:max-w-3xl" : "w-full max-w-sm"}>
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-semibold tracking-tight">{copy.title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{copy.lead}</p>
           </div>
 
+          {/* With the team logins, the sign-in form and the role picker sit side by side (stacked on a phone). */}
+          <div className={showTeam ? "grid gap-4 md:grid-cols-2 md:items-stretch" : undefined}>
           <form onSubmit={onSubmit} className="panel space-y-4 p-6">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
@@ -297,15 +301,15 @@ function StaffLogin() {
             )}
           </form>
 
-          {as !== "customer" && TEAM_LOGINS.length > 0 && (
+          {showTeam && (
             // Team logins (084): one click fills in the login; the password is never shown.
-            <div className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm">
+            <div className="flex flex-col rounded-lg border border-dashed border-primary/40 bg-primary/5 p-6 text-sm">
               <p className="font-medium">Try cercit as the credit team</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Pick a role, then press Sign in. Every customer here is made up, so look around, decide cases and
-                try the rules.
+                1. Pick a role: the login fills in for you. 2. Press Sign in. Every customer here is made up, so look
+                around, decide cases and try the rules.
               </p>
-              <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
+              <div className="mt-4 grid flex-1 content-center gap-2">
                 {TEAM_LOGINS.map((t) => (
                   <Button
                     key={t.label}
@@ -328,6 +332,7 @@ function StaffLogin() {
               </div>
             </div>
           )}
+          </div>
 
           {as !== "customer" && TEAM_LOGINS.length === 0 && (
             // Fallback when the team passwords aren't in the build (local runs): the
