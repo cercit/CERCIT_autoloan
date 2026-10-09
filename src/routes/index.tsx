@@ -26,7 +26,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { buildTeam, carBrands, faqs, founders } from "@/lib/customer-data";
+import { carBrands, faqs } from "@/lib/customer-data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -203,102 +203,6 @@ function Landing() {
             </AccordionItem>
           ))}
         </Accordion>
-      </section>
-
-      <section id="founders" className="border-y border-border bg-surface-subtle">
-        <div className="mx-auto max-w-5xl px-4 py-20">
-          <p className="section-eyebrow text-center">Meet the founders</p>
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
-            One person and one AI, wearing every hat.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-muted-foreground">
-            cercit was built by two founders: one who knows car loans, and one that writes code and designs
-            screens. Here is who did what.
-          </p>
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            {founders.map((f) => (
-              <div key={f.name} className="panel flex flex-col rounded-xl p-6">
-                <div className="flex items-center gap-4">
-                  {f.image.endsWith(".jpg") ? (
-                    <img
-                      src={`${import.meta.env.BASE_URL}${f.image}`}
-                      alt={f.name}
-                      width={48}
-                      height={48}
-                      loading="lazy"
-                      className="size-12 shrink-0 rounded-full object-cover ring-2 ring-[#E8572A]/40"
-                    />
-                  ) : (
-                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#D97757]/12 ring-2 ring-[#D97757]/30">
-                      <img
-                        src={`${import.meta.env.BASE_URL}${f.image}`}
-                        alt={`${f.name} logo`}
-                        width={26}
-                        height={26}
-                        loading="lazy"
-                        className="size-[26px]"
-                      />
-                    </span>
-                  )}
-                  <div>
-                    <h3 className="text-lg font-semibold leading-tight">{f.name}</h3>
-                    <p className="text-sm text-muted-foreground">{f.role}</p>
-                  </div>
-                </div>
-                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{f.bio}</p>
-                <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Roles covered
-                </p>
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {f.hats.map((h) => (
-                    <li key={h} className="rounded-full border border-border px-2.5 py-1 text-xs">
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <h3 className="mt-14 text-center text-xl font-semibold">The wider team</h3>
-          <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-muted-foreground">
-            Claude led the technical work. These tools helped along the way, some directly and some behind the scenes.
-          </p>
-          <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {buildTeam.map((t) => (
-              <li key={t.name} className="flex gap-3 rounded-lg border border-border bg-card p-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-border">
-                  {t.logo ? (
-                    <img
-                      src={`${import.meta.env.BASE_URL}${t.logo}`}
-                      alt={`${t.name} logo`}
-                      width={20}
-                      height={20}
-                      loading="lazy"
-                      className="size-5"
-                    />
-                  ) : (
-                    <span className="text-xs font-bold text-slate-700">
-                      {t.name
-                        .split(/\s+/)
-                        .map((w) => w[0])
-                        .join("")
-                        .slice(0, 2)}
-                    </span>
-                  )}
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold">{t.name}</span>
-                  <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{t.what}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            No customer data was ever given to any of these tools. Where each model and each piece of data lives is
-            written up in the project's behind-the-scenes notes on GitHub.
-          </p>
-        </div>
       </section>
 
       <section className="cta-band">
