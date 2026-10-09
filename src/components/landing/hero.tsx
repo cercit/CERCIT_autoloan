@@ -41,7 +41,6 @@ const navLinks = [
   ["#why-cercit", "Why cercit"],
   ["#rates", "Rates"],
   ["#faqs", "FAQs"],
-  ["#founders", "Founders"],
 ] as const;
 
 const trust = [
