@@ -1,0 +1,270 @@
+<title>cercit: idea to launch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single reading column; a dated spine runs down the left, phases sit on it as bands; the to-do list follows as three groups. */
+:root {
+  --bg: #f6f8fc;
+  --surface: #ffffff;
+  --ink: #141a2b;
+  --muted: #5a6478;
+  --line: #dde3ef;
+  --brand: #2f5bea;
+  --brand-soft: #e8eefe;
+  --launch: #0e8a5f;
+  --launch-soft: #e3f5ee;
+  --warn: #b25e09;
+  --warn-soft: #fdf1e2;
+  --font-display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1422; --surface: #161d2f; --ink: #e8ecf6; --muted: #9aa5bd; --line: #26304a;
+    --brand: #7d9bff; --brand-soft: #1c2747; --launch: #4fd1a0; --launch-soft: #12302a;
+    --warn: #f0a85a; --warn-soft: #33250f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1422; --surface: #161d2f; --ink: #e8ecf6; --muted: #9aa5bd; --line: #26304a;
+  --brand: #7d9bff; --brand-soft: #1c2747; --launch: #4fd1a0; --launch-soft: #12302a;
+  --warn: #f0a85a; --warn-soft: #33250f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 15.5px; line-height: 1.6; padding-inline: 16px; padding-block: 40px 64px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* header */
+header { display: grid; gap: 14px; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); font-weight: 700; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.lede { color: var(--muted); max-width: 62ch; font-size: 16.5px; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 6px; }
+.stat { display: grid; }
+.stat b { font-family: var(--font-mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12.5px; color: var(--muted); }
+
+/* timeline */
+.section-head { display: grid; gap: 6px; margin-bottom: 22px; }
+h2 { font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+.section-head p { color: var(--muted); }
+.timeline { display: grid; gap: 30px; position: relative; }
+.phase { display: grid; grid-template-columns: 120px 1fr; gap: 0 24px; }
+.phase-date { padding-top: 3px; text-align: right; }
+.phase-date .mono { font-size: 12.5px; color: var(--muted); display: block; }
+.phase-date .tag { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--brand); }
+.phase-body { border-left: 2px solid var(--line); padding-left: 24px; position: relative; display: grid; gap: 12px; min-width: 0; }
+.phase-body::before {
+  content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--bg); border: 2px solid var(--brand);
+}
+h3 { font-size: 18px; font-weight: 700; }
+.phase-sum { color: var(--muted); }
+ul.events { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+ul.events li { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: baseline; }
+ul.events .d { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+ul.events strong { font-weight: 650; }
+
+.phase.launch .phase-body::before { background: var(--launch); border-color: var(--launch); width: 14px; height: 14px; left: -8px; }
+.phase.launch .phase-date .tag { color: var(--launch); }
+.launch-card {
+  background: var(--launch-soft); border-radius: 12px; padding: 18px 20px; display: grid; gap: 10px;
+}
+.launch-card h3 { color: var(--launch); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+
+/* to-do */
+.groups { display: grid; gap: 28px; }
+.group h3 { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+.pill { font-size: 11px; letter-spacing: .06em; padding: 2px 9px; border-radius: 999px; font-weight: 700; }
+.pill.now { background: var(--warn-soft); color: var(--warn); }
+.pill.next { background: var(--brand-soft); color: var(--brand); }
+.pill.later { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+ol.todo { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+ol.todo li { background: var(--surface); padding: 13px 16px; display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; }
+ol.todo .t { font-weight: 650; }
+ol.todo .who { font-size: 12px; color: var(--muted); white-space: nowrap; align-self: start; padding-top: 2px; }
+ol.todo .why { grid-column: 1 / -1; color: var(--muted); font-size: 14px; }
+
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 18px; }
+a { color: var(--brand); }
+a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+@media (max-width: 600px) {
+  .phase { grid-template-columns: 1fr; gap: 6px; }
+  .phase-date { text-align: left; padding-left: 26px; }
+  ul.events li { grid-template-columns: 1fr; gap: 0; }
+  ol.todo li { grid-template-columns: 1fr; }
+  ol.todo .who { white-space: normal; }
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">cercit · Credit Evaluation and Risk Compliance Intelligence Tool</div>
+  <h1>From a course idea to a live credit appraisal system in 50 days</h1>
+  <p class="lede">An AI-assisted car loan appraisal system for banks and NBFCs, built during the Masai × IIT Roorkee PM programme. AI reads the documents and scores the risk, policy rules decide, and a credit officer signs off.</p>
+  <div class="stats">
+    <div class="stat"><b>50</b><span>days, first commit to launch</span></div>
+    <div class="stat"><b>294</b><span>commits</span></div>
+    <div class="stat"><b>89</b><span>database migrations</span></div>
+    <div class="stat"><b>100</b><span>tables, all row-level secured</span></div>
+    <div class="stat"><b>9</b><span>AWS functions</span></div>
+    <div class="stat"><b>16,995</b><span>synthetic customers trained on</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="section-head">
+    <h2>The timeline</h2>
+    <p>Dates come from the git history and the project documents.</p>
+  </div>
+
+  <div class="timeline">
+
+    <div class="phase">
+      <div class="phase-date"><span class="tag">Ideation</span><span class="mono">Jul – 30 Aug</span></div>
+      <div class="phase-body">
+        <h3>The idea and the PRD</h3>
+        <p class="phase-sum">A day-job pain (officers writing 25–40 credit appraisal memos a day) met the PM course. Three AI-assisted research passes were merged into one PRD.</p>
+        <ul class="events">
+          <li><span class="d">Jul–Aug</span><span>Masai × IIT Roorkee PM course; picked salaried new-car loans as the problem</span></li>
+          <li><span class="d">Aug</span><span>Research from three angles: a 53-section solution blueprint, a 23-section technical spec, market research</span></li>
+          <li><span class="d">20 Aug</span><span><strong>First commit</strong>: a Lovable prototype as the starting shell</span></li>
+          <li><span class="d">30 Aug</span><span><strong>PRD v3.0</strong>: 20 open items closed; principle no. 1 is "Rules decide; AI assists"</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-date"><span class="tag">Foundation</span><span class="mono">29 Aug – 11 Sep</span></div>
+      <div class="phase-body">
+        <h3>A working skeleton, live on the web</h3>
+        <p class="phase-sum">Database, decision engine and the first screens, deployed from day 12.</p>
+        <ul class="events">
+          <li><span class="d">30 Aug</span><span>Supabase backend wired end to end: submit, assess, review</span></li>
+          <li><span class="d">31 Aug</span><span><strong>Site live</strong> on GitHub Pages</span></li>
+          <li><span class="d">2–3 Sep</span><span>Sanction and approval letters; decision engine pipeline; row-level security</span></li>
+          <li><span class="d">8–9 Sep</span><span>Prototype rebuilt for production: 128 type errors fixed, demo mode</span></li>
+          <li><span class="d">10–11 Sep</span><span>Customer landing page, loan application and status tracker</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-date"><span class="tag">Credit engine</span><span class="mono">16 – 24 Sep</span></div>
+      <div class="phase-body">
+        <h3>Cloud, risk model and credit control</h3>
+        <p class="phase-sum">The parts a lender would actually trust: document reading, a risk model, and controlled policy changes.</p>
+        <ul class="events">
+          <li><span class="d">16 Sep</span><span>AWS document pipeline (Textract, Rekognition) and the <strong>XGBoost risk model</strong>; PAN and mobile encrypted</span></li>
+          <li><span class="d">17–19 Sep</span><span>Policy changes go draft → impact test → approval → live; repayment history</span></li>
+          <li><span class="d">20 Sep</span><span>One-command deploy for the AWS functions</span></li>
+          <li><span class="d">22 Sep</span><span>Bank statement analysis with red flags</span></li>
+          <li><span class="d">24 Sep</span><span>Undeclared bureau loans send a case to a person; upload APIs locked to staff</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-date"><span class="tag">Customer + polish</span><span class="mono">25 Sep – 3 Oct</span></div>
+      <div class="phase-body">
+        <h3>The customer journey and the details</h3>
+        <p class="phase-sum">The customer side and a long fix list.</p>
+        <ul class="events">
+          <li><span class="d">25–26 Sep</span><span>Lender-grade landing page; investor and bank decks; roles and rights as data</span></li>
+          <li><span class="d">27 Sep</span><span>Customer onboarding with document uploads</span></li>
+          <li><span class="d">29 Sep</span><span>Automatic document checks and a fast lane for clean files</span></li>
+          <li><span class="d">1 Oct</span><span>Two credit bureaus, the worse score counts</span></li>
+          <li><span class="d">2–3 Oct</span><span>Fix-list sprint (81 commits in two days); daily simulation; how-it-works pack; real test documents erased</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-date"><span class="tag">Audit</span><span class="mono">4 – 8 Oct</span></div>
+      <div class="phase-body">
+        <h3>An outside audit, checked line by line</h3>
+        <p class="phase-sum">Outside AI agents were asked to break it. About a third of their findings were wrong or already fixed. Five were real.</p>
+        <ul class="events">
+          <li><span class="d">4 Oct</span><span>Audit brief and report; every finding verified against code or the live database</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase launch">
+      <div class="phase-date"><span class="tag">Launch</span><span class="mono">9 Oct</span></div>
+      <div class="phase-body">
+        <div class="launch-card">
+          <h3>Launched: try it, break it</h3>
+          <p>Everything a visitor needs to try it went in, along with the five audit fixes and the launch video.</p>
+          <div class="chips">
+            <span class="chip">Head / Manager / Officer logins</span>
+            <span class="chip">Head proposes, Admin approves</span>
+            <span class="chip">Admin undo for team changes</span>
+            <span class="chip">Sign-out feedback form</span>
+            <span class="chip">Audit fixes A1–A6</span>
+            <span class="chip">Missing data goes to a person</span>
+            <span class="chip">Tech deck + PDF</span>
+            <span class="chip">Launch video v3</span>
+            <span class="chip">LinkedIn post</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>What to do next</h2>
+    <p>From the task list and the fix list, in the order that matters after a launch.</p>
+  </div>
+
+  <div class="groups">
+    <div class="group">
+      <h3><span class="pill now">This week</span> Ride the launch</h3>
+      <ol class="todo">
+        <li><span class="t">Send the WhatsApp DMs and reply to every LinkedIn comment</span><span class="who">Sameer</span><span class="why">The first two or three days decide how far the post travels.</span></li>
+        <li><span class="t">Read the sign-out feedback daily</span><span class="who">Sameer</span><span class="why">Users page → feedback. Note where people got lost and what broke.</span></li>
+        <li><span class="t">Turn feedback into fix-list rows once a week</span><span class="who">Sameer + Claude</span><span class="why">Bugs first, then "couldn't find it" items.</span></li>
+        <li><span class="t">Decide the name-match rule (KYC-NAME)</span><span class="who">Sameer</span><span class="why">It is skipped on 1,740 of 1,748 cases. Feed it from the document cross-checks, or retire it.</span></li>
+      </ol>
+    </div>
+
+    <div class="group">
+      <h3><span class="pill next">Next</span> Close the open items</h3>
+      <ol class="todo">
+        <li><span class="t">Say yes to the sample documents (L1 + L2)</span><span class="who">Sameer, then Claude builds</span><span class="why">The design is ready. Each visitor gets their own made-up pack, so nobody uploads a real Aadhaar.</span></li>
+        <li><span class="t">Pick the welcome-email password option (G5)</span><span class="who">Sameer</span><span class="why">Waiting since 2 Oct.</span></li>
+        <li><span class="t">Confirm the market-sizing guesses</span><span class="who">Sameer</span><span class="why">Officer pay, engineer pay, and whether to charge per file or per file plus a yearly fee.</span></li>
+      </ol>
+    </div>
+
+    <div class="group">
+      <h3><span class="pill later">Later</span> Tell the story, then think production</h3>
+      <ol class="todo">
+        <li><span class="t">PM playbook (L6): market sizing to maintenance</span><span class="who">Sameer + Claude</span><span class="why">Chapter 1 (TAM / SAM / SOM) is already done.</span></li>
+        <li><span class="t">Business plan</span><span class="who">Sameer + Claude</span><span class="why">Starts from the market sizing and cost-per-file work.</span></li>
+        <li><span class="t">Before any real lender: the production checklist</span><span class="who">Both</span><span class="why">Switch off the daily simulation, purge synthetic data, real bureau and Account Aggregator links, a security audit.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Live demo: <a href="https://cercit.github.io/CERCIT_autoloan/">cercit.github.io/CERCIT_autoloan</a> · Every customer in the demo is synthetic.
+</footer>
+
+</div>
