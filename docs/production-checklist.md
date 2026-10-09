@@ -15,6 +15,8 @@ What the demo has switched on, or made up, that a real lender's database must no
 
 ## Check before going live
 
+- The RBI, security and audit gaps in `docs/fix-list.md` section R (R1–R9) are closed, or the lender has accepted each one in writing.
+
 - Every migration in `docs/migration-run-log.md` is ticked as run and checked.
 - `SELECT jobname FROM cron.job;` shows no simulation job.
 - `SELECT count(*) FROM applications WHERE origin = 'SYNTHETIC';` is 0.

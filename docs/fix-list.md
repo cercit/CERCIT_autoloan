@@ -129,6 +129,23 @@ Fix: page the list (e.g. 50 at a time, with search done in the database), fold t
 | G9 | **Refuse an Aadhaar we couldn't mask** (future build; Aadhaar masking check, 9 Oct, against a deep-research report on RBI KYC and Aadhaar masking). Today, if the reader can't find the number (blurry photo, unusual layout), the file is kept unmasked with `masked = false` and the customer isn't told. The RBI/PML rule (redact when authentication isn't needed) and UIDAI's checklist (mask before storing) mean it should be refused: "We couldn't hide your Aadhaar number. Upload a clearer copy, or a masked Aadhaar from the UIDAI site." Delete every version of the upload, as for a bad PDF | `aws/lambdas/document_finalize/handler.py` (+ the upload screen message) | S | AWS deploy (Sameer's OK) |
 | G10 | **Mask Aadhaar before it reaches storage** (future build, Phase 2; same check). Today the original sits in `incoming/` for the seconds before /finalize masks it (abandoned uploads expire in a day). The strictest reading of the rules is to mask in the browser before upload. Until then: a notice on the Aadhaar upload ("you can upload a masked Aadhaar from the UIDAI site") with the link | upload screen; later a browser-side masker | S now, L later | — |
 
+## R. RBI, security and audit gaps (added 9 Oct)
+
+From the 9 Oct checks: the Aadhaar masking report, the live audit-log and encryption check, and the RBI area-by-area review. cercit is "designed with RBI's rules in mind", not "RBI compliant": compliance belongs to the lender. These close the gaps a lender's compliance team would raise first.
+
+| # | Item | Why | Size | Needs |
+|---|---|---|---|---|
+| R1 | **Aadhaar masking, the rest:** check every page of a PDF, not only the first 3; record in the audit event that the incoming original was deleted, and which version of the masker ran; flag any "masked = no" to staff (with G9 refusing it) | The live audit log already shows one Aadhaar upload kept unmasked (28 Sep, a test upload since erased) and nothing flagged it | S | AWS deploy (Sameer's OK) |
+| R2 | **Move the PAN/mobile encryption key out of the database** (AWS KMS or Supabase Vault) | Today the key sits in a locked table in the same database as the data, so anyone with full database access could decrypt | M | SQL + AWS |
+| R3 | **Tamper-evident audit log:** chain each entry to the previous one (hash chain) and copy entries daily to S3 with Object Lock | App users can't edit the log, but the database owner can | M | SQL + AWS |
+| R4 | **CloudTrail trail** for the AWS account, with log file validation, kept in its own bucket | No trail is set up; AWS keeps only 90 days of activity by default | S | AWS (Sameer's OK) |
+| R5 | **Compliance map** in `docs/`: each RBI area (digital lending, KYC, fair practices, data in India, outsourcing and cyber security, AML, credit bureau reporting, AI model risk), what cercit does, the status and the source | One page to show anyone who asks "is it RBI compliant?" | S | — |
+| R6 | **Real KYC routes:** Aadhaar offline verification (signed QR / offline XML), CKYC registry fetch and upload, video KYC | Today KYC is document upload only | L | Partners; Phase 2 |
+| R7 | **Credit bureau reporting:** the monthly data file to the credit bureaus | Lenders must report every loan to the bureaus | M | Phase 2 |
+| R8 | **Anti-money-laundering:** flags for suspicious patterns and an export for reports to FIU-IND | PMLA reporting duty | M | Phase 2 |
+| R9 | **AI model governance:** model inventory, an independent validation report, drift monitoring and a kill switch for the risk model | RBI's draft model-risk guidance (June 2026) and the Governor's August speech | M | — |
+| R10 | **Lender-side, not cercit's build (note only):** reporting the lending app to RBI, IT outsourcing and cyber security audits, CERT-In incident reporting within 6 hours, board-approved policies | cercit would be audited as the lender's vendor | — | — |
+
 ## H. Not checked yet, and suggestions (added 2 Oct)
 
 | # | Item | Why | Size | Needs |
