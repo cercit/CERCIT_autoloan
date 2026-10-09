@@ -60,7 +60,7 @@ The case screen had shown the database's recommendation next to a second, differ
 | What | Where |
 |---|---|
 | Audit report and its check | `docs/audits/cercit-audit-report-2026-10-04.md`, `docs/audit-review-2026-10-04.md` |
-| Migrations | `docs/migration-run-log.md`: 001–087 live, 088 and 089 to run |
+| Migrations | `docs/migration-run-log.md`: 001–089 live |
 | Team logins and undo | `sql/082`–`085`, sign-in page, Users page |
 | Sign-out feedback | `sql/086`, `sql/087`, `src/components/feedback-dialog.tsx`, Users page |
 | Tech deck | `public/decks/tech.html`, `cercit-tech-deck.pdf`, made with `scripts/deck-pdf.mjs` |
