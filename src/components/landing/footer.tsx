@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Linkedin, Mail, MessageCircle, Phone, Twitter } from "lucide-react";
+import { Github, Linkedin, Mail, MessageCircle, Phone } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand";
 import { usePublicOrgInfo } from "@/lib/org-api";
@@ -89,12 +89,24 @@ export function LandingFooter() {
             cercit is a product demo. Not a licensed financial institution.
           </p>
           <div className="flex gap-2">
-            <span className="footer-social flex size-8 items-center justify-center rounded-md opacity-80">
+            <a
+              href="https://www.linkedin.com/in/sameersm"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Sameer on LinkedIn"
+              className="footer-social flex size-8 items-center justify-center rounded-md opacity-80 transition-opacity hover:opacity-100"
+            >
               <Linkedin className="size-4" />
-            </span>
-            <span className="footer-social flex size-8 items-center justify-center rounded-md opacity-80">
-              <Twitter className="size-4" />
-            </span>
+            </a>
+            <a
+              href="https://github.com/cercit/CERCIT_autoloan"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="cercit on GitHub"
+              className="footer-social flex size-8 items-center justify-center rounded-md opacity-80 transition-opacity hover:opacity-100"
+            >
+              <Github className="size-4" />
+            </a>
           </div>
         </div>
       </div>
