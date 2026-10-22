@@ -92,7 +92,7 @@ def _check_name_consistency(docs: dict) -> list[dict]:
     for i in range(len(doc_types)):
         for j in range(i + 1, len(doc_types)):
             a_type, b_type = doc_types[i], doc_types[j]
-            sim = _token_similarity(names[a_type].lower(), names[b_type].lower())
+            sim = name_score(names[a_type], names[b_type])
             checks.append({
                 "check": "name_consistency",
                 "doc_a": a_type,
@@ -100,7 +100,7 @@ def _check_name_consistency(docs: dict) -> list[dict]:
                 "value_a": names[a_type],
                 "value_b": names[b_type],
                 "similarity": round(sim, 2),
-                "passed": sim >= 0.85,
+                "passed": sim >= NAME_PASS,
             })
 
     return checks
@@ -114,7 +114,7 @@ def _check_employer_match(docs: dict) -> list[dict]:
     if not slip_employer or not f16_employer:
         return []
 
-    sim = _token_similarity(slip_employer.lower(), f16_employer.lower())
+    sim = org_score(slip_employer, f16_employer)
     return [{
         "check": "employer_match",
         "doc_a": "salary_slip",
@@ -122,7 +122,7 @@ def _check_employer_match(docs: dict) -> list[dict]:
         "value_a": slip_employer,
         "value_b": f16_employer,
         "similarity": round(sim, 2),
-        "passed": sim >= 0.85,
+        "passed": sim >= ORG_PASS,
     }]
 
 
@@ -214,10 +214,67 @@ def _normalize_date(raw: str) -> str:
     return raw
 
 
-def _token_similarity(a: str, b: str) -> float:
-    tokens_a = set(a.split())
-    tokens_b = set(b.split())
-    if not tokens_a or not tokens_b:
+# --- name matching: the same rules as the database's fn_doc_name_score (sql/052, 090) ---
+
+NAME_PASS = 0.80  # the document checks' bar; was 0.85 on a stricter score (22 Oct 2026)
+_TITLES = {"mr", "mrs", "ms", "dr", "shri", "smt", "kumari", "late"}
+_VARIANTS = {
+    "mohammed": ("mohammed", "mohammad", "mohamed", "mohamad", "muhammad", "muhammed", "mohd", "md"),
+    "lakshmi": ("lakshmi", "laxmi", "lakshmy", "laxmy"),
+    "srinivas": ("srinivas", "srinivasa", "sreenivas", "sreenivasa", "shreenivas", "shrinivas", "shreenivasa", "shrinivasa"),
+    "syed": ("syed", "sayed", "saiyed", "sayyed"),
+    "shaikh": ("shaikh", "shaik", "sheikh", "shk"),
+    "kumar": ("kumar", "kr"),
+    "venkatesh": ("venkatesh", "venkatesha", "venkatesan"),
+    "krishna": ("krishna", "krishnaa", "krisna"),
+    "narayan": ("narayan", "narayana", "narayanan"),
+    "subramanian": ("subramanian", "subramaniam", "subrahmanyam", "subramanyam"),
+}
+_CANON = {v: k for k, vs in _VARIANTS.items() for v in vs}
+
+
+def name_words(name: str) -> list[str]:
+    words = re.sub(r"[^a-z ]", " ", (name or "").lower()).split()
+    return [_CANON.get(w, w) for w in words if w not in _TITLES]
+
+
+def one_slip(a: str, b: str) -> bool:
+    """Two words of 5+ letters that differ by one letter (changed, added or dropped)."""
+    if a == b or min(len(a), len(b)) < 5 or abs(len(a) - len(b)) > 1:
+        return False
+    i = 0
+    while i < min(len(a), len(b)) and a[i] == b[i]:
+        i += 1
+    if len(a) == len(b):
+        return a[i + 1:] == b[i + 1:]
+    return a[i + 1:] == b[i:] if len(a) > len(b) else a[i:] == b[i + 1:]
+
+
+def name_score(p_a: str, p_b: str) -> float:
+    """Share of the shorter name's words found in the longer one. An initial matches
+    its word; one wrong letter in a 5+ letter word matches; at least one whole word must."""
+    a, b = name_words(p_a), name_words(p_b)
+    if not a or not b:
         return 0.0
-    overlap = tokens_a & tokens_b
-    return len(overlap) / max(len(tokens_a), len(tokens_b))
+    s, l = (a, b) if len(a) <= len(b) else (b, a)
+    hit = whole = 0
+    for w in s:
+        if w in l:
+            hit += 1
+            whole += len(w) > 1
+        elif len(w) >= 5 and any(one_slip(w, x) for x in l):
+            hit += 1
+            whole += 1
+        elif any((len(w) == 1 and x[0] == w) or (len(x) == 1 and w[0] == x) for x in l):
+            hit += 1
+    return 0.0 if whole == 0 else round(hit / len(s), 2)
+
+
+ORG_PASS = 0.60  # the document checks' employer bar (sql/052)
+_ORG_WORDS = {"pvt", "private", "ltd", "limited", "llp", "inc", "the", "co", "company", "corp", "corporation", "india", "and"}
+
+
+def org_score(p_a: str, p_b: str) -> float:
+    """Employer names, as the database's fn_doc_org_score: drop the words every company name has."""
+    keep = lambda n: " ".join(w for w in re.sub(r"[^a-z ]", " ", (n or "").lower()).split() if w not in _ORG_WORDS)
+    return name_score(keep(p_a), keep(p_b))
