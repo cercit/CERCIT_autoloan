@@ -346,6 +346,59 @@ Resources:
         AllowMethods: "'GET,POST,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
 
+  # R3 (sql/092): a locked copy of the audit chain. Object Lock keeps every file
+  # unchanged for a year (GOVERNANCE mode). Retained if the stack is ever deleted.
+  AuditArchiveBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "cercit-audit-${AWS::AccountId}"
+      ObjectLockEnabled: true
+      ObjectLockConfiguration:
+        ObjectLockEnabled: Enabled
+        Rule:
+          DefaultRetention:
+            Mode: GOVERNANCE
+            Days: 365
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  AuditExportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-audit-export
+      CodeUri: lambdas/audit_export/
+      Handler: handler.handler
+      Timeout: 300
+      Environment:
+        Variables:
+          AUDIT_BUCKET: !Ref AuditArchiveBucket
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: [s3:PutObject]
+              Resource: !Sub "arn:aws:s3:::cercit-audit-${AWS::AccountId}/*"
+            - Effect: Allow
+              Action: [s3:ListBucket]
+              Resource: !Sub "arn:aws:s3:::cercit-audit-${AWS::AccountId}"
+      Events:
+        Nightly:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 20 * * ? *)   # 02:00 IST
+            Description: Copy new audit-chain links to the locked bucket
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint
