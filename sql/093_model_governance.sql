@@ -63,8 +63,9 @@ CREATE TABLE IF NOT EXISTS model_scores (
 ALTER TABLE model_scores ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON model_scores FROM PUBLIC, anon, authenticated;
 
--- Called by the case screen after it scores a case. p_scores: [{model_version, probability, grade, shown}]
-CREATE OR REPLACE FUNCTION fn_record_model_scores(p_application UUID, p_scores JSONB)
+-- Called by the case screen after it scores a case (p_application = the application number).
+-- p_scores: [{model_version, probability, grade, shown}]
+CREATE OR REPLACE FUNCTION fn_record_model_scores(p_application TEXT, p_scores JSONB)
 RETURNS INT
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -72,6 +73,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_staff UUID := fn_current_staff_id();
+  v_app UUID;
   v_origin TEXT;
   s JSONB;
   n INT := 0;
@@ -79,7 +81,7 @@ BEGIN
   IF v_staff IS NULL THEN
     RAISE EXCEPTION 'staff sign-in required' USING ERRCODE = '42501';
   END IF;
-  SELECT origin INTO v_origin FROM applications WHERE id = p_application;
+  SELECT id, origin INTO v_app, v_origin FROM applications WHERE application_id = p_application;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'application not found' USING ERRCODE = 'P0002';
   END IF;
@@ -89,7 +91,7 @@ BEGIN
   FOR s IN SELECT * FROM jsonb_array_elements(coalesce(p_scores, '[]'::JSONB)) LOOP
     CONTINUE WHEN NOT EXISTS (SELECT 1 FROM model_versions WHERE model_version = s->>'model_version');
     INSERT INTO model_scores (application_id, model_version, probability, grade, shown, scored_by)
-    VALUES (p_application, s->>'model_version', (s->>'probability')::NUMERIC, s->>'grade',
+    VALUES (v_app, s->>'model_version', (s->>'probability')::NUMERIC, s->>'grade',
             coalesce((s->>'shown')::BOOLEAN, false), v_staff)
     ON CONFLICT (application_id, model_version) DO UPDATE
       SET probability = excluded.probability, grade = excluded.grade, shown = excluded.shown,
@@ -99,8 +101,8 @@ BEGIN
   RETURN n;
 END;
 $$;
-REVOKE ALL ON FUNCTION fn_record_model_scores(UUID, JSONB) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION fn_record_model_scores(UUID, JSONB) TO authenticated;
+REVOKE ALL ON FUNCTION fn_record_model_scores(TEXT, JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION fn_record_model_scores(TEXT, JSONB) TO authenticated;
 
 -- 3. Kill switch -----------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS model_controls (

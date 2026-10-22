@@ -16,8 +16,7 @@ import {
   Users2,
   X,
   Inbox,
-  Wallet,
-} from "lucide-react";
+  Wallet, BrainCircuit } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { BrandLogo } from "@/components/brand";
@@ -71,6 +70,7 @@ const nav: {
   { to: "/users", label: "Users", icon: Users2 },
   { to: "/roles", label: "Roles", icon: KeyRound },
   { to: "/organisation", label: "Organisation", icon: Landmark },
+  { to: "/models", label: "Risk models", icon: BrainCircuit },
   { to: "/audit-log", label: "Audit Log", icon: Clock },
 ];
 

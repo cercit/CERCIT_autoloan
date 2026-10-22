@@ -20,6 +20,7 @@ import { Route as DocumentChecksRouteImport } from './routes/document-checks'
 import { Route as EmployersRouteImport } from './routes/employers'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ModelsRouteImport } from './routes/models'
 import { Route as MyLoanRouteImport } from './routes/my-loan'
 import { Route as OrganisationRouteImport } from './routes/organisation'
 import { Route as PolicyRulesRouteImport } from './routes/policy-rules'
@@ -92,6 +93,11 @@ const LegalRoute = LegalRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelsRoute = ModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyLoanRoute = MyLoanRouteImport.update({
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/models': typeof ModelsRoute
   '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/models': typeof ModelsRoute
   '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/employers': typeof EmployersRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/models': typeof ModelsRoute
   '/my-loan': typeof MyLoanRoute
   '/organisation': typeof OrganisationRoute
   '/policy-rules': typeof PolicyRulesRoute
@@ -295,6 +304,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/models'
     | '/my-loan'
     | '/organisation'
     | '/policy-rules'
@@ -326,6 +336,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/models'
     | '/my-loan'
     | '/organisation'
     | '/policy-rules'
@@ -357,6 +368,7 @@ export interface FileRouteTypes {
     | '/employers'
     | '/legal'
     | '/login'
+    | '/models'
     | '/my-loan'
     | '/organisation'
     | '/policy-rules'
@@ -389,6 +401,7 @@ export interface RootRouteChildren {
   EmployersRoute: typeof EmployersRoute
   LegalRoute: typeof LegalRoute
   LoginRoute: typeof LoginRoute
+  ModelsRoute: typeof ModelsRoute
   MyLoanRoute: typeof MyLoanRoute
   OrganisationRoute: typeof OrganisationRoute
   PolicyRulesRoute: typeof PolicyRulesRoute
@@ -486,6 +499,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/models': {
+      id: '/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof ModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-loan': {
@@ -629,6 +649,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmployersRoute: EmployersRoute,
   LegalRoute: LegalRoute,
   LoginRoute: LoginRoute,
+  ModelsRoute: ModelsRoute,
   MyLoanRoute: MyLoanRoute,
   OrganisationRoute: OrganisationRoute,
   PolicyRulesRoute: PolicyRulesRoute,

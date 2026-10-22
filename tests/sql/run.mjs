@@ -4165,7 +4165,8 @@ const asOperator = () => asApi("", "");
   await db.query("insert into model_versions (model_version, status, effective_from, notes) values ('cercit-risk-v1', 'RETIRED', '2026-09-16', 'v1') on conflict do nothing");
   await db.query("insert into model_versions (model_version, status, effective_from, notes) values ('cercit-risk-v3-test', 'SHADOW', now(), 'a challenger scored in shadow') on conflict do nothing");
   await one("select fn_synthetic_generate(1, 41) as v");
-  const app = (await one("select id from applications where origin = 'SYNTHETIC' limit 1")).id;
+  const appRow = await one("select id, application_id from applications where origin = 'SYNTHETIC' limit 1");
+  const app = appRow.id;
   const active = (await one("select model_version from model_versions where status = 'ACTIVE'")).model_version;
   const as = async (sub) => {
     await db.query("set role authenticated");
@@ -4179,7 +4180,7 @@ const asOperator = () => asApi("", "");
   };
 
   await as(OFFICER);
-  const n = (await one("select fn_record_model_scores($1, $2::jsonb) as v", [app, JSON.stringify([
+  const n = (await one("select fn_record_model_scores($1, $2::jsonb) as v", [appRow.application_id, JSON.stringify([
     { model_version: active, probability: 0.0123, grade: "B", shown: true },
     { model_version: "cercit-risk-v3-test", probability: 0.0201, grade: "B", shown: false },
     { model_version: "no-such-model", probability: 0.5, grade: "E", shown: false },
@@ -4188,7 +4189,7 @@ const asOperator = () => asApi("", "");
   t.equal("everyone signed in can read the switch", (await one("select fn_model_controls() as v")).v.scores_shown, true);
   await t.rejects("an officer can't switch the score off", () => db.query("select fn_set_model_scores_shown(false, 'testing it')"), /permission denied/);
   await operator();
-  await t.rejects("scores can't be saved without a staff sign-in", () => db.query("select fn_record_model_scores($1, '[]'::jsonb)", [app]), /staff sign-in required/);
+  await t.rejects("scores can't be saved without a staff sign-in", () => db.query("select fn_record_model_scores($1, '[]'::jsonb)", [appRow.application_id]), /staff sign-in required/);
 
   await as(ADMIN);
   await t.rejects("switching off needs a reason", () => db.query("select fn_set_model_scores_shown(false, '')"), /give a reason/);

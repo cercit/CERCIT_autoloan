@@ -5,6 +5,7 @@ import { buildRiskFeatures, buildPolicyInput, getCaseRiskFeatures, type RiskFeat
 import type { RiskFeatures } from "@/lib/risk-score-model";
 import { computeRiskScore, type RiskScoreResult } from "@/lib/risk-score-model";
 import { CHALLENGER_VERSION } from "@/lib/onnx-inference";
+import { getModelControls, recordModelScores, type ModelControls } from "@/lib/models-api";
 import { evaluatePolicy, POLICY_RULES } from "@/lib/policy-rule-engine";
 import type { Application, BureauReport, BankStatementSummary } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,19 @@ export function MlRiskCard({
   const [result, setResult] = useState<RiskScoreResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [challenger, setChallenger] = useState<RiskScoreResult | null>(null);
+  // R9: the Admin can switch the score off (kill switch); scores are saved for the comparison.
+  const [controls, setControls] = useState<ModelControls | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getModelControls().then((c) => { if (!cancelled) setControls(c); });
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
+    if (!result || !fromDb) return;
+    const scores = [{ modelVersion: result.modelVersion, probability: result.defaultProbability, grade: result.grade, shown: true }];
+    if (challenger) scores.push({ modelVersion: challenger.modelVersion, probability: challenger.defaultProbability, grade: challenger.grade, shown: false });
+    void recordModelScores(app.id, scores).catch(() => undefined);
+  }, [result, challenger, fromDb, app.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +77,12 @@ export function MlRiskCard({
 
   return (
     <div className="space-y-4">
-      {error ? (
+      {controls && !controls.scoresShown ? (
+        <p className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
+          The risk score is switched off by the Admin{controls.reason ? `: ${controls.reason}` : ""}. Decide on the
+          policy checks and the documents.
+        </p>
+      ) : error ? (
         <p className="text-sm text-red-600">ML scoring unavailable: {error}</p>
       ) : result ? (
         <RiskScoreExplainer result={result} />
@@ -83,7 +102,7 @@ export function MlRiskCard({
         </p>
       )}
 
-      {result && challenger && (
+      {result && challenger && controls?.scoresShown !== false && (
         <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
           Retrained model ({challenger.modelVersion}, not yet signed off): grade{" "}
           <span className="font-semibold text-foreground">{challenger.grade}</span>, chance of 30+ days late{" "}

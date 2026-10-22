@@ -86,6 +86,7 @@ export const PAGE_RIGHTS: Record<string, { any: string[]; all?: string[] }> = {
   "/users": { any: ["user.view"] },
   "/roles": { any: ["role.manage", "role.approve", "user.view"] },
   "/organisation": { any: ["org.manage"] },
+  "/models": { any: ["model.view", "model.approve"] },
   "/audit-log": { any: ["audit.view"] },
 };
 

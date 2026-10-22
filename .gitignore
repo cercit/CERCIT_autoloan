@@ -49,3 +49,4 @@ tasks/
 
 # settings backups exported by scripts/backup-settings.mjs (H7)
 backups/
+__pycache__/
