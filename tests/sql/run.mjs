@@ -4089,6 +4089,36 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 091: the encryption key is read from Vault first
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("PII key in Vault");
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  const cid = (await one("select id from customers where mobile_enc is not null limit 1")).id;
+  const before = (await one("select fn_pii_decrypt(mobile_enc) as m from customers where id = $1", [cid])).m;
+  t.equal("without Vault the key comes from app_secrets, as before", before !== null, true);
+  // a stand-in for Supabase Vault, holding the same key
+  await db.query("create schema if not exists vault");
+  await db.query("create table vault.secrets (name text primary key, secret text not null)");
+  await db.query("create view vault.decrypted_secrets as select name, secret as decrypted_secret from vault.secrets");
+  await db.query("insert into vault.secrets select name, value from app_secrets where name = 'pii_key'");
+  const real = (await one("select value from app_secrets where name = 'pii_key'")).value;
+  await db.query("update app_secrets set value = 'not-the-key' where name = 'pii_key'");
+  t.equal("with Vault the key comes from Vault (app_secrets no longer needed)",
+    (await one("select fn_pii_decrypt(mobile_enc) as m from customers where id = $1", [cid])).m, before);
+  t.equal("new records encrypt and decrypt with the Vault key",
+    (await one("select fn_pii_decrypt(fn_pii_encrypt('9876500999')) as m")).m, "9876500999");
+  await db.query("update app_secrets set value = $1 where name = 'pii_key'", [real]);
+  await db.query("drop schema vault cascade");
+  t.equal("anon and signed-in users can't call fn_pii_key",
+    (await one("select has_function_privilege('authenticated', 'fn_pii_key()', 'execute') as a, has_function_privilege('anon', 'fn_pii_key()', 'execute') as b")),
+    { a: false, b: false });
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
