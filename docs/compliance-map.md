@@ -19,7 +19,7 @@ Status: ✅ built · ⚠️ built with known gaps · ❌ not built · 🏦 the l
 | **Anti-money-laundering** (PMLA) | Flag suspicious transactions; report to FIU-IND | Not built | ❌ Phase 2 (R8) | — |
 | **Data stored in India** | Lending data kept in India | Database (Supabase) and documents (AWS S3, Textract) in Mumbai | ✅ | `docs/behind-the-scenes` |
 | **Data protection** (DPDP Act 2023; core duties from about 13 May 2027) | Consent, purpose limits, security safeguards, erasure, breach reporting | Consent checkboxes; erasure on request and retention dates; PAN and mobile encrypted; row-level security on every table | ⚠️ encryption key sits in the same database (R2) | `docs/data-protection.md`, 012, 080 |
-| **Audit trail** | Who did what and when, kept safe from change | 29 kinds of event logged; app users can't edit or delete | ⚠️ the database owner can; no hash chain or locked copy (R3); no AWS CloudTrail (R4) | Audit Log page |
+| **Audit trail** | Who did what and when, kept safe from change | 29 kinds of event logged; app users can't edit or delete | ⚠️ the database owner can; no hash chain or locked copy yet (R3). AWS CloudTrail on since 22 Oct (R4) | Audit Log page |
 | **Bad-loan recognition** (90+ days past due) | Classify NPAs on time | Repayment tracking and NPA at 90+ days in the loan book | ✅ | 056, 075 |
 | **Record retention** | Keep KYC and loan records for the required years | 8-year retention on documents; retention dates and an erasure queue | ✅ | 080 |
 | **Reporting the lending app to RBI** | The lender reports its digital lending apps | — | 🏦 | — |
@@ -32,6 +32,6 @@ Status: ✅ built · ⚠️ built with known gaps · ❌ not built · 🏦 the l
 
 ## Gaps, in build order
 
-R1 done (22 Oct, deploy pending) · R4 CloudTrail · R2 key out of the database · R3 tamper-evident audit log · R9 model governance · G10 browser-side masking · R6–R8 need partners (Phase 2) · R10 lender-side.
+R1 done (22 Oct) · R4 done (22 Oct) · R2 key out of the database · R3 tamper-evident audit log · R9 model governance · G10 browser-side masking · R6–R8 need partners (Phase 2) · R10 lender-side.
 
 Sources: RBI KYC amendment of 29 May 2019 (RBI/2018-19/190) and PML Rules 9(16); RBI KYC Directions 2025 (RBI/DOR/2025-26/169); UIDAI masked-Aadhaar format; DPDP Rules notified 13 Nov 2025; RBI draft guidance on model risk management (June 2026); Governor Malhotra at FIBAC (Aug 2026). The 9 Oct checks are summarised in `docs/fix-list.md` section R.
