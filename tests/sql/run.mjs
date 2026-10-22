@@ -4151,6 +4151,61 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 093: AI model governance
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("model governance");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const ADMIN = "a9a9a9a9-0000-0000-0000-0000000000a9";
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('gov-admin@t.in', 'Model Admin', 'admin', $1) on conflict do nothing", [ADMIN]);
+  await db.query("insert into model_versions (model_version, status, effective_from, notes) values ('cercit-risk-v1', 'RETIRED', '2026-09-16', 'v1') on conflict do nothing");
+  await db.query("insert into model_versions (model_version, status, effective_from, notes) values ('cercit-risk-v3-test', 'SHADOW', now(), 'a challenger scored in shadow') on conflict do nothing");
+  await one("select fn_synthetic_generate(1, 41) as v");
+  const app = (await one("select id from applications where origin = 'SYNTHETIC' limit 1")).id;
+  const active = (await one("select model_version from model_versions where status = 'ACTIVE'")).model_version;
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+
+  await as(OFFICER);
+  const n = (await one("select fn_record_model_scores($1, $2::jsonb) as v", [app, JSON.stringify([
+    { model_version: active, probability: 0.0123, grade: "B", shown: true },
+    { model_version: "cercit-risk-v3-test", probability: 0.0201, grade: "B", shown: false },
+    { model_version: "no-such-model", probability: 0.5, grade: "E", shown: false },
+  ])])).v;
+  t.equal("an officer's screen saves the live and the shadow score (unknown models skipped)", n, 2);
+  t.equal("everyone signed in can read the switch", (await one("select fn_model_controls() as v")).v.scores_shown, true);
+  await t.rejects("an officer can't switch the score off", () => db.query("select fn_set_model_scores_shown(false, 'testing it')"), /permission denied/);
+  await operator();
+  await t.rejects("scores can't be saved without a staff sign-in", () => db.query("select fn_record_model_scores($1, '[]'::jsonb)", [app]), /staff sign-in required/);
+
+  await as(ADMIN);
+  await t.rejects("switching off needs a reason", () => db.query("select fn_set_model_scores_shown(false, '')"), /give a reason/);
+  t.equal("the Admin can switch the score off", (await one("select fn_set_model_scores_shown(false, 'drift found in October') as v")).v.scores_shown, false);
+  const inv = (await one("select fn_model_inventory() as v")).v;
+  const v3 = inv.find((m) => m.model_version === "cercit-risk-v3-test");
+  t.equal("the inventory lists every model, with cases scored", [inv.length >= 3, v3?.status, v3?.cases_scored], [true, "SHADOW", 1]);
+  const cmp = (await one("select fn_model_comparison(1) as v")).v;
+  t.equal("the comparison covers every model", [cmp.months_on_book, cmp.models.length >= 3], [1, true]);
+  t.equal("switching back on", (await one("select fn_set_model_scores_shown(true, 'checked and fixed') as v")).v.scores_shown, true);
+  await operator();
+  t.equal("each switch is audited", (await one("select count(*)::int as n from audit_events where event_type = 'MODEL_SWITCHED'")).n, 2);
+  await db.query("delete from model_scores where application_id = $1", [app]);
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
