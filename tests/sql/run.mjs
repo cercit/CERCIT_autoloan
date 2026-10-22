@@ -4119,6 +4119,38 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 092: tamper-evident audit log
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("tamper-evident audit log");
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  let v = (await one("select fn_audit_chain_verify() as v")).v;
+  t.equal("every existing event is chained and the chain checks out", [v.ok, v.unchained, v.broken_links, v.altered], [true, 0, 0, 0]);
+  const links = v.links;
+  const ev = (await one("insert into audit_events (event_type, actor_type, event_detail) values ('LOGIN', 'SYSTEM', '{\"who\":\"test\"}') returning id")).id;
+  v = (await one("select fn_audit_chain_verify() as v")).v;
+  t.equal("a new event is chained as it is written", [v.links, v.ok], [links + 1, true]);
+  await db.query("update audit_events set event_detail = '{\"who\":\"someone else\"}' where id = $1", [ev]);
+  v = (await one("select fn_audit_chain_verify() as v")).v;
+  t.equal("editing an event is caught", [v.ok, v.altered], [false, 1]);
+  await db.query("update audit_events set event_detail = '{\"who\":\"test\"}' where id = $1", [ev]);
+  t.equal("putting it back makes it check out again", (await one("select fn_audit_chain_verify() as v")).v.ok, true);
+  await db.query("delete from audit_events where id = $1", [ev]);
+  v = (await one("select fn_audit_chain_verify() as v")).v;
+  t.equal("a deleted event shows as removed (legitimate after a purge or erasure)", [v.removed >= 1, v.broken_links], [true, 0]);
+  await t.rejects("the chain can't be edited", () => db.query("update audit_chain set content_hash = 'x' where seq = 1"), /can only be added to/);
+  await t.rejects("or deleted from", () => db.query("delete from audit_chain where seq = 1"), /can only be added to/);
+  const x = (await one("select fn_audit_export(0, 2) as v")).v;
+  t.equal("the export hands over links with their events, oldest first", [x.length, x[0].seq < x[1].seq, typeof x[0].event], [2, true, "object"]);
+  t.equal("only the service key can export",
+    await one("select has_function_privilege('authenticated', 'fn_audit_export(bigint, integer)', 'execute') as a, has_function_privilege('anon', 'fn_audit_export(bigint, integer)', 'execute') as b"),
+    { a: false, b: false });
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
