@@ -244,16 +244,47 @@ export function DocumentRow({
   type,
   locked,
   onDone,
+  sample,
 }: {
   app: string;
   doc: DraftDocument;
   type: UploadType | undefined;
   locked: boolean;
   onDone: () => Promise<void>;
+  /** L1: made-up files for this document, from "Make sample documents". */
+  sample?: File[] | undefined;
 }) {
   const { emit } = useCharacter();
   const files = doc.files ?? [];
   const received = doc.status === "RECEIVED" || doc.status === "ACCEPTED";
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
+
+  async function applySample() {
+    if (!sample?.length || !type) return;
+    setSampleBusy(true);
+    setSampleError(null);
+    emit("DOCUMENT_UPLOAD_STARTED");
+    try {
+      for (const file of sample) {
+        const r = await uploadCustomerFile({
+          applicationId: app,
+          docType: doc.doc_type,
+          side: "single",
+          file,
+          target: { applicationId: app, uploadType: type.upload_type, folder: type.folder },
+        });
+        if (r.status !== "OK") throw new Error("The sample couldn't be uploaded. Try again.");
+      }
+      emit("DOCUMENT_UPLOAD_DONE");
+      await onDone();
+    } catch (e) {
+      emit("DOCUMENT_REUPLOAD_NEEDED");
+      setSampleError((e as Error).message);
+    } finally {
+      setSampleBusy(false);
+    }
+  }
   const twoWay = TWO_WAY.has(doc.doc_type);
   const [mode, setMode] = useState<"card" | "pdf">(
     files.some((f) => f.side === "single") ? "pdf" : "card",
@@ -287,6 +318,15 @@ export function DocumentRow({
             <p className="mt-1 text-xs text-warning-foreground dark:text-warning">{doc.note}</p>
           )}
           {locked && <p className="mt-1 text-xs font-medium">Take the photo of you above first.</p>}
+          {sample?.length && !received ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" variant="secondary" disabled={locked || sampleBusy || !type} onClick={applySample}>
+                {sampleBusy ? "Uploading the sample…" : sample.length > 1 ? `Use the ${sample.length} sample files` : "Use the sample"}
+              </Button>
+              <span className="text-xs text-muted-foreground">Made-up, marked SPECIMEN</span>
+              {sampleError && <span className="text-xs text-destructive">{sampleError}</span>}
+            </div>
+          ) : null}
 
           {twoWay && (
             <div

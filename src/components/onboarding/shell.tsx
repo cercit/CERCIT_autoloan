@@ -63,6 +63,14 @@ export function OnboardingShell({
         </header>
 
         <main className="companion-safe mx-auto max-w-3xl px-4 pt-6 sm:pt-8">
+          {/* L2: visitors try the journey; nobody should upload a real Aadhaar or PAN */}
+          <p
+            role="note"
+            className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground"
+          >
+            <span className="font-semibold">This is a demo.</span> Use the sample documents on the
+            documents step, never your own Aadhaar, PAN or bank statement.
+          </p>
           <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
             <p className="text-muted-foreground">
               Step {step} of {ONBOARDING_STEPS.length}

@@ -14,6 +14,7 @@ import {
   type UploadType,
 } from "@/lib/customer-api";
 import { storageReady } from "@/lib/document-store";
+import { SAMPLE_LABEL, makeSamplePack, makeSamplePerson, type SampleCase, type SamplePack } from "@/lib/sample-pack";
 
 export const Route = createFileRoute("/onboarding/documents")({
   validateSearch: (s: Record<string, unknown>): { app?: string } =>
@@ -33,6 +34,37 @@ function DocumentsStep() {
   const [types, setTypes] = useState<Record<string, UploadType>>({});
   const [photoSkipped, setPhotoSkipped] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // L1: a made-up document pack in the customer's own name (nothing real needed)
+  const [sampleCase, setSampleCase] = useState<SampleCase>("clean");
+  const [sample, setSample] = useState<SamplePack | null>(null);
+  const [making, setMaking] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
+
+  async function makeSample() {
+    const c = state?.customer;
+    const id = app ?? state?.draft?.application_id;
+    if (!c || !id) return;
+    setMaking(true);
+    setSampleError(null);
+    try {
+      const fullName = [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(" ");
+      const person = makeSamplePerson({ applicationId: id, fullName, caseType: sampleCase });
+      setSample(await makeSamplePack(person, state?.draft?.vehicle ?? null));
+    } catch (e) {
+      setSampleError((e as Error).message || "The sample documents couldn't be made.");
+    } finally {
+      setMaking(false);
+    }
+  }
+
+  function download(file: File) {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   const load = useCallback(async () => {
     const s = await getCustomerState();
@@ -109,6 +141,54 @@ function DocumentsStep() {
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <>
+          <section className="panel mb-4 p-4 sm:p-5" aria-labelledby="sample-docs-title">
+            <h2 id="sample-docs-title" className="text-sm font-semibold">
+              Trying cercit? Use sample documents
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              We make a set of made-up documents in your name: PAN, Aadhaar, 3 salary slips, a 6-month bank
+              statement, Form 16 and the dealer's quotation. Every page says SPECIMEN. They're made on this device;
+              nothing real is needed. Then press "Use the sample" on each document below.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Which case to try">
+              {(["clean", "review"] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={sampleCase === c}
+                  onClick={() => {
+                    setSampleCase(c);
+                    setSample(null);
+                  }}
+                  className={
+                    sampleCase === c
+                      ? "rounded-md border border-primary bg-primary px-2.5 py-1 text-xs text-primary-foreground"
+                      : "rounded-md border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  }
+                >
+                  {SAMPLE_LABEL[c]}
+                </button>
+              ))}
+              <Button size="sm" onClick={makeSample} disabled={making || !state.customer}>
+                {making ? "Making them…" : sample ? "Make them again" : "Make sample documents"}
+              </Button>
+            </div>
+            {sampleError && <p className="mt-2 text-xs text-destructive">{sampleError}</p>}
+            {sample && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Ready. Use them below, or download a copy:{" "}
+                {Object.values(sample)
+                  .flat()
+                  .map((f, i) => (
+                    <button key={f.name} type="button" className="underline" onClick={() => download(f)}>
+                      {i ? ", " : ""}
+                      {f.name.replace(/^sample-/, "").replace(/\.pdf$/, "")}
+                    </button>
+                  ))}
+              </p>
+            )}
+          </section>
           <p className="mb-3 text-sm">
             <span className="font-semibold tabular-nums">
               {done} of {needed.length}
@@ -133,6 +213,7 @@ function DocumentsStep() {
                 type={types[d.doc_type]}
                 locked={TWO_WAY.has(d.doc_type) && !photoDone && !photoSkipped}
                 onDone={load}
+                sample={sample?.[d.doc_type]}
               />
             ))}
           </ul>
