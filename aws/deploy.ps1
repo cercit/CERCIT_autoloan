@@ -39,7 +39,8 @@ Write-Host "Deploying to ap-south-1..."
 # Windows PowerShell turns a native command's error output into a failure, and
 # sam writes normal progress there. Run it through cmd and read the log instead.
 $log = Join-Path $env:TEMP "cercit-sam-deploy.log"
-cmd /c "sam deploy > ""$log"" 2>&1"
+# --no-confirm-changeset: this script runs unattended, and the prompt aborted the 22 Oct deploy.
+cmd /c "sam deploy --no-confirm-changeset > ""$log"" 2>&1"
 $code = $LASTEXITCODE
 $text = if (Test-Path $log) { Get-Content $log -Raw } else { "" }
 if ($text) { Write-Host $text }
