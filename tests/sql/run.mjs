@@ -4046,6 +4046,49 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 090: the name-match rule (KYC-NAME) is fed from the documents
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("KYC-NAME fed from documents");
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("the engine is patched", (await one("select pg_get_functiondef('fn_run_policy_engine(uuid)'::regprocedure) like '%090: KYC-NAME fed%' as v")).v, true);
+  t.equal("an initial matches its word",
+    (await one("select fn_doc_name_score('SAMEER S MITTIMANI', 'Sameer Shreenivas Mittimani') as v")).v, "1.00");
+  t.equal("Indian name variants match",
+    await one("select fn_doc_name_score('Mohd Irfan Khan', 'MOHAMMED IRFAN KHAN') as a, fn_doc_name_score('Laxmi Devi', 'LAKSHMI DEVI') as b, fn_doc_name_score('Shreenivas Rao', 'Srinivasa Rao') as c"),
+    { a: "1.00", b: "1.00", c: "1.00" });
+  t.equal("one wrong letter in a long word still matches (a reader's slip)",
+    (await one("select fn_doc_name_score('SAMEER MITTlMANI', 'Sameer Mittimani') as v")).v, "1.00");
+  t.equal("different people still don't match; short words need to be exact",
+    await one("select fn_doc_name_score('Asha R', 'Priya Sharma') as a, fn_doc_name_score('Ram Kumar', 'Raj Verma') as b"),
+    { a: "0", b: "0" });
+
+  await one("select fn_synthetic_generate(1, 40) as v");
+  const c = await one(`select a.id, c.full_name from applications a join customers c on c.id = a.customer_id
+                       where a.origin = 'SYNTHETIC' and exists (select 1 from bureau_reports b where b.application_id = a.id and b.score is not null)
+                       limit 1`);
+  t.equal("no documents read: no score (the rule stays skipped)", (await one("select fn_kyc_name_score($1) as v", [c.id])).v, null);
+  const put = (reader, name) => db.query(
+    "insert into document_readings (application_id, reader_type, fields) values ($1, $2, jsonb_build_object('name', jsonb_build_object('value', $3::text, 'confidence', 0.99))) on conflict (application_id, reader_type) do update set fields = excluded.fields",
+    [c.id, reader, name]);
+  await put("pan_card", c.full_name.toUpperCase());
+  await put("aadhaar_card", c.full_name);
+  t.equal("PAN and Aadhaar names match the customer: 100", (await one("select fn_kyc_name_score($1) as v", [c.id])).v, "100");
+  let r = (await one("select fn_run_policy_engine($1) as v", [c.id])).v;
+  t.equal("the engine now checks the name rule", r.results.find((x) => x.rule_id === "KYC-NAME")?.result, "PASS");
+  await put("aadhaar_card", "Someone Else Entirely");
+  t.equal("the weaker document counts", Number((await one("select fn_kyc_name_score($1) as v", [c.id])).v) < 98, true);
+  r = (await one("select fn_run_policy_engine($1) as v", [c.id])).v;
+  const k = r.results.find((x) => x.rule_id === "KYC-NAME");
+  t.equal("a name that doesn't match fails the rule, which sends the case to a person (never a reject on its own)",
+    [k?.result, k?.severity, r.decision === "APPROVE"], ["FAIL", "MAYBE", false]);
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
