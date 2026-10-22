@@ -84,7 +84,8 @@ def handler(event, context):
 
     # Customers upload into incoming/ only. POST /finalize (document_finalize) then
     # unlocks, masks Aadhaar and moves the file into its folder (sql/045).
-    folder = DOC_TYPE_FOLDERS[doc_type] if staff else "incoming"
+    # Staff Aadhaar uploads go the same way, so they are masked too (G9, 22 Oct 2026).
+    folder = DOC_TYPE_FOLDERS[doc_type] if staff and doc_type != "aadhaar_card" else "incoming"
     safe_name = re.sub(r"[^\w.-]+", "_", file_name)[-100:] or "document"
     key = f"{folder}/{application_id}/{uuid.uuid4().hex[:8]}-{safe_name}"
 

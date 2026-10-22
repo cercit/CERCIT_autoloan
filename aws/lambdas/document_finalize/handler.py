@@ -10,7 +10,9 @@ POST /finalize. This function:
      logged, stored or returned.
   3. masks an Aadhaar number (first 8 digits blacked out, last 4 left) before
      the file is kept, as the RBI KYC Master Direction asks (amended 29 May 2019).
-     The QR code is blacked out too: on older cards it carries the full number (R18)
+     The QR code is blacked out too: on older cards it carries the full number (R18).
+     An Aadhaar whose number couldn't be found and hidden is refused, unless it is
+     already a UIDAI masked Aadhaar (XXXX XXXX 1234) (G9, 22 Oct 2026)
   4. moves the file into its document folder (which starts the document
      readers), deletes every version of the incoming copy, and registers it with
      the customer's own sign-in, so the database's ownership checks still apply.
@@ -55,7 +57,10 @@ DOC_TYPES = {
 MAGIC = {"application/pdf": b"%PDF", "image/jpeg": b"\xff\xd8", "image/png": b"\x89PNG"}
 MAX_SIZE = 10 * 1024 * 1024
 OCR_LIMIT = 4_500_000  # Textract takes images up to 5 MB
-OCR_PAGES = 3
+MAX_AADHAAR_PAGES = 10  # every page is checked; a longer file isn't an Aadhaar
+MASKER_VERSION = "2026-10-22"
+REFUSE_UNMASKED = ("We couldn't find and hide your Aadhaar number on this file. Upload a clearer copy, "
+                   "or the masked Aadhaar from the UIDAI website (it shows only the last 4 digits).")
 
 
 def handler(event, context):
@@ -96,7 +101,8 @@ def handler(event, context):
         return _response(400, {"error": "The file must be under 10 MB."})
 
     was_locked = unlocked = False
-    masked = 0
+    masked = hidden = 0
+    already = False
     changed = False
     if ctype == "application/pdf":
         try:
@@ -112,24 +118,44 @@ def handler(event, context):
                 return _response(200, {"status": "WRONG_PASSWORD"})
             unlocked = changed = True
         if code == "AADHAAR":
-            masked = mask_aadhaar_pdf(doc)
+            if too_many_pages(doc.page_count):
+                doc.close()
+                _delete_all_versions(key)
+                return _response(400, {"error": "That file has too many pages for an Aadhaar. Upload only the Aadhaar."})
+            hidden, qr, already = mask_aadhaar_pdf(doc)
+            masked = hidden + qr
             changed = changed or masked > 0
         if changed:
             data = doc.tobytes(garbage=3, deflate=True, encryption=fitz.PDF_ENCRYPT_NONE)
         doc.close()
     elif code == "AADHAAR":
-        data, masked = mask_aadhaar_image(data, ctype)
+        data, hidden, qr, already = mask_aadhaar_image(data, ctype)
+        masked = hidden + qr
+
+    if code == "AADHAAR" and not aadhaar_ok(hidden, already):
+        _delete_all_versions(key)
+        print(f"finalize {app} AADHAAR refused: number not found (masker {MASKER_VERSION})")
+        return _response(400, {"error": REFUSE_UNMASKED, "status": "AADHAAR_NOT_MASKED"})
 
     upload_type, folder = DOC_TYPES[code]
     original = key.split("/", 2)[2][9:]
     # KYC files carry their type in the name; the KYC reader tells PAN from Aadhaar by it.
     name = f"{upload_type}-{side}{_ext(ctype)}" if folder == "uploads/kyc" else original
     final_key = f"{folder}/{app}/{uuid.uuid4().hex[:8]}-{name}"
-    s3.put_object(Bucket=BUCKET, Key=final_key, Body=data, ContentType=ctype)
+    meta = {}
+    if code == "AADHAAR":
+        meta = {"aadhaar-masked": "yes" if hidden else "uidai-masked", "masker-version": MASKER_VERSION}
+    s3.put_object(Bucket=BUCKET, Key=final_key, Body=data, ContentType=ctype, Metadata=meta)
     _delete_all_versions(key)
+    if code == "AADHAAR":
+        gone = _all_versions_gone(key)
+        print(f"finalize {app} AADHAAR side={side} hidden={hidden} qr={qr} uidai_masked={already} "
+              f"original_deleted={gone} masker={MASKER_VERSION}")
 
     result = {"status": "OK", "key": final_key, "wasLocked": was_locked, "unlocked": unlocked, "masked": masked > 0}
     if staff:
+        # staff register the file from the app (sql/047), with the hash of what was stored
+        result.update({"registered": False, "sha256": hashlib.sha256(data).hexdigest()})
         return _response(200, result)
 
     ok, reply = customer_register_document(event, {
@@ -186,6 +212,30 @@ def aadhaar_spans(words: list[str]) -> list[tuple[int, int]]:
     return spans
 
 
+_MASKED_WORD = re.compile(r"[Xx×*]{4}[- ]?[Xx×*]{4}[- ]?\d{4}")
+_MASKED_GROUP = re.compile(r"[Xx×*]{4}")
+
+
+def already_masked(words: list[str]) -> bool:
+    """True if the page shows a UIDAI masked Aadhaar: XXXX XXXX 1234 (one word or three)."""
+    for i, w in enumerate(words):
+        if _MASKED_WORD.fullmatch(w):
+            return True
+        if (i + 2 < len(words) and _MASKED_GROUP.fullmatch(w) and _MASKED_GROUP.fullmatch(words[i + 1])
+                and re.fullmatch(r"\d{4}", words[i + 2])):
+            return True
+    return False
+
+
+def aadhaar_ok(number_hidden: int, already: bool) -> bool:
+    """Keep an Aadhaar only if its number was found and hidden, or UIDAI had already masked it."""
+    return number_hidden > 0 or already
+
+
+def too_many_pages(pages: int) -> bool:
+    return pages > MAX_AADHAAR_PAGES
+
+
 def _mask_rects(words: list[tuple[str, tuple[float, float, float, float]]]) -> list[tuple[float, float, float, float]]:
     rects = []
     for start, end in aadhaar_spans([w for w, _ in words]):
@@ -217,10 +267,13 @@ def _qr_rects_pdf(page) -> list:
             for x0, y0, x1, y1 in qr_mask.find_qr_boxes(pix)]
 
 
-def mask_aadhaar_pdf(doc) -> int:
-    count = 0
-    for page in list(doc)[:OCR_PAGES]:
+def mask_aadhaar_pdf(doc) -> tuple[int, int, bool]:
+    """Black out the number and QR on every page. Returns (number boxes, QR boxes, UIDAI-masked seen)."""
+    hidden = qr_count = 0
+    already = False
+    for page in doc:
         words = [(w[4], (w[0], w[1], w[2], w[3])) for w in page.get_text("words")]
+        already = already or already_masked([w for w, _ in words])
         rects = [fitz.Rect(r) for r in _mask_rects(words)]
         try:
             qr_rects = _qr_rects_pdf(page)
@@ -234,18 +287,22 @@ def mask_aadhaar_pdf(doc) -> int:
                 pix = page.get_pixmap(dpi=120)
                 png = pix.tobytes("png")
             W, H = page.rect.width, page.rect.height
-            for x0, y0, x1, y1 in _mask_rects(_ocr_words(png)):
+            ocr = _ocr_words(png)
+            already = already or already_masked([w for w, _ in ocr])
+            for x0, y0, x1, y1 in _mask_rects(ocr):
                 rects.append(fitz.Rect(x0 * W, y0 * H, x1 * W, y1 * H) * page.derotation_matrix)
+        hidden += len(rects)
+        qr_count += len(qr_rects)
         rects += qr_rects
         for r in rects:
             page.add_redact_annot(r + (-2, -2, 2, 2), fill=(0, 0, 0))
         if rects:
             page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
-            count += len(rects)
-    return count
+    return hidden, qr_count, already
 
 
-def mask_aadhaar_image(data: bytes, ctype: str) -> tuple[bytes, int]:
+def mask_aadhaar_image(data: bytes, ctype: str) -> tuple[bytes, int, int, bool]:
+    """Black out the number and QR. Returns (image, number boxes, QR boxes, UIDAI-masked seen)."""
     pix = fitz.Pixmap(data)
     if pix.alpha:
         pix = fitz.Pixmap(pix, 0)
@@ -255,19 +312,24 @@ def mask_aadhaar_image(data: bytes, ctype: str) -> tuple[bytes, int]:
         small = fitz.Pixmap(small, 0) if small.alpha else fitz.Pixmap(small)
         small.shrink(1)
         ocr = small.tobytes("jpg", jpg_quality=85)
-    rects = _mask_rects(_ocr_words(ocr))
+    words = _ocr_words(ocr)
+    already = already_masked([w for w, _ in words])
+    rects = _mask_rects(words)
+    hidden = len(rects)
+    qr = []
     try:
-        rects += qr_mask.find_qr_boxes(pix)
+        qr = qr_mask.find_qr_boxes(pix)
     except Exception as e:  # noqa: BLE001 — a QR we cannot look for must not stop the upload
         print(f"qr check skipped: {type(e).__name__}")
+    rects += qr
     if not rects:
-        return data, 0
+        return data, 0, 0, already
     pad = max(2, pix.width // 200)
     for x0, y0, x1, y1 in rects:
         pix.set_rect(fitz.IRect(int(x0 * pix.width) - pad, int(y0 * pix.height) - pad,
                                 int(x1 * pix.width) + pad, int(y1 * pix.height) + pad), (0,) * pix.n)
     out = pix.tobytes("jpg", jpg_quality=90) if ctype == "image/jpeg" else pix.tobytes("png")
-    return out, len(rects)
+    return out, hidden, len(qr), already
 
 
 # --- helpers ---------------------------------------------------------------
@@ -282,6 +344,11 @@ def _delete_all_versions(key: str) -> None:
     for v in resp.get("Versions", []) + resp.get("DeleteMarkers", []):
         if v["Key"] == key:
             s3.delete_object(Bucket=BUCKET, Key=key, VersionId=v["VersionId"])
+
+
+def _all_versions_gone(key: str) -> bool:
+    resp = s3.list_object_versions(Bucket=BUCKET, Prefix=key)
+    return not any(v["Key"] == key for v in resp.get("Versions", []) + resp.get("DeleteMarkers", []))
 
 
 def _response(status: int, body: dict) -> dict:

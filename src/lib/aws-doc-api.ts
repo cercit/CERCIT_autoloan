@@ -86,7 +86,16 @@ export async function getPresignedUrl(
 }
 
 export type FinalizeResult =
-  | { status: "OK"; key: string; wasLocked: boolean; unlocked: boolean; masked: boolean }
+  | {
+      status: "OK";
+      key: string;
+      wasLocked: boolean;
+      unlocked: boolean;
+      masked: boolean;
+      /** false when staff uploaded: the app registers the stored file itself */
+      registered?: boolean;
+      sha256?: string;
+    }
   | { status: "PASSWORD_NEEDED" | "WRONG_PASSWORD" };
 
 /**

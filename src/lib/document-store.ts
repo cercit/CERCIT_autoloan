@@ -141,16 +141,18 @@ export async function uploadCustomerFile(input: {
     password: password || undefined,
   });
   if (r.status !== "OK") return { status: r.status, stagedKey: key };
+  // Staff Aadhaar uploads are masked by /finalize too; the app then registers the stored copy.
+  if (r.registered === false) await register(r.key, r.wasLocked, r.sha256);
   return { status: "OK", wasLocked: r.wasLocked, unlocked: r.unlocked, masked: r.masked };
 
-  async function register(k: string, locked: boolean) {
+  async function register(k: string, locked: boolean, sha?: string) {
     await registerDocument({
       applicationId,
       docType,
       side,
       key: k,
       file,
-      sha256: await sha256Hex(file),
+      sha256: sha ?? (await sha256Hex(file)),
       backend: STORAGE_BACKEND,
       wasLocked: locked,
     });
