@@ -346,6 +346,32 @@ Resources:
         AllowMethods: "'GET,POST,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
 
+  # G10 interim: anything left in incoming/ for more than 15 minutes (an upload
+  # never finalised) is deleted, every version, so an unmasked Aadhaar can't wait
+  # a day for the lifecycle rule.
+  IncomingSweepFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cercit-incoming-sweep
+      CodeUri: lambdas/incoming_sweep/
+      Handler: handler.handler
+      Timeout: 120
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: [s3:ListBucketVersions, s3:ListBucket]
+              Resource: !Sub "arn:aws:s3:::cercit-docs-${AWS::AccountId}"
+            - Effect: Allow
+              Action: [s3:DeleteObject, s3:DeleteObjectVersion]
+              Resource: !Sub "arn:aws:s3:::cercit-docs-${AWS::AccountId}/incoming/*"
+      Events:
+        Every15Minutes:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Description: Delete uploads left in incoming/ for more than 15 minutes
+
   # R3 (sql/092): a locked copy of the audit chain. Object Lock keeps every file
   # unchanged for a year (GOVERNANCE mode). Retained if the stack is ever deleted.
   AuditArchiveBucket:
