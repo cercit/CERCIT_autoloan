@@ -314,6 +314,23 @@ export function DocumentRow({
             {files.some((f) => f.masked) && <Pill tone="muted">Number masked</Pill>}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">{HINTS[doc.doc_type] ?? doc.note}</p>
+          {doc.doc_type === "AADHAAR" && !received && (
+            // G10 interim: a masked Aadhaar never carries the full number at all
+            <p className="mt-1 text-xs text-muted-foreground">
+              Best: a <span className="font-medium text-foreground">masked Aadhaar</span>, which shows only the last
+              4 digits. Download it from{" "}
+              <a
+                href="https://myaadhaar.uidai.gov.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline"
+              >
+                myaadhaar.uidai.gov.in
+              </a>{" "}
+              (Download Aadhaar, then tick &ldquo;masked Aadhaar&rdquo;). Any other copy, we hide the first 8 digits
+              before it is saved.
+            </p>
+          )}
           {doc.note && doc.note !== HINTS[doc.doc_type] && !received && doc.note !== type?.note && (
             <p className="mt-1 text-xs text-warning-foreground dark:text-warning">{doc.note}</p>
           )}
