@@ -78,6 +78,7 @@ Without Supabase details the site runs on built-in sample data.
 ├── tests/               SQL tests (PGlite), policy tests, Playwright page checks
 ├── scripts/             Training, test cases, deck PDFs, erasure, backups
 ├── behind-the-scenes/   How it works (flows, schema, functions) and the synthetic training data
+├── Documentation/       Folder guide, schema, cardinality, scheme design, functions
 ├── docs/                Fix list, audits, migration log, learnings, guides
 └── PRD.md               Product requirements (v3.0)
 ```
@@ -86,6 +87,11 @@ Without Supabase details the site runs on built-in sample data.
 
 | Document | What it covers |
 |---|---|
+| [Documentation folder](Documentation/) | Start here: folder guide, full schema, cardinality, scheme design, functions, two workbooks |
+| [Database schema](Documentation/02-database-schema.md) | All 102 tables: purpose, every column, keys, allowed values |
+| [Relationships and cardinality](Documentation/03-relationships-and-cardinality.md) | One-to-one, one-to-many, many-to-many explained; diagrams; all 122 links |
+| [Scheme design](Documentation/04-scheme-design.md) | Live bands, employer categories, 16 rules, parameters; Aug template vs live |
+| [Folder guide](Documentation/01-folder-guide.md) | Every folder and file in the repo |
 | [How it works](behind-the-scenes/how-it-works/) | Flows, schema, functions, components, where things live |
 | [Migration run log](docs/migration-run-log.md) | Every database change, what it does, when it went live |
 | [Fix list](docs/fix-list.md) | Known issues, decisions and pre-launch items |
