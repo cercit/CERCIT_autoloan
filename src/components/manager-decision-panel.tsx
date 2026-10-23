@@ -34,25 +34,31 @@ export function ManagerDecisionPanel({ app }: { app: Application }) {
     setSubmitting(true);
     setFeedback(null);
 
-    const res = await submitOfficerDecision({
-      applicationId: app.id,
-      decision: decision.toUpperCase() as "APPROVE" | "REJECT" | "MAYBE",
-      remarks: remarks || undefined,
-      sanctionedAmount: Number(amount) || undefined,
-      sanctionedRate: Number(rate) || undefined,
-      sanctionedTenure: Number(tenure) || undefined,
-      overrideReason: overrideReason || undefined,
-    } as import("@/lib/api").OfficerDecisionInput);
-
-    setSubmitting(false);
-    if (res) {
+    try {
+      const res = await submitOfficerDecision({
+        applicationId: app.id,
+        decision: decision.toUpperCase() as "APPROVE" | "REJECT" | "MAYBE",
+        remarks: remarks || undefined,
+        sanctionedAmount: Number(amount) || undefined,
+        sanctionedRate: Number(rate) || undefined,
+        sanctionedTenure: Number(tenure) || undefined,
+        overrideReason: overrideReason || undefined,
+      } as import("@/lib/api").OfficerDecisionInput);
+      if (!res.decisionRecorded) {
+        // 095: the credit checks had not run; they have now. Review before deciding.
+        setFeedback({ type: "error", message: res.message });
+        setTimeout(() => window.location.reload(), 2500);
+        return;
+      }
       setFeedback({ type: "success", message: res.message || "Decision submitted successfully." });
       // Navigate back to application detail on success after a brief delay
       setTimeout(() => {
         navigate({ to: "/applications/$id", params: { id: app.id } });
       }, 1200);
-    } else {
-      setFeedback({ type: "error", message: "Submission failed. Please try again." });
+    } catch (e) {
+      setFeedback({ type: "error", message: "The decision wasn't recorded: " + (e as Error).message });
+    } finally {
+      setSubmitting(false);
     }
   }
 

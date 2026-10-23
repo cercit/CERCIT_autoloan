@@ -791,11 +791,15 @@ export type OfficerDecisionResult = {
   sanctionedTenure: number;
   sanctionedEmi: number;
   message: string;
+  /** false when the credit checks had not run: they ran now, nothing was recorded (095). */
+  decisionRecorded: boolean;
+  engineRecommendation?: string;
 };
 
+/** The database's reason, in words an officer can act on. Throws on failure. */
 export async function submitOfficerDecision(
   input: OfficerDecisionInput
-): Promise<OfficerDecisionResult | null> {
+): Promise<OfficerDecisionResult> {
   if (!isSupabaseConfigured || isDemoMode()) {
     await new Promise((r) => setTimeout(r, 600));
     const emi = input.sanctionedAmount && input.sanctionedRate && input.sanctionedTenure
@@ -811,6 +815,7 @@ export async function submitOfficerDecision(
       sanctionedTenure: input.sanctionedTenure || 0,
       sanctionedEmi: emi,
       message: input.decision === "APPROVE" ? "Application approved" : input.decision === "REJECT" ? "Application rejected" : "Referred for review",
+      decisionRecorded: true,
     };
   }
 
@@ -827,7 +832,7 @@ export async function submitOfficerDecision(
 
   if (error || !data) {
     console.error("Officer decision failed:", error);
-    return null;
+    throw new Error(error?.message || "The decision could not be recorded. Try again.");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -842,6 +847,8 @@ export async function submitOfficerDecision(
     sanctionedTenure: Number(r.sanctioned_tenure) || 0,
     sanctionedEmi: Number(r.sanctioned_emi) || 0,
     message: r.message ?? "",
+    decisionRecorded: r.decision_recorded !== false,
+    engineRecommendation: r.engine_recommendation ?? undefined,
   };
 }
 

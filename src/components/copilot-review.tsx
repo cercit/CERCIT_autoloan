@@ -132,14 +132,21 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
     if (Number(rate)) payload.sanctionedRate = Number(rate);
     if (Number(tenure)) payload.sanctionedTenure = Number(tenure);
     if (overrideReason) payload.overrideReason = overrideReason;
-    const res = await submitOfficerDecision(payload);
-    setSubmitting(false);
-    if (res) {
+    try {
+      const res = await submitOfficerDecision(payload);
+      if (!res.decisionRecorded) {
+        // 095: the credit checks had not run; they have now. Show the result before deciding.
+        toast.info(res.message, { duration: 8000 });
+        setTimeout(() => window.location.reload(), 2500);
+        return;
+      }
       toast.success("Decision recorded: " + res.decision);
       setResult(res);
       setShowResult(true);
-    } else {
-      toast.error("Failed to submit decision");
+    } catch (e) {
+      toast.error("The decision wasn't recorded: " + (e as Error).message, { duration: 8000 });
+    } finally {
+      setSubmitting(false);
     }
   }
 

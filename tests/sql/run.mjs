@@ -4231,6 +4231,49 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 095: deciding a case the credit checks never ran on
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("decision on an unchecked case");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("the decision function is patched", (await one("select pg_get_functiondef('fn_officer_decision(text,text,text,text[],numeric,numeric,integer,text)'::regprocedure) like '%095: checks first%' as v")).v, true);
+  await one("select fn_synthetic_generate(1, 43) as v");
+  // a submitted case with no recommendation, as the daily simulation leaves some
+  const c = await one(`select a.id, a.application_id from applications a
+                       where a.origin = 'SYNTHETIC' and not exists (select 1 from credit_decisions d where d.application_id = a.id)
+                         and exists (select 1 from bureau_reports b where b.application_id = a.id)
+                       limit 1`);
+  await db.query("delete from policy_results where application_id = $1", [c.id]);
+  await db.query("delete from recommendations where application_id = $1", [c.id]);
+  await db.query("update applications set status = 'SUBMITTED' where id = $1", [c.id]);
+  const as = async () => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", OFFICER);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub: OFFICER, role: "authenticated" })]);
+  };
+  await as();
+  const first = (await one("select fn_officer_decision($1, 'APPROVE', 'looks fine') as v", [c.application_id])).v;
+  t.equal("the first try runs the checks and records nothing", [first.decision_recorded, first.checks_run, typeof first.engine_recommendation], [false, true, "string"]);
+  t.equal("it says what the engine recommends", /the engine recommends/.test(first.message), true);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  const st = await one("select (select count(*)::int from recommendations where application_id = $1) as recs, (select count(*)::int from credit_decisions where application_id = $1 and decided_by = 'OFFICER') as decisions", [c.id]);
+  t.equal("the checks are kept; no officer decision yet", [st.recs >= 1, st.decisions], [true, 0]);
+  await as();
+  const second = (await one("select fn_officer_decision($1, 'REJECT', 'checked: income too low') as v", [c.application_id])).v;
+  t.equal("deciding again records the decision", [second.decision_recorded ?? true, second.decision], [true, "REJECT"]);
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);
