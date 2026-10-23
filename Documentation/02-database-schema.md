@@ -28,50 +28,52 @@ Every table has row level security switched on. Staff read through `fn_is_active
 
 ### customers
 
+One row per borrower: identity, contact and work details for a person applying for a car loan. PAN and mobile are stored encrypted; the plain columns are emptied by a trigger on every write.
+
 Created in `001_schema.sql`; 40 columns; primary key (id); about 2,131 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal primary key |
-| 2 | `full_name` | varchar | no |  |  |  |  | Full name as per PAN card |
-| 3 | `email` | varchar | no |  | UK |  |  | Primary identity; OTP verified |
-| 4 | `mobile` | varchar | yes |  |  |  |  | Contact number (not verified in Phase 1) |
-| 5 | `pan_number` | varchar | yes |  |  |  |  | PAN extracted from uploaded PAN card |
-| 6 | `aadhaar_last_four` | varchar | yes |  |  |  |  | Last 4 digits of Aadhaar (full number never stored) |
-| 7 | `date_of_birth` | date | yes |  |  |  |  | DOB from KYC documents |
-| 8 | `age_at_application` | int2 | yes |  |  |  |  | Age calculated at application date (min 21) |
-| 9 | `gender` | varchar | yes |  |  |  |  | M / F / OTHER — from KYC |
-| 10 | `address_line1` | varchar | yes |  |  |  |  | Current address from Aadhaar |
-| 11 | `address_line2` | varchar | yes |  |  |  |  | Address line 2 |
-| 12 | `city` | varchar | yes |  |  |  |  | City name |
-| 13 | `state_code` | varchar | yes |  | FK | states.code |  | State code |
-| 14 | `pincode` | varchar | yes |  |  |  |  | 6-digit pincode |
-| 15 | `employer_name` | varchar | yes |  |  |  |  | Employer as per salary slip / Form 16 |
-| 16 | `employment_type` | varchar | yes |  |  |  |  | SALARIED (Phase 1 only) |
-| 17 | `email_verified` | bool | no | false |  |  |  | True after OTP verification |
-| 18 | `auth_user_id` | uuid | yes |  |  |  |  | Supabase Auth user ID for login/OTP |
-| 19 | `created_at` | timestamptz | no | now() |  |  |  | Record creation timestamp |
-| 20 | `updated_at` | timestamptz | no | now() |  |  |  | Last update timestamp |
-| 21 | `pan_enc` | bytea | yes |  |  |  |  | Pan enc |
-| 22 | `pan_hash` | text | yes |  |  |  |  | Pan hash |
-| 23 | `pan_last4` | varchar | yes |  |  |  |  | Pan last4 |
-| 24 | `mobile_enc` | bytea | yes |  |  |  |  | Mobile enc |
-| 25 | `mobile_last4` | varchar | yes |  |  |  |  | Mobile last4 |
-| 26 | `designation` | varchar | yes |  |  |  |  | Designation |
-| 27 | `years_in_current_job` | int2 | yes |  |  |  |  | Years in current job |
-| 28 | `total_work_experience_years` | int2 | yes |  |  |  |  | Total work experience years |
-| 29 | `salary_bank_name` | varchar | yes |  |  |  |  | Salary bank name |
-| 30 | `residence_type` | varchar | yes |  |  |  |  | Residence type |
-| 31 | `first_name` | varchar | yes |  |  |  |  | First name |
-| 32 | `middle_name` | varchar | yes |  |  |  |  | Middle name |
-| 33 | `last_name` | varchar | yes |  |  |  |  | Last name |
-| 34 | `mobile_verified_at` | timestamptz | yes |  |  |  |  | When mobile verified |
-| 35 | `mobile_verification_method` | varchar | yes |  |  |  |  | Mobile verification method |
-| 36 | `father_name` | varchar | yes |  |  |  |  | Father name |
-| 37 | `marital_status` | varchar | yes |  |  |  |  | Marital status |
-| 38 | `date_of_joining` | date | yes |  |  |  |  | Date of joining |
-| 39 | `employer_category` | varchar | yes |  |  |  |  | Employer category |
-| 40 | `mobile_hash` | text | yes |  |  |  |  | Mobile hash |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `full_name` | varchar | no |  |  |  |  | Customer's full name as one text. |
+| 3 | `email` | varchar | no |  | UK |  |  | Customer's email address; unique across customers. |
+| 4 | `mobile` | varchar | yes |  |  |  |  | Write-only inbox. A trigger encrypts it into mobile_enc and empties this; a CHECK keeps it empty. Read mobile_last4 or fn_customer_pii. |
+| 5 | `pan_number` | varchar | yes |  |  |  |  | Write-only inbox. A trigger encrypts it into pan_enc and empties this; a CHECK keeps it empty. Read pan_last4 or fn_customer_pii. |
+| 6 | `aadhaar_last_four` | varchar | yes |  |  |  |  | Last four digits of the Aadhaar number only; the full number is not stored. |
+| 7 | `date_of_birth` | date | yes |  |  |  |  | Customer's date of birth. |
+| 8 | `age_at_application` | int2 | yes |  |  |  |  | Customer's age in years at the time of applying. |
+| 9 | `gender` | varchar | yes |  |  |  |  | Gender; the details step accepts MALE \| FEMALE \| OTHER. |
+| 10 | `address_line1` | varchar | yes |  |  |  |  | First address line on the original customer record; full addresses by type are kept in customer_addresses. |
+| 11 | `address_line2` | varchar | yes |  |  |  |  | Second address line on the original customer record. |
+| 12 | `city` | varchar | yes |  |  |  |  | City of the address on the customer record. |
+| 13 | `state_code` | varchar | yes |  | FK | states.code |  | State code of the customer's address; links to states. |
+| 14 | `pincode` | varchar | yes |  |  |  |  | 6-digit PIN code of the address on the customer record. |
+| 15 | `employer_name` | varchar | yes |  |  |  |  | Employer name as the customer gave it; used to find the employer in the Employer Master. |
+| 16 | `employment_type` | varchar | yes |  |  |  |  | Type of employment, e.g. SALARIED. Phase 1 covers salaried applicants only. |
+| 17 | `email_verified` | bool | no | false |  |  |  | True once the customer proved the email with the emailed code. |
+| 18 | `auth_user_id` | uuid | yes |  |  |  |  | Login account linked to this customer. |
+| 19 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 20 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed; set automatically. |
+| 21 | `pan_enc` | bytea | yes |  |  |  |  | PAN encrypted with the PII key. Read only through fn_customer_pii, which checks the staff role and logs each reveal. |
+| 22 | `pan_hash` | text | yes |  |  |  |  | Keyed hash (HMAC-SHA256) of the PAN; lets the system find a customer by PAN and keeps PAN unique. |
+| 23 | `pan_last4` | varchar | yes |  |  |  |  | Last four characters of the PAN, kept plain for masked display (XXXXXX234F). |
+| 24 | `mobile_enc` | bytea | yes |  |  |  |  | Mobile number encrypted with the PII key; a CHECK requires it on every row. Read only through fn_customer_pii. |
+| 25 | `mobile_last4` | varchar | yes |  |  |  |  | Last four digits of the mobile, kept plain for masked display. |
+| 26 | `designation` | varchar | yes |  |  |  |  | Customer's job title at the current employer. |
+| 27 | `years_in_current_job` | int2 | yes |  |  |  |  | Years in the current job, 0 to 60; cannot be more than total work experience. |
+| 28 | `total_work_experience_years` | int2 | yes |  |  |  |  | Total years of work experience, 0 to 60. |
+| 29 | `salary_bank_name` | varchar | yes |  |  |  |  | Bank where the customer's salary is credited. |
+| 30 | `residence_type` | varchar | yes |  |  |  |  | Type of home: OWNED \| RENTED \| PARENTAL \| COMPANY_PROVIDED, or empty. |
+| 31 | `first_name` | varchar | yes |  |  |  |  | Customer's first name, captured at the start of the customer journey. |
+| 32 | `middle_name` | varchar | yes |  |  |  |  | Customer's middle name or initial, if any. |
+| 33 | `last_name` | varchar | yes |  |  |  |  | Customer's last name or initial. |
+| 34 | `mobile_verified_at` | timestamptz | yes |  |  |  |  | When the mobile number check (OTP) passed. |
+| 35 | `mobile_verification_method` | varchar | yes |  |  |  |  | How the mobile was checked: SMS \| SIMULATED. OTP is simulated until an SMS provider is connected. |
+| 36 | `father_name` | varchar | yes |  |  |  |  | Father's name, given in the personal details step. |
+| 37 | `marital_status` | varchar | yes |  |  |  |  | Marital status; the details step accepts SINGLE \| MARRIED \| OTHER. |
+| 38 | `date_of_joining` | date | yes |  |  |  |  | Date the customer joined the current employer. |
+| 39 | `employer_category` | varchar | yes |  |  |  |  | Employer type the customer picked: PRIVATE_LTD \| PUBLIC_LTD \| MNC \| GOVERNMENT \| PSU \| PARTNERSHIP \| PROPRIETORSHIP \| OTHER. Not the A/B/C category. |
+| 40 | `mobile_hash` | text | yes |  |  |  |  | Keyed hash of the mobile digits; the continue-link service uses it to find a returning customer's draft. |
 
 Relationships:
 - belongs to `states` via `state_code` (one-to-many, 0..1 : 0..N; optional)
@@ -87,27 +89,29 @@ Triggers: `trg_customers_encrypt_pii`, `trg_customers_updated_at`.
 
 ### customer_addresses
 
+One address of a customer, at most one row per type (permanent, current, office). Written by the customer journey's address step; saving again overwrites the row and clears its verified flag.
+
 Created in `043_customer_onboarding.sql`; 17 columns; primary key (id); about 2 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `customer_id` | uuid | no |  | FK | customers.id |  | Link to customers.id |
-| 3 | `address_type` | varchar | no |  |  |  | PERMANENT \| CURRENT \| OFFICE | Address type |
-| 4 | `line1` | varchar | no |  |  |  |  | Line1 |
-| 5 | `line2` | varchar | yes |  |  |  |  | Line2 |
-| 6 | `city` | varchar | no |  |  |  |  | City |
-| 7 | `district` | varchar | yes |  |  |  |  | District |
-| 8 | `state_code` | varchar | yes |  | FK | states.code |  | Link to states.code |
-| 9 | `pincode` | varchar | no |  |  |  |  | Pincode |
-| 10 | `source` | varchar | no | 'TYPED' |  |  |  | Source |
-| 11 | `is_rented` | bool | yes |  |  |  |  | Yes/no: rented |
-| 12 | `owner_name` | varchar | yes |  |  |  |  | Owner name |
-| 13 | `owner_contact` | varchar | yes |  |  |  |  | Owner contact |
-| 14 | `verified` | bool | no | false |  |  |  | Verified |
-| 15 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created |
-| 16 | `years_at_address` | int2 | yes |  |  |  |  | Years at address |
-| 17 | `residence_type` | varchar | yes |  |  |  |  | Residence type |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `customer_id` | uuid | no |  | FK | customers.id |  | Customer this address belongs to; links to customers. |
+| 3 | `address_type` | varchar | no |  |  |  | PERMANENT \| CURRENT \| OFFICE | PERMANENT \| CURRENT \| OFFICE. One row per type per customer. |
+| 4 | `line1` | varchar | no |  |  |  |  | First address line. |
+| 5 | `line2` | varchar | yes |  |  |  |  | Second address line, optional. |
+| 6 | `city` | varchar | no |  |  |  |  | City. |
+| 7 | `district` | varchar | yes |  |  |  |  | District, optional. |
+| 8 | `state_code` | varchar | yes |  | FK | states.code |  | State code; links to states. |
+| 9 | `pincode` | varchar | no |  |  |  |  | 6-digit PIN code that cannot start with 0. |
+| 10 | `source` | varchar | no | 'TYPED' |  |  |  | Where the address came from: AADHAAR \| EB_BILL \| BUREAU \| TYPED. Default TYPED. |
+| 11 | `is_rented` | bool | yes |  |  |  |  | True when the current home is rented. |
+| 12 | `owner_name` | varchar | yes |  |  |  |  | House owner's name; required when the home is rented. |
+| 13 | `owner_contact` | varchar | yes |  |  |  |  | House owner's 10-digit mobile number; required when the home is rented. |
+| 14 | `verified` | bool | no | false |  |  |  | Whether the address has been verified; set back to false whenever the customer saves it again. |
+| 15 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 16 | `years_at_address` | int2 | yes |  |  |  |  | Years lived at this address, 0 to 80. |
+| 17 | `residence_type` | varchar | yes |  |  |  |  | Type of home: OWNED \| RENTED \| FAMILY \| COMPANY (checked by the address step, not by a database CHECK). |
 
 Unique together: (customer_id, address_type).
 
@@ -117,19 +121,21 @@ Relationships:
 
 ### customer_consents
 
+One row each time a customer accepts a consent wording, such as processing the application or pulling the credit report. It keeps a fingerprint of the exact text accepted; each acceptance adds a new row.
+
 Created in `043_customer_onboarding.sql`; 9 columns; primary key (id); about 1,892 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `customer_id` | uuid | no |  | FK | customers.id |  | Link to customers.id |
-| 3 | `application_id` | uuid | yes |  | FK | applications.id |  | Link to applications.id |
-| 4 | `purpose` | varchar | no |  | FK | consent_texts.purpose |  | Link to consent_texts.purpose |
-| 5 | `version` | varchar | no |  | FK | consent_texts.version |  | Link to consent_texts.version |
-| 6 | `body_sha256` | varchar | no |  |  |  |  | Body sha256 |
-| 7 | `user_agent` | text | yes |  |  |  |  | User agent |
-| 8 | `given_at` | timestamptz | no | now() |  |  |  | When given |
-| 9 | `withdrawn_at` | timestamptz | yes |  |  |  |  | When withdrawn |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `customer_id` | uuid | no |  | FK | customers.id |  | Customer who gave the consent; links to customers. |
+| 3 | `application_id` | uuid | yes |  | FK | applications.id |  | Application the consent was given for; links to applications. |
+| 4 | `purpose` | varchar | no |  | FK | consent_texts.purpose |  | What the consent covers, e.g. APPLICATION_PROCESSING or BUREAU_PULL. With version, points to consent_texts. |
+| 5 | `version` | varchar | no |  | FK | consent_texts.version |  | Version of the wording accepted, e.g. 2026-09-v1. Only the current version can be accepted. |
+| 6 | `body_sha256` | varchar | no |  |  |  |  | SHA-256 fingerprint of the exact wording shown, proving which text the customer accepted. |
+| 7 | `user_agent` | text | yes |  |  |  |  | Browser details at the moment of consent, cut to 300 characters. |
+| 8 | `given_at` | timestamptz | no | now() |  |  |  | When the consent was given. |
+| 9 | `withdrawn_at` | timestamptz | yes |  |  |  |  | When the consent was withdrawn; empty while it still stands. |
 
 Relationships:
 - belongs to `applications` via `application_id` (one-to-many, 0..1 : 0..N; optional)
@@ -140,71 +146,75 @@ Relationships:
 
 ### consent_texts
 
+Reference table of consent wordings, one row per purpose and version. Seeded with the application-processing and credit-bureau consents; the current version is what customers see and accept.
+
 Created in `043_customer_onboarding.sql`; 5 columns; primary key (purpose, version).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `purpose` | varchar | no |  | PK |  |  | Purpose |
-| 2 | `version` | varchar | no |  | PK |  |  | Version |
-| 3 | `body` | text | no |  |  |  |  | Body |
-| 4 | `is_current` | bool | no | true |  |  |  | Yes/no: current |
-| 5 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created |
+| 1 | `purpose` | varchar | no |  | PK |  |  | What the consent covers: APPLICATION_PROCESSING or BUREAU_PULL in the seed. Part of the key with version. |
+| 2 | `version` | varchar | no |  | PK |  |  | Version label of the wording, e.g. 2026-09-v1. Part of the key with purpose. |
+| 3 | `body` | text | no |  |  |  |  | Full consent wording shown to the customer. |
+| 4 | `is_current` | bool | no | true |  |  |  | True for the version customers can accept now; older versions stay for the record. |
+| 5 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
 
 Relationships:
 - has `customer_consents` rows via `customer_consents.purpose, version` (one-to-many, 1 : 0..N)
 
 ### applications
 
+The central table: one row per car loan application, from draft to decision and disbursal. It holds the loan ask, declared income and expenses, stage dates, and the employer category used for pricing.
+
 Created in `001_schema.sql`; 46 columns; primary key (id); about 2,192 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal primary key |
-| 2 | `application_id` | varchar | no |  | UK |  |  | Public ID: YYYYMM + 6-digit serial (202608000001) |
-| 3 | `customer_id` | uuid | no |  | FK | customers.id |  | Link to customer record |
-| 4 | `vehicle_id` | uuid | yes |  | FK | vehicles.id |  | Link to vehicle record; set at Step 2 |
-| 5 | `status` | varchar | no | 'DRAFT' |  |  |  | DRAFT \| IN_PRINCIPLE_APPROVED \| DOCUMENTS_SUBMITTED \| UNDER_ASSESSMENT \| APPROVED \| REJECTED \| UNDER_REVIEW |
-| 6 | `current_step` | int2 | no | 1 |  |  |  | Last completed step (1-7) |
-| 7 | `loan_amount_requested` | numeric | yes |  |  |  |  | On-road price minus down payment (Step 2) |
-| 8 | `down_payment` | numeric | yes |  |  |  |  | Customer's own contribution |
-| 9 | `tenure_months` | int2 | yes |  |  |  |  | Requested tenure in months (12-96) |
-| 10 | `purpose` | varchar | yes |  |  |  |  | NEW \| EXCHANGE \| ADDITIONAL |
-| 11 | `exchange_vehicle_detail` | text | yes |  |  |  |  | Make/model/year of current vehicle if exchange |
-| 12 | `exchange_existing_loan` | bool | yes |  |  |  |  | Does current vehicle have an outstanding loan? |
-| 13 | `exchange_outstanding_amount` | numeric | yes |  |  |  |  | Outstanding loan on exchange vehicle |
-| 14 | `exchange_monthly_emi` | numeric | yes |  |  |  |  | Monthly EMI on exchange vehicle; feeds obligation |
-| 15 | `declared_net_salary` | numeric | yes |  |  |  |  | Self-declared monthly net salary (Step 3) |
-| 16 | `declared_other_income` | numeric | yes |  |  |  |  | Self-declared other monthly income |
-| 17 | `other_income_source` | varchar | yes |  |  |  |  | Brief description of other income |
-| 18 | `declared_existing_emis` | numeric | yes |  |  |  |  | Self-declared total existing EMIs |
-| 19 | `declared_rent` | numeric | yes |  |  |  |  | Monthly rent/housing (0 if owned) |
-| 20 | `declared_insurance` | numeric | yes |  |  |  |  | Monthly insurance premiums |
-| 21 | `declared_food_household` | numeric | yes |  |  |  |  | Monthly food/household expenses |
-| 22 | `declared_travel` | numeric | yes |  |  |  |  | Monthly travel/commute |
-| 23 | `declared_other_expenses` | numeric | yes |  |  |  |  | Other regular monthly expenses |
-| 24 | `indicative_emi` | numeric | yes |  |  |  |  | System-calculated indicative EMI at Step 4 |
-| 25 | `indicative_rate` | numeric | yes |  |  |  |  | Rate shown at in-principle stage |
-| 26 | `in_principle_result` | varchar | yes |  |  |  |  | ELIGIBLE \| NOT_ELIGIBLE (Step 4 quick check) |
-| 27 | `in_principle_at` | timestamptz | yes |  |  |  |  | When in-principle decision was made |
-| 28 | `documents_submitted_at` | timestamptz | yes |  |  |  |  | When all 9 docs uploaded |
-| 29 | `assessment_started_at` | timestamptz | yes |  |  |  |  | When Step 7 assessment began |
-| 30 | `final_decision_at` | timestamptz | yes |  |  |  |  | When final decision was recorded |
-| 31 | `draft_expires_at` | timestamptz | yes |  |  |  |  | Draft auto-expires 15 days after creation |
-| 32 | `sanction_valid_until` | timestamptz | yes |  |  |  |  | Sanction letter valid for 30 calendar days |
-| 33 | `assigned_officer_id` | uuid | yes |  | FK | users.id |  | Credit officer assigned for Maybe cases |
-| 34 | `state_code` | varchar | yes |  | FK | states.code |  | State where vehicle will be registered |
-| 35 | `created_at` | timestamptz | no | now() |  |  |  | Record creation timestamp |
-| 36 | `updated_at` | timestamptz | no | now() |  |  |  | Last update timestamp |
-| 37 | `channel` | varchar | no | 'DIRECT' |  |  |  | Channel |
-| 38 | `onboarding_step` | int2 | no | 1 |  |  |  | Onboarding step |
-| 39 | `approval_stage` | varchar | yes |  |  |  |  | Approval stage |
-| 40 | `quote_pending` | bool | no | false |  |  |  | Quote pending |
-| 41 | `customer_submitted_at` | timestamptz | yes |  |  |  |  | When customer submitted |
-| 42 | `origin` | varchar | no | 'STAFF' |  |  |  | Origin |
-| 43 | `auto_review` | jsonb | yes |  |  |  |  | Auto review |
-| 44 | `employer_id` | uuid | yes |  | FK | employers.id |  | Link to employers.id |
-| 45 | `employer_category` | bpchar | yes |  |  |  |  | Employer category |
-| 46 | `employer_category_basis` | varchar | yes |  |  |  |  | Employer category basis |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `application_id` | varchar | no |  | UK |  |  | Readable reference: year and month (YYYYMM) plus a 6-digit serial number; unique. |
+| 3 | `customer_id` | uuid | no |  | FK | customers.id |  | Applicant; links to customers. |
+| 4 | `vehicle_id` | uuid | yes |  | FK | vehicles.id |  | Vehicle record for this application; links to vehicles. |
+| 5 | `status` | varchar | no | 'DRAFT' |  |  |  | Where the case stands; default DRAFT. Values used include SUBMITTED, UNDER_ASSESSMENT, UNDER_REVIEW, APPROVED, REJECTED, WITHDRAWN, CANCELLED, DISBURSED. |
+| 6 | `current_step` | int2 | no | 1 |  |  |  | Step reached in the staff application form; starts at 1. |
+| 7 | `loan_amount_requested` | numeric | yes |  |  |  |  | Loan amount asked for, in INR. |
+| 8 | `down_payment` | numeric | yes |  |  |  |  | Customer's own payment towards the car, in INR. |
+| 9 | `tenure_months` | int2 | yes |  |  |  |  | Loan tenure, in months. |
+| 10 | `purpose` | varchar | yes |  |  |  |  | Loan purpose, as a short code. |
+| 11 | `exchange_vehicle_detail` | text | yes |  |  |  |  | Details of an old vehicle given in exchange, if any. |
+| 12 | `exchange_existing_loan` | bool | yes |  |  |  |  | Whether the exchanged vehicle still has a loan on it. |
+| 13 | `exchange_outstanding_amount` | numeric | yes |  |  |  |  | Amount still owed on the exchanged vehicle's loan, in INR. |
+| 14 | `exchange_monthly_emi` | numeric | yes |  |  |  |  | Monthly EMI on the exchanged vehicle's loan, in INR. |
+| 15 | `declared_net_salary` | numeric | yes |  |  |  |  | Net (take-home) monthly salary the customer declared, in INR. |
+| 16 | `declared_other_income` | numeric | yes |  |  |  |  | Other monthly income the customer declared, in INR. |
+| 17 | `other_income_source` | varchar | yes |  |  |  |  | Where the other income comes from, as the customer described it. |
+| 18 | `declared_existing_emis` | numeric | yes |  |  |  |  | Monthly EMIs the customer already pays, as declared, in INR. |
+| 19 | `declared_rent` | numeric | yes |  |  |  |  | Monthly rent the customer declared, in INR. |
+| 20 | `declared_insurance` | numeric | yes |  |  |  |  | Monthly insurance premiums the customer declared, in INR. |
+| 21 | `declared_food_household` | numeric | yes |  |  |  |  | Monthly food and household spending the customer declared, in INR. |
+| 22 | `declared_travel` | numeric | yes |  |  |  |  | Monthly travel spending the customer declared, in INR. |
+| 23 | `declared_other_expenses` | numeric | yes |  |  |  |  | Other monthly expenses the customer declared, in INR. |
+| 24 | `indicative_emi` | numeric | yes |  |  |  |  | Monthly EMI worked out by the in-principle check, in INR. |
+| 25 | `indicative_rate` | numeric | yes |  |  |  |  | Interest rate from the rate grid used in the in-principle check, % per year. |
+| 26 | `in_principle_result` | varchar | yes |  |  |  |  | Outcome of the in-principle check: ELIGIBLE \| NOT_ELIGIBLE. |
+| 27 | `in_principle_at` | timestamptz | yes |  |  |  |  | When the in-principle check ran. |
+| 28 | `documents_submitted_at` | timestamptz | yes |  |  |  |  | When the documents were submitted; filled at customer submit if not already set. |
+| 29 | `assessment_started_at` | timestamptz | yes |  |  |  |  | When the credit assessment started. |
+| 30 | `final_decision_at` | timestamptz | yes |  |  |  |  | When the final credit decision was recorded. |
+| 31 | `draft_expires_at` | timestamptz | yes |  |  |  |  | When an unfinished draft expires. |
+| 32 | `sanction_valid_until` | timestamptz | yes |  |  |  |  | Date and time until which the sanction stays valid. |
+| 33 | `assigned_officer_id` | uuid | yes |  | FK | users.id |  | Staff user handling the case; links to users. |
+| 34 | `state_code` | varchar | yes |  | FK | states.code |  | State the application belongs to; links to states. |
+| 35 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 36 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed; set automatically. |
+| 37 | `channel` | varchar | no | 'DIRECT' |  |  |  | Lead channel the application came through; default DIRECT. |
+| 38 | `onboarding_step` | int2 | no | 1 |  |  |  | Customer journey step reached: 1 sign-up, 2 car details, 3 documents, 4 personal/address/work details, 5 submitted. |
+| 39 | `approval_stage` | varchar | yes |  |  |  |  | IN_PRINCIPLE \| FINAL. Set at submit: FINAL if the dealer quotation is in, otherwise IN_PRINCIPLE. |
+| 40 | `quote_pending` | bool | no | false |  |  |  | True when car details were typed in, so the dealer quotation is still owed before final approval. |
+| 41 | `customer_submitted_at` | timestamptz | yes |  |  |  |  | When the customer submitted the application. |
+| 42 | `origin` | varchar | no | 'STAFF' |  |  |  | STAFF \| CUSTOMER. Default STAFF; set to CUSTOMER automatically when the case gets a document checklist (customer journey). |
+| 43 | `auto_review` | jsonb | yes |  |  |  |  | Latest automatic document review summary (JSON): documents accepted, asked again, still reading, engine recommendation, fast-lane flag. Written by the engine. |
+| 44 | `employer_id` | uuid | yes |  | FK | employers.id |  | Employer Master record this case was matched to; links to employers, cleared if that employer is deleted. |
+| 45 | `employer_category` | bpchar | yes |  |  |  |  | Employer category A \| B \| C used to price this case. Written by the engine. |
+| 46 | `employer_category_basis` | varchar | yes |  |  |  |  | How the category was set: MASTER_VERIFIED \| MASTER_PROVISIONAL \| DECLARED_TYPE (from the type the customer gave). |
 
 Relationships:
 - belongs to `users` via `assigned_officer_id` (one-to-many, 0..1 : 0..N; optional)
@@ -250,16 +260,18 @@ Triggers: `trg_applications_updated_at`, `trg_customer_approve_needs_checks`, `t
 
 ### application_detail_groups
 
+One row per application per group of details (personal, address, work). It keeps what the system pre-filled from the documents, what the customer confirmed, and which fields they changed; confirming again overwrites the row.
+
 Created in `046_customer_details_submit.sql`; 6 columns; primary key (application_id, group_code).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `application_id` | uuid | no |  | PK, FK | applications.id |  | Link to applications.id |
-| 2 | `group_code` | varchar | no |  | PK |  | PERSONAL \| ADDRESS \| EMPLOYMENT | Group code |
-| 3 | `prefilled` | jsonb | no | '{}' |  |  |  | Prefilled |
-| 4 | `confirmed` | jsonb | no |  |  |  |  | Confirmed |
-| 5 | `edited_fields` | text[] | no | '{}' |  |  |  | Edited fields |
-| 6 | `confirmed_at` | timestamptz | no | now() |  |  |  | When confirmed |
+| 1 | `application_id` | uuid | no |  | PK, FK | applications.id |  | Application these details belong to; links to applications. Part of the key. |
+| 2 | `group_code` | varchar | no |  | PK |  | PERSONAL \| ADDRESS \| EMPLOYMENT | Which group of details: PERSONAL \| ADDRESS \| EMPLOYMENT. Part of the key. |
+| 3 | `prefilled` | jsonb | no | '{}' |  |  |  | What the system showed the customer, read from the documents (JSON). |
+| 4 | `confirmed` | jsonb | no |  |  |  |  | What the customer confirmed (JSON). |
+| 5 | `edited_fields` | text[] | no | '{}' |  |  |  | Names of pre-filled fields the customer changed; a signal for the manual-edit checks. |
+| 6 | `confirmed_at` | timestamptz | no | now() |  |  |  | When the customer last confirmed this group. |
 
 Relationships:
 - belongs to `applications` via `application_id` (one-to-many, 1 : 0..N; required)
@@ -268,15 +280,17 @@ Triggers: `trg_detail_groups_emis`.
 
 ### application_stage_events
 
+Timeline of stages an application has reached, one row per stage event, read by the customer's tracking page. Rows are only added, and a RECEIVED row starts the automatic document review.
+
 Created in `046_customer_details_submit.sql`; 5 columns; primary key (id).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `application_id` | uuid | no |  | FK | applications.id |  | Link to applications.id |
-| 3 | `stage` | varchar | no |  |  |  |  | Stage |
-| 4 | `note` | text | yes |  |  |  |  | Note |
-| 5 | `at` | timestamptz | no | now() |  |  |  | At |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `application_id` | uuid | no |  | FK | applications.id |  | Application the event belongs to; links to applications. |
+| 3 | `stage` | varchar | no |  |  |  |  | Stage reached. Values used: RECEIVED, DOCS_VERIFIED, CREDIT_CHECK, DECISION, KFS_ACCEPTED, AGREEMENT_SIGNED, DISBURSED. |
+| 4 | `note` | text | yes |  |  |  |  | Short message for the customer, e.g. "Submitted by the customer". |
+| 5 | `at` | timestamptz | no | now() |  |  |  | When the stage was reached. |
 
 Relationships:
 - belongs to `applications` via `application_id` (one-to-many, 1 : 0..N; required)
@@ -285,16 +299,18 @@ Triggers: `trg_stage_received_auto_review`.
 
 ### application_document_requirements
 
+Document checklist for a customer-journey application: one row per document type, with whether it is needed and where it stands. Created from document_types when the application starts; its first row marks the application's origin as CUSTOMER.
+
 Created in `043_customer_onboarding.sql`; 6 columns; primary key (application_id, doc_type); about 26 rows on 23 Oct 2026; link table between applications and document_types.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `application_id` | uuid | no |  | PK, FK | applications.id |  | Link to applications.id |
-| 2 | `doc_type` | varchar | no |  | PK, FK | document_types.code |  | Link to document_types.code |
-| 3 | `required` | varchar | no |  |  |  |  | Required |
-| 4 | `status` | varchar | no | 'MISSING' |  |  | MISSING \| RECEIVED \| ACCEPTED \| REUPLOAD \| WAIVED \| NOT_NEEDED | Status |
-| 5 | `reason` | text | yes |  |  |  |  | Reason |
-| 6 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed |
+| 1 | `application_id` | uuid | no |  | PK, FK | applications.id |  | Application this checklist line belongs to; links to applications. Part of the key. |
+| 2 | `doc_type` | varchar | no |  | PK, FK | document_types.code |  | Document code from document_types, e.g. PAN, AADHAAR, SALARY_SLIP, FORM16_B, BANK_STMT, QUOTE, EB_BILL. Part of the key. |
+| 3 | `required` | varchar | no |  |  |  |  | ALWAYS \| CONDITIONAL \| OPTIONAL, copied from document_types. EB_BILL becomes ALWAYS when the current address differs from the permanent one. |
+| 4 | `status` | varchar | no | 'MISSING' |  |  | MISSING \| RECEIVED \| ACCEPTED \| REUPLOAD \| WAIVED \| NOT_NEEDED | MISSING \| RECEIVED \| ACCEPTED \| REUPLOAD \| WAIVED \| NOT_NEEDED. Default MISSING. Submit needs every ALWAYS document received, accepted or waived. |
+| 5 | `reason` | text | yes |  |  |  |  | Note to the customer: what to upload, or why a document is asked for again. |
+| 6 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed. |
 
 Relationships:
 - belongs to `applications` via `application_id` (one-to-many, 1 : 0..N; required)
@@ -304,28 +320,30 @@ Triggers: `trg_practice_synthetic_only`, `trg_requirement_received_auto_review`,
 
 ### vehicles
 
+The car being financed on an application, with its price breakdown and dealer. Part of the original schema; the application points back to it through vehicle_id.
+
 Created in `001_schema.sql`; 18 columns; primary key (id); about 2,008 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal primary key |
-| 2 | `application_id` | uuid | no |  | FK | applications.id |  | Link to application |
-| 3 | `make` | varchar | no |  |  |  |  | Vehicle manufacturer/brand |
-| 4 | `model` | varchar | no |  |  |  |  | Vehicle model name |
-| 5 | `variant` | varchar | no |  |  |  |  | Variant/trim level |
-| 6 | `fuel_type` | varchar | no |  |  |  |  | PETROL \| DIESEL \| CNG \| HYBRID \| ELECTRIC |
-| 7 | `vehicle_category` | varchar | no |  |  |  |  | CAR \| SCV \| LCV \| 3W (Phase 1: CAR only) |
-| 8 | `ex_showroom_price` | numeric | no |  |  |  |  | Ex-showroom price (LTV base) |
-| 9 | `road_tax` | numeric | no |  |  |  |  | Road tax amount |
-| 10 | `insurance` | numeric | no |  |  |  |  | First-year insurance premium |
-| 11 | `registration_charges` | numeric | no |  |  |  |  | Registration + other charges |
-| 12 | `on_road_price` | numeric | no |  |  |  |  | Calculated: ex_showroom + tax + insurance + reg |
-| 13 | `dealer_id` | uuid | yes |  | FK | dealers.id |  | Dealer (Phase 2; null in Phase 1 direct) |
-| 14 | `quotation_number` | varchar | yes |  |  |  |  | Dealer proforma invoice number |
-| 15 | `quotation_date` | date | yes |  |  |  |  | Date on dealer quotation |
-| 16 | `quotation_verified` | bool | no | false |  |  |  | True if quotation matches Step 2 data |
-| 17 | `created_at` | timestamptz | no | now() |  |  |  | Record creation timestamp |
-| 18 | `updated_at` | timestamptz | no | now() |  |  |  | Last update timestamp |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `application_id` | uuid | no |  | FK | applications.id |  | Application this vehicle is for; links to applications. |
+| 3 | `make` | varchar | no |  |  |  |  | Car brand, e.g. Hyundai. |
+| 4 | `model` | varchar | no |  |  |  |  | Car model. |
+| 5 | `variant` | varchar | no |  |  |  |  | Model variant or trim. |
+| 6 | `fuel_type` | varchar | no |  |  |  |  | Fuel type of the car. |
+| 7 | `vehicle_category` | varchar | no |  |  |  |  | Vehicle segment code; the engine prices on CAR (Phase 1 is cars only). |
+| 8 | `ex_showroom_price` | numeric | no |  |  |  |  | Ex-showroom price, in INR. |
+| 9 | `road_tax` | numeric | no |  |  |  |  | Road tax, in INR. |
+| 10 | `insurance` | numeric | no |  |  |  |  | Insurance cost, in INR. |
+| 11 | `registration_charges` | numeric | no |  |  |  |  | Registration charges, in INR. |
+| 12 | `on_road_price` | numeric | no |  |  |  |  | Total on-road price, in INR. |
+| 13 | `dealer_id` | uuid | yes |  | FK | dealers.id |  | Dealer selling the car; links to dealers. |
+| 14 | `quotation_number` | varchar | yes |  |  |  |  | Dealer quotation number. |
+| 15 | `quotation_date` | date | yes |  |  |  |  | Date on the dealer quotation. |
+| 16 | `quotation_verified` | bool | no | false |  |  |  | Whether the dealer quotation has been verified; default false. |
+| 17 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 18 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed; set automatically. |
 
 Relationships:
 - belongs to `applications` via `application_id` (one-to-many, 1 : 0..N; required)
@@ -336,35 +354,37 @@ Triggers: `trg_vehicles_updated_at`.
 
 ### vehicle_quotations
 
+The car details from the customer journey, one row per application: copied from the dealer's quotation or typed in by the customer. Saving again overwrites the row and updates the loan amount and tenure on the application.
+
 Created in `043_customer_onboarding.sql`; 25 columns; primary key (id); about 3 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `application_id` | uuid | no |  | FK, UK | applications.id |  | Link to applications.id |
-| 3 | `source` | varchar | no |  |  |  | QUOTATION \| MANUAL | Source |
-| 4 | `document_id` | uuid | yes |  | FK | documents.id |  | Link to documents.id |
-| 5 | `customer_name_on_quote` | varchar | yes |  |  |  |  | Customer name on quote |
-| 6 | `name_match_pct` | int2 | yes |  |  |  |  | Name match pct |
-| 7 | `dealer_id` | uuid | yes |  | FK | dealers.id |  | Link to dealers.id |
-| 8 | `dealer_name` | varchar | yes |  |  |  |  | Dealer name |
-| 9 | `sales_officer_name` | varchar | yes |  |  |  |  | Sales officer name |
-| 10 | `sales_officer_mobile` | varchar | yes |  |  |  |  | Sales officer mobile |
-| 11 | `quote_date` | date | yes |  |  |  |  | Quote date |
-| 12 | `valid_until` | date | yes |  |  |  |  | Valid until |
-| 13 | `make` | varchar | no |  |  |  |  | Make |
-| 14 | `model` | varchar | no |  |  |  |  | Model |
-| 15 | `variant` | varchar | yes |  |  |  |  | Variant |
-| 16 | `colour` | varchar | yes |  |  |  |  | Colour |
-| 17 | `fuel_type` | varchar | yes |  |  |  |  | Fuel type |
-| 18 | `ex_showroom` | numeric | no |  |  |  |  | Ex showroom |
-| 19 | `road_tax` | numeric | yes |  |  |  |  | Road tax |
-| 20 | `insurance` | numeric | yes |  |  |  |  | Insurance |
-| 21 | `on_road` | numeric | yes |  |  |  |  | On road |
-| 22 | `loan_amount_requested` | numeric | no |  |  |  |  | Loan amount requested |
-| 23 | `tenure_months` | int2 | no |  |  |  |  | Tenure months |
-| 24 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created |
-| 25 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `application_id` | uuid | no |  | FK, UK | applications.id |  | Application this quotation is for; one quotation per application. |
+| 3 | `source` | varchar | no |  |  |  | QUOTATION \| MANUAL | QUOTATION \| MANUAL. MANUAL (typed in) means the dealer quotation is still owed before final approval. |
+| 4 | `document_id` | uuid | yes |  | FK | documents.id |  | Uploaded quotation file; links to documents. |
+| 5 | `customer_name_on_quote` | varchar | yes |  |  |  |  | Customer name as printed on the quotation. |
+| 6 | `name_match_pct` | int2 | yes |  |  |  |  | How closely the name on the quote matches the customer's name, in %. |
+| 7 | `dealer_id` | uuid | yes |  | FK | dealers.id |  | Dealer matched by exact name (case ignored); links to dealers. Empty if no match. |
+| 8 | `dealer_name` | varchar | yes |  |  |  |  | Dealer name as entered. |
+| 9 | `sales_officer_name` | varchar | yes |  |  |  |  | Dealer's sales officer name. |
+| 10 | `sales_officer_mobile` | varchar | yes |  |  |  |  | Sales officer's 10-digit mobile number, stored as digits only. |
+| 11 | `quote_date` | date | yes |  |  |  |  | Date of the quotation; required for a QUOTATION and cannot be in the future. |
+| 12 | `valid_until` | date | yes |  |  |  |  | Last valid date of the quotation; an expired quote is refused. |
+| 13 | `make` | varchar | no |  |  |  |  | Car brand. |
+| 14 | `model` | varchar | no |  |  |  |  | Car model. |
+| 15 | `variant` | varchar | yes |  |  |  |  | Model variant, optional. |
+| 16 | `colour` | varchar | yes |  |  |  |  | Car colour, optional. |
+| 17 | `fuel_type` | varchar | yes |  |  |  |  | PETROL \| DIESEL \| CNG \| EV \| HYBRID, or empty. |
+| 18 | `ex_showroom` | numeric | no |  |  |  |  | Ex-showroom price in INR; must be above 0, and the form accepts ₹1 lakh to ₹2 crore. |
+| 19 | `road_tax` | numeric | yes |  |  |  |  | Road tax, in INR. |
+| 20 | `insurance` | numeric | yes |  |  |  |  | Insurance cost, in INR. |
+| 21 | `on_road` | numeric | yes |  |  |  |  | On-road price in INR, worked out as ex-showroom plus road tax plus insurance. |
+| 22 | `loan_amount_requested` | numeric | no |  |  |  |  | Loan asked for in INR; at least ₹1 lakh and not above the on-road price. |
+| 23 | `tenure_months` | int2 | no |  |  |  |  | Loan tenure in months. CHECK allows 12 to 96; the form accepts 24 \| 36 \| 48 \| 60 \| 72 \| 84. |
+| 24 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 25 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed. |
 
 Relationships:
 - belongs to `applications` via `application_id` (one-to-one, 1 : 0..1; required)
@@ -373,20 +393,22 @@ Relationships:
 
 ### dealers
 
+Master list of car dealers, one row per dealership, seeded by car make and city. Used to link vehicles and quotations to a known dealer.
+
 Created in `001_schema.sql`; 10 columns; primary key (id); about 132 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal primary key |
-| 2 | `dealer_code` | varchar | no |  | UK |  |  | Unique dealer identifier |
-| 3 | `dealer_name` | varchar | no |  |  |  |  | Dealer firm name |
-| 4 | `make` | varchar | no |  |  |  |  | OEM/brand the dealer represents |
-| 5 | `city` | varchar | yes |  |  |  |  | Dealer city |
-| 6 | `state_code` | varchar | yes |  | FK | states.code |  | State code |
-| 7 | `risk_tier` | varchar | yes |  |  |  |  | LOW \| MEDIUM \| HIGH (Phase 2 dealer scoring) |
-| 8 | `is_active` | bool | no | true |  |  |  | Active dealer flag |
-| 9 | `created_at` | timestamptz | no | now() |  |  |  | Record creation timestamp |
-| 10 | `updated_at` | timestamptz | no | now() |  |  |  | Last update timestamp |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `dealer_code` | varchar | no |  | UK |  |  | Unique dealer code, e.g. HYD-DEL-001 (make, city, serial). |
+| 3 | `dealer_name` | varchar | no |  |  |  |  | Dealership name. |
+| 4 | `make` | varchar | no |  |  |  |  | Car brand the dealer sells. |
+| 5 | `city` | varchar | yes |  |  |  |  | City of the dealership. |
+| 6 | `state_code` | varchar | yes |  | FK | states.code |  | State of the dealership; links to states. |
+| 7 | `risk_tier` | varchar | yes |  |  |  |  | Dealer risk tier label; not set in the seed data. |
+| 8 | `is_active` | bool | no | true |  |  |  | Whether the dealer is currently active; default true. |
+| 9 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 10 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed; set automatically. |
 
 Relationships:
 - belongs to `states` via `state_code` (one-to-many, 0..1 : 0..N; optional)
@@ -397,15 +419,17 @@ Triggers: `trg_dealers_updated_at`.
 
 ### states
 
+Reference list of Indian states and union territories, one row each. It marks where the lender operates and holds each state's road tax rate.
+
 Created in `001_schema.sql`; 5 columns; primary key (code).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `code` | varchar | no |  | PK |  |  | State abbreviation code |
-| 2 | `name` | varchar | no |  | UK |  |  | Full state name |
-| 3 | `is_operating` | bool | no | true |  |  |  | Whether lending operations active in this state |
-| 4 | `road_tax_pct` | numeric | yes |  |  |  |  | Default road tax % for the state (reference) |
-| 5 | `created_at` | timestamptz | no | now() |  |  |  | Record creation timestamp |
+| 1 | `code` | varchar | no |  | PK |  |  | Short state code, e.g. AP; the key. |
+| 2 | `name` | varchar | no |  | UK |  |  | Full state name; unique. |
+| 3 | `is_operating` | bool | no | true |  |  |  | Whether the lender operates in this state; default true. |
+| 4 | `road_tax_pct` | numeric | yes |  |  |  |  | State road tax rate, in %; empty for states where the lender does not operate. |
+| 5 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
 
 Relationships:
 - has `applications` rows via `applications.state_code` (one-to-many, 0..1 : 0..N)
@@ -1125,36 +1149,38 @@ Relationships:
 
 ### employers
 
+Employer Master: one row per employer, with its identifiers, check results and A/B/C category, which drives the rate loading, LTV and tenure caps and processing fee. Closed to the API; read and changed only through functions.
+
 Created in `069_employer_master.sql`; 26 columns; primary key (id); about 26 rows on 23 Oct 2026.
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `name` | varchar | no |  |  |  |  | Name |
-| 3 | `name_key` | text | no |  | UK |  |  | Name key |
-| 4 | `aliases` | text[] | no | '{}' |  |  |  | Aliases |
-| 5 | `cin` | varchar | yes |  |  |  |  | Cin |
-| 6 | `gstin` | varchar | yes |  |  |  |  | Gstin |
-| 7 | `employer_type` | varchar | no | 'OTHER' |  |  | GOVERNMENT \| PSU \| LISTED \| MNC \| PUBLIC_LTD \| PRIVATE_LTD \| LLP \| PARTNERSHIP \| PROPRIETORSHIP \| OTHER | Employer type |
-| 8 | `category` | bpchar | no | 'C' |  |  | A \| B \| C | Category |
-| 9 | `verified` | bool | no | false |  |  |  | Verified |
-| 10 | `listed` | bool | yes |  |  |  |  | Listed |
-| 11 | `listed_symbol` | varchar | yes |  |  |  |  | Listed symbol |
-| 12 | `incorporation_year` | int2 | yes |  |  |  |  | Incorporation year |
-| 13 | `incorporated_on` | date | yes |  |  |  |  | Incorporated on |
-| 14 | `years_of_filings` | int2 | yes |  |  |  |  | Years of filings |
-| 15 | `company_status` | varchar | no | 'UNKNOWN' |  |  | ACTIVE \| STRUCK_OFF \| UNDER_INSOLVENCY \| UNKNOWN | Company status |
-| 16 | `email_domains` | text[] | no | '{}' |  |  |  | Email domains |
-| 17 | `industry` | varchar | yes |  |  |  |  | Industry |
-| 18 | `hq_city` | varchar | yes |  |  |  |  | Hq city |
-| 19 | `hq_state` | varchar | yes |  |  |  |  | Hq state |
-| 20 | `caution` | bool | no | false |  |  |  | Caution |
-| 21 | `caution_reason` | text | yes |  |  |  |  | Caution reason |
-| 22 | `last_verified_at` | timestamptz | yes |  |  |  |  | When last verified |
-| 23 | `last_verified_by` | uuid | yes |  | FK | users.id |  | Link to users.id |
-| 24 | `source` | varchar | no | 'STAFF' |  |  |  | Source |
-| 25 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created |
-| 26 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `name` | varchar | no |  |  |  |  | Employer's name. |
+| 3 | `name_key` | text | no |  | UK |  |  | Name in lower case with Ltd, Pvt, India and similar words removed, so spelling variants match; unique. |
+| 4 | `aliases` | text[] | no | '{}' |  |  |  | Other names the employer appears under on payslips and Form 16. |
+| 5 | `cin` | varchar | yes |  |  |  |  | Company Identification Number in the 21-character MCA format, starting L (listed) or U (unlisted). |
+| 6 | `gstin` | varchar | yes |  |  |  |  | GST number, 15 characters; the checks test its format and check character. |
+| 7 | `employer_type` | varchar | no | 'OTHER' |  |  | GOVERNMENT \| PSU \| LISTED \| MNC \| PUBLIC_LTD \| PRIVATE_LTD \| LLP \| PARTNERSHIP \| PROPRIETORSHIP \| OTHER | GOVERNMENT \| PSU \| LISTED \| MNC \| PUBLIC_LTD \| PRIVATE_LTD \| LLP \| PARTNERSHIP \| PROPRIETORSHIP \| OTHER. Default OTHER. |
+| 8 | `category` | bpchar | no | 'C' |  |  | A \| B \| C | A \| B \| C, default C. Set by rule when added; changed later only by an approved category change. |
+| 9 | `verified` | bool | no | false |  |  |  | True only when no latest check is FAIL or REVIEW; until then the category is provisional. Any edit sets it back to false. |
+| 10 | `listed` | bool | yes |  |  |  |  | Whether listed on NSE/BSE; set by the checks (on the listed list or CIN starts with L). |
+| 11 | `listed_symbol` | varchar | yes |  |  |  |  | Stock symbol from the listed-company list. |
+| 12 | `incorporation_year` | int2 | yes |  |  |  |  | Year the company was incorporated; set by the checks. |
+| 13 | `incorporated_on` | date | yes |  |  |  |  | Exact incorporation date, if known. |
+| 14 | `years_of_filings` | int2 | yes |  |  |  |  | Years of company filings. A limited company or LLP with 3+ years and active status gets category B. |
+| 15 | `company_status` | varchar | no | 'UNKNOWN' |  |  | ACTIVE \| STRUCK_OFF \| UNDER_INSOLVENCY \| UNKNOWN | ACTIVE \| STRUCK_OFF \| UNDER_INSOLVENCY \| UNKNOWN. Struck-off or insolvent means category C and a person reviews. |
+| 16 | `email_domains` | text[] | no | '{}' |  |  |  | Official email domains, used to check the customer's work email. |
+| 17 | `industry` | varchar | yes |  |  |  |  | Industry the employer works in. |
+| 18 | `hq_city` | varchar | yes |  |  |  |  | Head-office city. |
+| 19 | `hq_state` | varchar | yes |  |  |  |  | Head-office state, as a 2-letter code. |
+| 20 | `caution` | bool | no | false |  |  |  | On the caution list; a case with this employer is referred to a person. Needs a reason. |
+| 21 | `caution_reason` | text | yes |  |  |  |  | Why the employer is on the caution list; required when caution is true. |
+| 22 | `last_verified_at` | timestamptz | yes |  |  |  |  | When the checks last ran on this employer. |
+| 23 | `last_verified_by` | uuid | yes |  | FK | users.id |  | Staff user who last ran the checks; links to users. |
+| 24 | `source` | varchar | no | 'STAFF' |  |  |  | How the row was added: STAFF (added by staff) or FROM_APPLICATIONS (seeded from employer names on applications). |
+| 25 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 26 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed. |
 
 Relationships:
 - belongs to `users` via `last_verified_by` (one-to-many, 0..1 : 0..N; optional)
@@ -1166,85 +1192,95 @@ Triggers: `trg_team_journal`.
 
 ### employer_checks
 
+Log of every check run on an employer, one row per check per run, with its result and source. Rows are only added; the latest row per check decides whether the employer counts as verified.
+
 Created in `069_employer_master.sql`; 8 columns; primary key (id).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `employer_id` | uuid | no |  | FK | employers.id |  | Link to employers.id |
-| 3 | `check_code` | varchar | no |  |  |  | CIN_MCA \| GSTIN \| LISTED \| GOVT_PSU \| CAUTION | Check code |
-| 4 | `result` | varchar | no |  |  |  | PASS \| FAIL \| REVIEW \| NOT_APPLICABLE \| INFO | Result |
-| 5 | `detail` | jsonb | no | '{}' |  |  |  | Detail |
-| 6 | `source` | varchar | no |  |  |  |  | Source |
-| 7 | `checked_by` | uuid | yes |  |  |  |  | Checked by |
-| 8 | `checked_at` | timestamptz | no | now() |  |  |  | When checked |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `employer_id` | uuid | no |  | FK | employers.id |  | Employer checked; links to employers. Rows are removed if the employer is deleted. |
+| 3 | `check_code` | varchar | no |  |  |  | CIN_MCA \| GSTIN \| LISTED \| GOVT_PSU \| CAUTION | Which check: CIN_MCA \| GSTIN \| LISTED \| GOVT_PSU \| CAUTION. |
+| 4 | `result` | varchar | no |  |  |  | PASS \| FAIL \| REVIEW \| NOT_APPLICABLE \| INFO | PASS \| FAIL \| REVIEW \| NOT_APPLICABLE \| INFO. |
+| 5 | `detail` | jsonb | no | '{}' |  |  |  | What the check compared and found (JSON). |
+| 6 | `source` | varchar | no |  |  |  |  | What answered the check, e.g. SIMULATED (company lookup), FORMAT, REFERENCE_LIST or MASTER. |
+| 7 | `checked_by` | uuid | yes |  |  |  |  | Staff user who ran the check. |
+| 8 | `checked_at` | timestamptz | no | now() |  |  |  | When the check ran. |
 
 Relationships:
 - belongs to `employers` via `employer_id` (one-to-many, 1 : 0..N; required)
 
 ### employer_category_changes
 
+Requests to change an employer's A/B/C category, one row per request. One person asks and a different person approves or rejects; only one open request per employer at a time.
+
 Created in `069_employer_master.sql`; 11 columns; primary key (id).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `employer_id` | uuid | no |  | FK | employers.id |  | Link to employers.id |
-| 3 | `from_category` | bpchar | no |  |  |  |  | From category |
-| 4 | `to_category` | bpchar | no |  |  |  | A \| B \| C | To category |
-| 5 | `reason` | text | no |  |  |  |  | Reason |
-| 6 | `status` | varchar | no | 'PENDING' |  |  | PENDING \| APPROVED \| REJECTED \| WITHDRAWN | Status |
-| 7 | `requested_by` | uuid | yes |  |  |  |  | Requested by |
-| 8 | `requested_at` | timestamptz | no | now() |  |  |  | When requested |
-| 9 | `decided_by` | uuid | yes |  |  |  |  | Decided by |
-| 10 | `decided_at` | timestamptz | yes |  |  |  |  | When decided |
-| 11 | `decision_note` | text | yes |  |  |  |  | Decision note |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `employer_id` | uuid | no |  | FK | employers.id |  | Employer whose category would change; links to employers. |
+| 3 | `from_category` | bpchar | no |  |  |  |  | Category at the time of the request. |
+| 4 | `to_category` | bpchar | no |  |  |  | A \| B \| C | Category asked for: A \| B \| C. |
+| 5 | `reason` | text | no |  |  |  |  | Why the change is asked; requests raised by the checks quote the check outcome. |
+| 6 | `status` | varchar | no | 'PENDING' |  |  | PENDING \| APPROVED \| REJECTED \| WITHDRAWN | PENDING \| APPROVED \| REJECTED \| WITHDRAWN. Default PENDING; only one PENDING request per employer. |
+| 7 | `requested_by` | uuid | yes |  |  |  |  | Staff user who made the request. |
+| 8 | `requested_at` | timestamptz | no | now() |  |  |  | When the request was made. |
+| 9 | `decided_by` | uuid | yes |  |  |  |  | Staff user who decided. Approve or reject must be a different person; only the requester can withdraw. |
+| 10 | `decided_at` | timestamptz | yes |  |  |  |  | When the request was decided or withdrawn. |
+| 11 | `decision_note` | text | yes |  |  |  |  | Optional note from the person who decided. |
 
 Relationships:
 - belongs to `employers` via `employer_id` (one-to-many, 1 : 0..N; required)
 
 ### employer_reference_list
 
+Maintained lists the employer checks compare with: government and PSU bodies, and NSE/BSE listed companies. One row per list per employer name.
+
 Created in `069_employer_master.sql`; 7 columns; primary key (list_code, name_key).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `list_code` | varchar | no |  | PK |  | GOVT_PSU \| LISTED | List code |
-| 2 | `name` | varchar | no |  |  |  |  | Name |
-| 3 | `name_key` | text | no |  | PK |  |  | Name key |
-| 4 | `exchange` | varchar | yes |  |  |  |  | Exchange |
-| 5 | `symbol` | varchar | yes |  |  |  |  | Symbol |
-| 6 | `source` | text | no |  |  |  |  | Source |
-| 7 | `added_at` | timestamptz | no | now() |  |  |  | When added |
+| 1 | `list_code` | varchar | no |  | PK |  | GOVT_PSU \| LISTED | Which list: GOVT_PSU \| LISTED. Part of the key. |
+| 2 | `name` | varchar | no |  |  |  |  | Name of the organisation on the list. |
+| 3 | `name_key` | text | no |  | PK |  |  | Normalised name (same rule as employers.name_key) used for matching. Part of the key. |
+| 4 | `exchange` | varchar | yes |  |  |  |  | Stock exchange for a listed company, e.g. NSE or BSE. |
+| 5 | `symbol` | varchar | yes |  |  |  |  | Stock symbol for a listed company. |
+| 6 | `source` | text | no |  |  |  |  | Where the entry came from, e.g. "Starting list, 3 Oct 2026". |
+| 7 | `added_at` | timestamptz | no | now() |  |  |  | When the entry was added. |
 
 ### employer_master_settings
+
+Single-row settings table saying which provider runs the employer company checks. SIMULATED today; a live MCA provider is meant to replace it later.
 
 Created in `069_employer_master.sql`; 2 columns; primary key (id).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | bool | no | true | PK |  |  | Internal key |
-| 2 | `provider` | varchar | no | 'SIMULATED' |  |  | SIMULATED \| MCA_LIVE | Provider |
+| 1 | `id` | bool | no | true | PK |  |  | Always true; the CHECK allows only one row. |
+| 2 | `provider` | varchar | no | 'SIMULATED' |  |  | SIMULATED \| MCA_LIVE | SIMULATED \| MCA_LIVE. SIMULATED reads the CIN's own fields and treats the company as active; it never invents facts. |
 
 ### employer_category_pricing
+
+Pricing terms per employer category (A, B, C) and policy version: rate loading, LTV and tenure caps, and processing fee. The engine adds these on top of the bureau band; readable by anyone.
 
 Created in `011_employer_category_pricing.sql`; 13 columns; primary key (id).
 
 | # | Column | Type | Null | Default | Key | Refers to | Allowed | Description |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key |
-| 2 | `category_code` | varchar | no |  |  |  | A \| B \| C | Category code |
-| 3 | `category_label` | varchar | no |  |  |  |  | Category label |
-| 4 | `description` | varchar | no |  |  |  |  | Description |
-| 5 | `rate_loading_pct` | numeric | no | 0.00 |  |  |  | Rate loading pct |
-| 6 | `max_ltv_pct` | numeric | no |  |  |  |  | Max ltv pct |
-| 7 | `max_tenure_months` | int2 | no |  |  |  |  | Max tenure months |
-| 8 | `processing_fee_inr` | int4 | no |  |  |  |  | Processing fee inr |
-| 9 | `display_order` | int2 | no |  |  |  |  | Display order |
-| 10 | `policy_version` | varchar | no |  |  |  |  | Policy version |
-| 11 | `is_active` | bool | no | true |  |  |  | Yes/no: active |
-| 12 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created |
-| 13 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed |
+| 1 | `id` | uuid | no | gen_random_uuid() | PK |  |  | Internal key. |
+| 2 | `category_code` | varchar | no |  |  |  | A \| B \| C | A \| B \| C. Unique together with policy_version. |
+| 3 | `category_label` | varchar | no |  |  |  |  | Display name, e.g. Category A. |
+| 4 | `description` | varchar | no |  |  |  |  | Which employers fall in the category, e.g. listed companies, government, PSUs and large MNCs for A. |
+| 5 | `rate_loading_pct` | numeric | no | 0.00 |  |  |  | Added to the bureau band's base rate, in % points; 0 or more. Seed: A 0.00, B 0.40, C 1.25. |
+| 6 | `max_ltv_pct` | numeric | no |  |  |  |  | Highest loan-to-value allowed on the ex-showroom price, in %. Seed: A 120, B 110, C 90. |
+| 7 | `max_tenure_months` | int2 | no |  |  |  |  | Longest tenure allowed, in months. Seed: A 84, B 84, C 60. |
+| 8 | `processing_fee_inr` | int4 | no |  |  |  |  | Processing fee, in INR. Seed: A 5,000, B 6,500, C 8,000. |
+| 9 | `display_order` | int2 | no |  |  |  |  | Order in which categories are shown on the rate grid page. |
+| 10 | `policy_version` | varchar | no |  |  |  |  | Policy version these terms belong to, e.g. 2026.08. |
+| 11 | `is_active` | bool | no | true |  |  |  | Whether these terms are in use; default true. |
+| 12 | `created_at` | timestamptz | no | now() |  |  |  | When the row was created. |
+| 13 | `updated_at` | timestamptz | no | now() |  |  |  | When the row was last changed; set automatically. |
 
 Unique together: (category_code, policy_version); (category_code, policy_version).
 
