@@ -51,15 +51,49 @@ export interface LoginCheck {
   idleTimeoutMinutes?: number | undefined;
 }
 
+// localStorage, not sessionStorage: the limit and the last activity must
+// outlive a closed tab, or reopening the site would start the idle clock again.
 const IDLE_KEY = "cercit_idle_minutes";
+const LAST_ACTIVE_KEY = "cercit_last_active";
+const IDLE_SIGNOUT_KEY = "cercit_idle_signed_out";
 
 export function getIdleTimeoutMinutes(): number {
   try {
-    const n = Number(sessionStorage.getItem(IDLE_KEY));
+    const n = Number(localStorage.getItem(IDLE_KEY));
     return n >= 5 && n <= 60 ? n : 15;
   } catch {
     return 15;
   }
+}
+
+let lastWrite = 0;
+/** Saves "active now". Writes at most every 5 seconds unless forced. */
+export function markActive(force = false): void {
+  const now = Date.now();
+  if (!force && now - lastWrite < 5000) return;
+  lastWrite = now;
+  try { localStorage.setItem(LAST_ACTIVE_KEY, String(now)); } catch {}
+}
+
+/** When the person was last active, in any tab. Unknown counts as now. */
+export function lastActiveAt(): number {
+  try {
+    const n = Number(localStorage.getItem(LAST_ACTIVE_KEY));
+    if (n > 0) return n;
+  } catch {}
+  markActive(true);
+  return Date.now();
+}
+
+/** Set before an idle sign-out, so the login page can say why. */
+export function noteIdleSignOut(): void {
+  try { sessionStorage.setItem(IDLE_SIGNOUT_KEY, "1"); } catch {}
+}
+export function hasIdleSignOutNote(): boolean {
+  try { return sessionStorage.getItem(IDLE_SIGNOUT_KEY) === "1"; } catch { return false; }
+}
+export function clearIdleSignOutNote(): void {
+  try { sessionStorage.removeItem(IDLE_SIGNOUT_KEY); } catch {}
 }
 
 /**
@@ -78,7 +112,8 @@ export async function checkLogin(): Promise<LoginCheck> {
     return { allowed: false, reason: r.reason, lockedUntil: r.locked_until };
   }
   if (!r.allowed) return { allowed: true };
-  try { sessionStorage.setItem(IDLE_KEY, String(r.idle_timeout_minutes ?? 15)); } catch {}
+  try { localStorage.setItem(IDLE_KEY, String(r.idle_timeout_minutes ?? 15)); } catch {}
+  markActive(true); // a fresh sign-in starts the idle clock, whatever an old session left
   return { allowed: true, idleTimeoutMinutes: r.idle_timeout_minutes };
 }
 
@@ -108,7 +143,7 @@ export const DEMO_EMAIL = "demo@cercit.in";
 
 let demoMode = false;
 
-export function enableDemoMode() { demoMode = true; try { sessionStorage.setItem("cercit_demo", "1"); } catch {} }
+export function enableDemoMode() { demoMode = true; try { sessionStorage.setItem("cercit_demo", "1"); } catch {} markActive(true); }
 export function disableDemoMode() { demoMode = false; try { sessionStorage.removeItem("cercit_demo"); } catch {} }
 export function isDemoMode() {
   if (demoMode) return true;
@@ -193,6 +228,7 @@ export async function signIn(email: string, password: string): Promise<{ error: 
   if (error) return { error: error.message };
 
   disableDemoMode();
+  markActive(true); // a fresh sign-in starts the idle clock
   return { error: null };
 }
 
@@ -230,12 +266,17 @@ export async function verifyLoginCode(email: string, code: string): Promise<{ er
   });
   if (error) return { error: error.message };
   disableDemoMode();
+  markActive(true);
   return { error: null };
 }
 
 export async function signOut(): Promise<{ error: string | null }> {
   disableDemoMode();
-  try { sessionStorage.removeItem("cercit_customer_email"); sessionStorage.removeItem(IDLE_KEY); } catch {}
+  try {
+    sessionStorage.removeItem("cercit_customer_email");
+    localStorage.removeItem(IDLE_KEY);
+    localStorage.removeItem(LAST_ACTIVE_KEY);
+  } catch {}
 
   if (!isSupabaseConfigured) {
     return { error: null };

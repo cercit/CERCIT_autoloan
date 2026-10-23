@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import {
   signIn,
   checkLogin,
+  hasIdleSignOutNote,
+  clearIdleSignOutNote,
   recordFailedLogin,
   lockedMessage,
   sendLoginCode,
@@ -105,7 +107,11 @@ function StaffLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() =>
+    hasIdleSignOutNote() ? "You were signed out after a period of inactivity. Sign in again to carry on." : null,
+  );
+  // Read once: cleared after the first render, so a later visit doesn't repeat it.
+  useEffect(() => { clearIdleSignOutNote(); }, []);
   // Accounts that hold every right sign in with a code sent to their inbox
   // instead of a password.
   const [byCode, setByCode] = useState(false);
