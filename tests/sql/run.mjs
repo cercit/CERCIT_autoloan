@@ -4207,6 +4207,30 @@ const asOperator = () => asApi("", "");
   failures += t.report();
 }
 
+// ---------------------------------------------------------------------------
+// 094: letters a reader mixes up (I/l, 0/o, 1/i)
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("name look-alike letters");
+  await db.query("reset role");
+  await asOperator();
+  await db.query("select set_config('request.jwt.claims', '', false)");
+  t.equal("a capital I read as l still matches",
+    (await one("select fn_doc_name_score('ASHA RAMESH lyer', 'Asha Ramesh Iyer') as v")).v, "1.00");
+  t.equal("0 read for O and 1 read for I still match",
+    await one("select fn_doc_name_score('M0HAN SHARMA', 'Mohan Sharma') as a, fn_doc_name_score('SAMEER M1TTIMANI', 'Sameer Mittimani') as b"),
+    { a: "1.00", b: "1.00" });
+  t.equal("Indian variants and initials still work",
+    await one("select fn_doc_name_score('Mohd Irfan Khan', 'MOHAMMED IRFAN KHAN') as a, fn_doc_name_score('SAMEER S MITTIMANI', 'Sameer Shreenivas Mittimani') as b, fn_doc_name_score('Laxmi Devi', 'LAKSHMI DEVI') as c"),
+    { a: "1.00", b: "1.00", c: "1.00" });
+  t.equal("different people still don't match",
+    await one("select fn_doc_name_score('Asha R', 'Priya Sharma') as a, fn_doc_name_score('Ram Kumar', 'Raj Verma') as b, fn_doc_name_score('M S', 'Mohan Sharma') as c"),
+    { a: "0", b: "0", c: "0" });
+  t.equal("employers still match on Pvt Ltd / Private Limited",
+    (await one("select fn_doc_org_score('Acme Motors Pvt Ltd', 'ACME MOTORS PRIVATE LIMITED') as v")).v, "1.00");
+  failures += t.report();
+}
+
 await db.close();
 if (failures) {
   console.log(`\n${failures} SQL test(s) failed`);

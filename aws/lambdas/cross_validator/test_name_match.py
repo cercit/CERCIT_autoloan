@@ -32,6 +32,8 @@ check("Mohd = Mohammed", h.name_score("Mohd Irfan Khan", "MOHAMMED IRFAN KHAN"),
 check("Laxmi = Lakshmi", h.name_score("Laxmi Devi", "LAKSHMI DEVI"), 1.0)
 check("Shreenivas = Srinivasa", h.name_score("Shreenivas Rao", "Srinivasa Rao"), 1.0)
 check("one wrong letter in a long word", h.name_score("SAMEER MITTlMANI", "Sameer Mittimani"), 1.0)
+check("a capital I read as l (094)", h.name_score("ASHA RAMESH lyer", "Asha Ramesh Iyer"), 1.0)
+check("0 for O and 1 for I (094)", [h.name_score("M0HAN SHARMA", "Mohan Sharma"), h.name_score("SAMEER M1TTIMANI", "Sameer Mittimani")], [1.0, 1.0])
 check("titles dropped", h.name_score("Mr. Sameer Mittimani", "SAMEER MITTIMANI"), 1.0)
 check("different people", h.name_score("Asha R", "Priya Sharma"), 0.0)
 check("short words must be exact", h.name_score("Ram Kumar", "Raj Verma"), 0.0)

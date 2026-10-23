@@ -231,10 +231,13 @@ _VARIANTS = {
     "subramanian": ("subramanian", "subramaniam", "subrahmanyam", "subramanyam"),
 }
 _CANON = {v: k for k, vs in _VARIANTS.items() for v in vs}
+_DIGIT_LOOKALIKES = str.maketrans("01", "oi")
+_L_AS_I = str.maketrans("l", "i")  # 094: a capital I is often read as a lower-case l
 
 
 def name_words(name: str) -> list[str]:
-    words = re.sub(r"[^a-z ]", " ", (name or "").lower()).split()
+    # 094: a reader's 0 is an o and its 1 an i, before other characters are dropped
+    words = re.sub(r"[^a-z ]", " ", (name or "").translate(_DIGIT_LOOKALIKES).lower()).split()
     return [_CANON.get(w, w) for w in words if w not in _TITLES]
 
 
@@ -253,7 +256,8 @@ def one_slip(a: str, b: str) -> bool:
 def name_score(p_a: str, p_b: str) -> float:
     """Share of the shorter name's words found in the longer one. An initial matches
     its word; one wrong letter in a 5+ letter word matches; at least one whole word must."""
-    a, b = name_words(p_a), name_words(p_b)
+    a = [w.translate(_L_AS_I) for w in name_words(p_a)]
+    b = [w.translate(_L_AS_I) for w in name_words(p_b)]
     if not a or not b:
         return 0.0
     s, l = (a, b) if len(a) <= len(b) else (b, a)
