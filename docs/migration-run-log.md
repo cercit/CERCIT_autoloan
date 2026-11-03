@@ -77,6 +77,7 @@ Order matters: each file assumes the ones above it are already in.
 | 094 | `094_name_lookalikes.sql` | ☑ run 23 Oct; checked live | The name matcher forgives letters a reader mixes up: 0 read as o and 1 as i (fn_doc_words), l and i the same letter (fn_doc_name_score). "ASHA RAMESH lyer" = "Asha Ramesh Iyer". Same change in cross_validator. Test section "name look-alike letters" (5). |
 | 095 | `095_decision_needs_checks.sql` | ☑ run 23 Oct; checked live | A decision on a case the credit checks never ran on (no recommendation) used to fail with a database error (found by Sameer on SYN0002230). Now fn_officer_decision runs the checks, records nothing, and returns the engine's recommendation so the officer reviews it first. Test section "decision on an unchecked case" (5). |
 | 096 | `096_model_scores_index.sql` | ☑ run 3 Nov; checked live | Index on model_scores.model_version (093 left the foreign key unindexed). Turns the GitHub Verify job green again (advisor check). |
+| 091b | `optional/091b_pii_key_remove_copy.sql` | ☑ run 3 Nov; checked live | Old copy of the PII key removed from app_secrets; key now only in Supabase Vault (and Sameer's own saved copy). Check: 0 copies left, Vault holds it, 50 of 50 sampled mobiles decrypt. |
 | 020 | `020_lock_policy_tables.sql` | ⏸ held | Makes the policy tables read-only through the API. This switches off the toggles on the Policy Rules screen, so it waits until Credit control (CC2.1) replaces them |
 
 010 was run earlier, when the demo accounts were created.
