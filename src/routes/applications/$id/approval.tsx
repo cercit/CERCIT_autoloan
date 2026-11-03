@@ -44,6 +44,26 @@ function ApprovalLetter() {
     );
   }
 
+  const allowed = app.status !== "Rejected";
+  const reason = "This application was rejected, so an in-principle approval letter cannot be issued.";
+
+  if (!allowed) {
+    return (
+      <AppShell title="In-Principle Approval" subtitle={`${app.id} · ${app.name}`}>
+        <div className="py-20 text-center text-muted-foreground">
+          {reason}
+          <div className="mt-4">
+            <Button variant="outline" asChild>
+              <Link to="/applications/$id" params={{ id: app.id }}>
+                <ArrowLeft className="size-4" /> Back to the application
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   const today = new Date();
   const expiryDate = new Date(today);
   expiryDate.setDate(expiryDate.getDate() + 30);

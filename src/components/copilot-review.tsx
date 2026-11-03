@@ -163,6 +163,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const headFoir = sample ? foir : app.foir;
   const failedChecks = (app.ruleChecks ?? []).filter((c) => !c.pass);
   // A case that already has a final decision shows it, not the decision buttons
+  // Letters follow the recorded decision: sanction only after approval, nothing after a rejection.
+  const isSanctioned = (a: typeof app) => a.status === "Sanctioned" || a.status === "Disbursed";
   const decided = app.status === "Sanctioned" || app.status === "Disbursed" || app.status === "Rejected";
   const incomeAssessment = calculateIncome(app);
   const ltvAssessment = calculateLTV(app);
@@ -979,18 +981,28 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                   <Input defaultValue="5000" />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" asChild>
-                  <Link to="/applications/$id/approval" params={{ id: app.id }}>
-                    Approval letter
-                  </Link>
-                </Button>
-                <Button variant="outline" className="flex-1" asChild>
-                  <Link to="/applications/$id/sanction" params={{ id: app.id }}>
-                    Sanction letter
-                  </Link>
-                </Button>
-              </div>
+              {app.status === "Rejected" ? (
+                <p className="text-xs text-muted-foreground">This application was rejected, so no approval or sanction letter can be issued.</p>
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" asChild>
+                    <Link to="/applications/$id/approval" params={{ id: app.id }}>
+                      Approval letter
+                    </Link>
+                  </Button>
+                  {isSanctioned(app) ? (
+                    <Button variant="outline" className="flex-1" asChild>
+                      <Link to="/applications/$id/sanction" params={{ id: app.id }}>
+                        Sanction letter
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button variant="outline" className="flex-1" disabled title="Available once the loan is approved">
+                      Sanction letter
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </SectionCard>
 

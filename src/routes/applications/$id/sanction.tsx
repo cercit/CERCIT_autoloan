@@ -73,6 +73,29 @@ function SanctionLetter() {
     );
   }
 
+  const allowed = app.status === "Sanctioned" || app.status === "Disbursed";
+  const reason =
+    app.status === "Rejected"
+      ? "This application was rejected, so a sanction letter cannot be issued."
+      : "The sanction letter is available once the loan is approved.";
+
+  if (!allowed) {
+    return (
+      <AppShell title="Sanction Letter" subtitle={`${app.id} · ${app.name}`}>
+        <div className="py-20 text-center text-muted-foreground">
+          {reason}
+          <div className="mt-4">
+            <Button variant="outline" asChild>
+              <Link to="/applications/$id" params={{ id: app.id }}>
+                <ArrowLeft className="size-4" /> Back to the application
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   const today = new Date();
   const validTill = new Date(today);
   validTill.setDate(validTill.getDate() + 30);
