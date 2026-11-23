@@ -26,7 +26,6 @@ import { MlRiskCard } from "@/components/ml-risk-card";
 import { interpretScore, generateFlags } from "@/lib/bureau-score-interpreter";
 import type { Application } from "@/lib/mock-data";
 import { SlaTimer } from "@/components/sla-timer";
-import { OverridePanel } from "@/components/override-panel";
 import { EscalationDialog } from "@/components/escalation-dialog";
 import { isDemoMode } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -277,12 +276,7 @@ function ApplicationDetail() {
               {next}
             </Button>
           ))}
-          {can(rights, "app.override") && (
-            <OverridePanel
-              applicationId={app.id}
-              onOverride={() => loadApp()}
-            />
-          )}
+          {/* The separate "Override Decision" box had no rate; overrides now happen in Proposed terms. */}
           {sample && can(rights, "app.evaluate") && (
             <EscalationDialog
               applicationId={app.id}

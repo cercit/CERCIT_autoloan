@@ -113,6 +113,9 @@ const asOperator = () => asApi("", "");
   await asOperator();
   t.equal("refused submit writes nothing", (await one("select count(*)::int as n from customers where email = 'x1@t.in'")).n, 0);
   await asApi("authenticated", PM);
+  // 097: an approved case changes only by the Head, so the officer decides one still in review
+  await asOperator();
+  await db.query("update applications set status = 'UNDER_REVIEW' where application_id = $1", [appId]);
 
   await asApi("authenticated", OFFICER);
   await t.ok("decide as officer", () => db.query("select fn_officer_decision($1, 'REJECT', 'test')", [appId]));
@@ -753,6 +756,8 @@ const asOperator = () => asApi("", "");
   // A rule changes later: the old decision still shows the old threshold
   const oldRule = await one("select rule_id, threshold_value from policy_rules where is_active order by rule_id limit 1");
   await db.query("update policy_rules set threshold_value = '999' where rule_id = $1", [oldRule.rule_id]);
+  // 097: an approved case changes only by the Head, so this re-decision starts from review
+  await db.query("update applications set status = 'UNDER_REVIEW' where id = $1", [app.id]);
   await asApi("authenticated", OFFICER);
   await db.query("select fn_officer_decision($1, 'REJECT', 'after the rule change')", [app.application_id]);
   await asOperator();
@@ -3445,7 +3450,7 @@ const asOperator = () => asApi("", "");
   await db.query("update users set auth_user_id = $1 where email = 'cercit+practice.head@gmail.com'", [PHEAD]);
   await one("select fn_synthetic_generate(1, 30) as v");
   const syn = await one("select a.id, a.application_id, a.status from applications a where origin = 'SYNTHETIC' and status = 'UNDER_REVIEW' and assigned_officer_id is null limit 1");
-  const staff = await one("select application_id from applications where origin = 'STAFF' limit 1");
+  const staff = await one("select application_id from applications where origin = 'STAFF' and status not in ('APPROVED', 'REJECTED', 'DISBURSED') limit 1");
   const cust = await one("select id from customers where auth_user_id is not null limit 1");
 
   await as(PO);
@@ -4270,6 +4275,52 @@ const asOperator = () => asApi("", "");
   await db.query("reset role");
   await asOperator();
   await db.query("select set_config('request.jwt.claims', '', false)");
+  await one("select fn_synthetic_purge() as v");
+  failures += t.report();
+}
+
+// ---------------------------------------------------------------------------
+// 097: only the Credit Head changes a decided case, with a reason
+// ---------------------------------------------------------------------------
+{
+  const t = makeChecker("head changes a decision");
+  const OFFICER = "22222222-2222-2222-2222-222222222222";
+  const HEAD97 = "97979797-0000-0000-0000-000000000097";
+  const operator = async () => {
+    await db.query("reset role");
+    await asOperator();
+    await db.query("select set_config('request.jwt.claims', '', false)");
+  };
+  const as = async (sub) => {
+    await db.query("set role authenticated");
+    await asApi("authenticated", sub);
+    await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub, role: "authenticated" })]);
+  };
+  await operator();
+  await db.query("insert into users (email, full_name, role, auth_user_id) values ('head97@t.in', 'Head 97', 'credit_head', $1) on conflict do nothing", [HEAD97]);
+  t.equal("the decision function is patched", (await one("select pg_get_functiondef('fn_officer_decision(text,text,text,text[],numeric,numeric,integer,text)'::regprocedure) like '%097: head changes decision%' as v")).v, true);
+  await one("select fn_synthetic_generate(1, 47) as v");
+  const c = await one(`select a.id, a.application_id from applications a
+                       where a.origin = 'SYNTHETIC' and exists (select 1 from recommendations r where r.application_id = a.id)
+                       limit 1`);
+  await db.query("update applications set status = 'UNDER_REVIEW' where id = $1", [c.id]);
+
+  await as(OFFICER);
+  const first = (await one("select fn_officer_decision($1, 'APPROVE', 'fine', null, null, 8.99, null, 'checked by hand') as v", [c.application_id])).v;
+  t.equal("an officer decides a case in review as before", first.decision, "APPROVE");
+  await t.rejects("the officer can't change it once approved", () => db.query("select fn_officer_decision($1, 'REJECT', 'changed my mind about it', array['Other'])", [c.application_id]), /Only the Credit Head/);
+
+  await as(HEAD97);
+  await t.rejects("the Head must give a reason", () => db.query("select fn_officer_decision($1, 'APPROVE', 'short', null, null, 9.25)", [c.application_id]), /Give a reason/);
+  const changed = (await one("select fn_officer_decision($1, 'APPROVE', 'Decision changed: salary account with us', null, null, 9.25) as v", [c.application_id])).v;
+  t.equal("the Head can re-approve at a new rate", [changed.decision, Number(changed.sanctioned_rate)], ["APPROVE", 9.25]);
+
+  await operator();
+  t.equal("the change is in the audit trail", (await one("select count(*)::int as n from audit_events where event_type = 'DECISION_CHANGED' and application_id = $1", [c.id])).n, 1);
+  await db.query("update applications set status = 'DISBURSED' where id = $1", [c.id]);
+  await as(HEAD97);
+  await t.rejects("nobody changes a disbursed loan", () => db.query("select fn_officer_decision($1, 'REJECT', 'too late to change this one', array['Other'])", [c.application_id]), /already disbursed/);
+  await operator();
   await one("select fn_synthetic_purge() as v");
   failures += t.report();
 }

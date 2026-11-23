@@ -100,6 +100,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   // B3: only a role with app.decide can record a decision
   const rights = useMyRights();
   const canDecide = can(rights, "app.decide");
+  // 097: only the Head may change a case that is already approved or rejected (the database checks too)
+  const isHead = !!rights && (rights.everything || rights.role === "credit_head" || rights.role === "practice_head");
   // B5: the person's own sanction limit (Users page), checked by the database on approval
   const [myLimit, setMyLimit] = useState<number | null | undefined>(undefined);
   useEffect(() => {
@@ -119,6 +121,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const [remarks, setRemarks] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
+  const [changing, setChanging] = useState(false);
+  const [changeReason, setChangeReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<OfficerDecisionResult | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -128,6 +132,10 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
 
   // Checks before anything is sent, so the person sees what is missing next to the button.
   async function decide(finalDecision: "APPROVE" | "REJECT" | "MAYBE") {
+    if (changing && changeReason.trim().length < 10) {
+      toast.error("Say why the decision is being changed (at least 10 characters).");
+      return;
+    }
     if (finalDecision === "APPROVE" && rateChanged && !rateReason.trim()) {
       toast.error(`Say why the rate is ${rate}% and not the engine rate ${engineRate}%.`);
       return;
@@ -150,6 +158,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
       decision: finalDecision as "APPROVE" | "REJECT" | "MAYBE",
     };
     const notes = [
+      changing ? `Decision changed from ${app.status}: ${changeReason.trim()}` : "",
       remarks.trim(),
       finalDecision === "APPROVE" && rateChanged ? `Rate ${rate}% instead of the engine rate ${engineRate}%: ${rateReason.trim()}` : "",
     ].filter(Boolean).join(" | ");
@@ -173,7 +182,8 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
         navigate({ to: "/applications" });
         return;
       }
-      toast.success("Decision recorded: " + res.decision);
+      toast.success((changing ? "Decision changed: " : "Decision recorded: ") + res.decision);
+      setChanging(false);
       setResult(res);
       setShowResult(true);
     } catch (e) {
@@ -201,7 +211,9 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   // After a decision on this page, the page reflects it straight away.
   const currentStatus = result ? (result.decision === "APPROVE" ? "Sanctioned" : result.decision === "REJECT" ? "Rejected" : app.status) : app.status;
   const approvedNow = currentStatus === "Sanctioned" || currentStatus === "Disbursed";
-  const locked = decided || !!result || !canDecide;
+  // 097: a decided case opens again only when the Head chooses "Change decision"; never once disbursed
+  const changeable = isHead && canDecide && (app.status === "Sanctioned" || app.status === "Rejected") && !result;
+  const locked = (decided && !(changing && changeable)) || !!result || !canDecide;
   const incomeAssessment = calculateIncome(app);
   const ltvAssessment = calculateLTV(app);
   const assessment = useMemo(() => runAssessment(app), [app]);
@@ -994,6 +1006,28 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                 </div>
               </div>
 
+              {!locked && changing && (
+                <div className="space-y-1.5 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                  <Label htmlFor="terms-change-reason" className="text-xs font-semibold">
+                    Why change the decision on this {app.status.toLowerCase()} case? (required, kept in the audit trail)
+                  </Label>
+                  <Textarea id="terms-change-reason" rows={2} placeholder="e.g. Customer's salary account moved to us, re-approving at 9.25%" value={changeReason} onChange={(e) => setChangeReason(e.target.value)} />
+                  <Button variant="ghost" size="sm" onClick={() => { setChanging(false); setChangeReason(""); setRate(engineRate); }}>
+                    Cancel the change
+                  </Button>
+                </div>
+              )}
+              {decided && !result && !changing && (
+                app.status === "Disbursed" ? (
+                  <p className="text-xs text-muted-foreground">This loan is disbursed, so the decision can no longer be changed.</p>
+                ) : changeable ? (
+                  <Button variant="outline" className="w-full" onClick={() => setChanging(true)}>
+                    Change decision
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">This case is decided. Only the Credit Head can change the decision.</p>
+                )
+              )}
               {canDecide && !locked && (
                 <>
                   {rateChanged && (
@@ -1027,7 +1061,9 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="terms-override" className="text-xs text-muted-foreground">
-                      Override reason (needed if your decision differs from the AI's {app.recommendation})
+                      {app.recommendation === "Approve"
+                        ? "Override reason (needed only to reject, since the AI said Approve)"
+                        : `Override reason (needed to approve or reject: the AI said ${app.recommendation})`}
                     </Label>
                     <Textarea id="terms-override" rows={2} placeholder="Explain the deviation" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
                   </div>
