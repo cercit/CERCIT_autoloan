@@ -44,8 +44,11 @@ function ApprovalLetter() {
     );
   }
 
-  const allowed = app.status !== "Rejected";
-  const reason = "This application was rejected, so an in-principle approval letter cannot be issued.";
+  const allowed = app.status === "Sanctioned" || app.status === "Disbursed";
+  const reason =
+    app.status === "Rejected"
+      ? "This application was rejected, so an approval letter cannot be issued."
+      : "The approval letter is available once the loan is approved.";
 
   if (!allowed) {
     return (

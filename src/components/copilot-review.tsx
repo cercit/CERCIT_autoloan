@@ -108,9 +108,13 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   }, [sample]);
   const checks = app.ruleChecks ?? (sample ? policyChecks : []);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
-  const [decision, setDecision] = useState("Approve");
   const [amount, setAmount] = useState(String(app.loanAmount));
-  const [rate, setRate] = useState(String(app.rate));
+  // The engine's rate for this case (8.99% approve, 9.9% refer). It was missing from the list, so the box showed blank.
+  const engineRate = String(app.rate || (app.recommendation === "Approve" ? 8.99 : 9.9));
+  const rateOptions = Array.from(new Set(["8.75", "8.99", "9.25", "9.5", "9.75", "9.9", "10.25", "11.5", engineRate]))
+    .sort((x, y) => Number(x) - Number(y));
+  const [rate, setRate] = useState(engineRate);
+  const [rateReason, setRateReason] = useState("");
   const [tenure, setTenure] = useState(String(app.tenure));
   const [remarks, setRemarks] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -119,25 +123,54 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const [result, setResult] = useState<OfficerDecisionResult | null>(null);
   const [showResult, setShowResult] = useState(false);
 
-  async function handleDecisionSubmit(quickDecision?: "APPROVE" | "REJECT") {
-    const finalDecision = quickDecision || decision.toUpperCase();
+  const rateChanged = rate !== engineRate;
+  const aiDecision = app.recommendation === "Approve" ? "APPROVE" : app.recommendation === "Reject" ? "REJECT" : "MAYBE";
+
+  // Checks before anything is sent, so the person sees what is missing next to the button.
+  async function decide(finalDecision: "APPROVE" | "REJECT" | "MAYBE") {
+    if (finalDecision === "APPROVE" && rateChanged && !rateReason.trim()) {
+      toast.error(`Say why the rate is ${rate}% and not the engine rate ${engineRate}%.`);
+      return;
+    }
+    if (finalDecision === "REJECT" && !rejectReason) {
+      toast.error("Pick a reason code to reject.");
+      return;
+    }
+    if (finalDecision === "MAYBE" && !remarks.trim()) {
+      toast.error(manager ? "Add a note for the credit officer." : "Add a note for the manager.");
+      return;
+    }
+    if (finalDecision !== "MAYBE" && finalDecision !== aiDecision && !overrideReason.trim()) {
+      toast.error(`The AI said ${app.recommendation}. Give an override reason.`);
+      return;
+    }
     setSubmitting(true);
     const payload: Parameters<typeof submitOfficerDecision>[0] = {
       applicationId: app.id,
       decision: finalDecision as "APPROVE" | "REJECT" | "MAYBE",
     };
-    if (remarks) payload.remarks = remarks;
-    if (rejectReason) payload.reasonCodes = [rejectReason];
+    const notes = [
+      remarks.trim(),
+      finalDecision === "APPROVE" && rateChanged ? `Rate ${rate}% instead of the engine rate ${engineRate}%: ${rateReason.trim()}` : "",
+    ].filter(Boolean).join(" | ");
+    if (notes) payload.remarks = notes;
+    if (finalDecision === "REJECT" && rejectReason) payload.reasonCodes = [rejectReason];
     if (Number(amount)) payload.sanctionedAmount = Number(amount);
     if (Number(rate)) payload.sanctionedRate = Number(rate);
     if (Number(tenure)) payload.sanctionedTenure = Number(tenure);
-    if (overrideReason) payload.overrideReason = overrideReason;
+    if (overrideReason.trim() && finalDecision !== aiDecision) payload.overrideReason = overrideReason.trim();
     try {
       const res = await submitOfficerDecision(payload);
       if (!res.decisionRecorded) {
         // 095: the credit checks had not run; they have now. Show the result before deciding.
         toast.info(res.message, { duration: 8000 });
         setTimeout(() => window.location.reload(), 2500);
+        return;
+      }
+      if (finalDecision === "MAYBE") {
+        // Referred: the case leaves this person's hands, so go back to the list.
+        toast.success(manager ? "Returned to the credit officer" : "Sent to the manager for review");
+        navigate({ to: "/applications" });
         return;
       }
       toast.success("Decision recorded: " + res.decision);
@@ -157,7 +190,6 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   const computedIncome = Math.min(...incomeSources.map((s) => s.amount));
   const variance =
     ((Math.max(...incomeSources.map((s) => s.amount)) - computedIncome) / computedIncome) * 100;
-  const overrideNeeded = decision !== app.recommendation;
   // Audit A1: a real case shows what the database engine decided. The browser engine
   // below (runAssessment and friends) is only for the sample cases in prototype mode.
   const headFoir = sample ? foir : app.foir;
@@ -166,6 +198,10 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
   // Letters follow the recorded decision: sanction only after approval, nothing after a rejection.
   const isSanctioned = (a: typeof app) => a.status === "Sanctioned" || a.status === "Disbursed";
   const decided = app.status === "Sanctioned" || app.status === "Disbursed" || app.status === "Rejected";
+  // After a decision on this page, the page reflects it straight away.
+  const currentStatus = result ? (result.decision === "APPROVE" ? "Sanctioned" : result.decision === "REJECT" ? "Rejected" : app.status) : app.status;
+  const approvedNow = currentStatus === "Sanctioned" || currentStatus === "Disbursed";
+  const locked = decided || !!result || !canDecide;
   const incomeAssessment = calculateIncome(app);
   const ltvAssessment = calculateLTV(app);
   const assessment = useMemo(() => runAssessment(app), [app]);
@@ -208,34 +244,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
             </Pill>
           ) : decided ? (
             <Pill tone={app.status === "Rejected" ? "destructive" : "success"}>Decided: {app.status}</Pill>
-          ) : !canDecide ? null : (
-            <>
-              <Button
-                className="bg-success text-success-foreground hover:bg-success/90"
-                disabled={submitting}
-                onClick={() => handleDecisionSubmit("APPROVE")}
-              >
-                {submitting ? <Loader2 className="size-4 animate-spin" /> : "Approve"}
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={submitting}
-                onClick={() => handleDecisionSubmit("REJECT")}
-              >
-                {submitting ? <Loader2 className="size-4 animate-spin" /> : "Reject"}
-              </Button>
-              <Button
-                variant="outline"
-                className="border-warning text-warning-foreground dark:text-warning"
-                disabled={submitting}
-                onClick={() => {
-                  toast.success(manager ? "Returned to credit officer" : "Sent to manager for review");
-                }}
-              >
-                {manager ? "Return to officer" : "Send for review"}
-              </Button>
-            </>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -936,23 +945,26 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
           </SectionCard>
           )}
 
-          <SectionCard title="Proposed Terms" description="Adjust before approving">
+          <SectionCard
+            title="Proposed terms"
+            description={canDecide && !locked ? "Adjust the terms, then decide" : "Terms on this case"}
+          >
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Loan amount (Rs)</Label>
-                <Input value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <Label htmlFor="terms-amount" className="text-xs text-muted-foreground">Loan amount (Rs)</Label>
+                <Input id="terms-amount" value={amount} disabled={locked} onChange={(e) => setAmount(e.target.value)} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Interest rate</Label>
-                  <Select value={rate} onValueChange={setRate}>
+                  <Select value={rate} onValueChange={setRate} disabled={locked}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Pick a rate" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["8.75", "8.99", "9.25", "9.5", "9.75", "10.25", "11.5"].map((r) => (
+                      {rateOptions.map((r) => (
                         <SelectItem key={r} value={r}>
-                          {r}%
+                          {r}%{r === engineRate ? " (engine rate)" : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -960,7 +972,7 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Tenure</Label>
-                  <Select value={tenure} onValueChange={setTenure}>
+                  <Select value={tenure} onValueChange={setTenure} disabled={locked}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -977,108 +989,108 @@ export function CopilotReview({ app, manager = false }: { app: Application; mana
               <div className="grid gap-3 sm:grid-cols-2">
                 <LabelValue label="EMI (auto-calculated)" value={inr(emi)} />
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Processing fee (Rs)</Label>
-                  <Input defaultValue="5000" />
+                  <Label htmlFor="terms-fee" className="text-xs text-muted-foreground">Processing fee (Rs)</Label>
+                  <Input id="terms-fee" defaultValue="5000" disabled={locked} />
                 </div>
               </div>
-              {app.status === "Rejected" ? (
-                <p className="text-xs text-muted-foreground">This application was rejected, so no approval or sanction letter can be issued.</p>
-              ) : (
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" asChild>
-                    <Link to="/applications/$id/approval" params={{ id: app.id }}>
-                      Approval letter
-                    </Link>
-                  </Button>
-                  {isSanctioned(app) ? (
-                    <Button variant="outline" className="flex-1" asChild>
-                      <Link to="/applications/$id/sanction" params={{ id: app.id }}>
-                        Sanction letter
-                      </Link>
-                    </Button>
-                  ) : (
-                    <Button variant="outline" className="flex-1" disabled title="Available once the loan is approved">
-                      Sanction letter
-                    </Button>
+
+              {canDecide && !locked && (
+                <>
+                  {rateChanged && (
+                    <div className="space-y-1.5 rounded-md border border-warning/40 bg-warning/10 p-3">
+                      <Label htmlFor="terms-rate-reason" className="text-xs font-semibold">
+                        Why {rate}% instead of the engine rate {engineRate}%? (required)
+                      </Label>
+                      <Textarea id="terms-rate-reason" rows={2} placeholder="e.g. Long relationship, salary account with us" value={rateReason} onChange={(e) => setRateReason(e.target.value)} />
+                    </div>
                   )}
-                </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="terms-notes" className="text-xs text-muted-foreground">
+                      Conditions or notes (needed when sending for review)
+                    </Label>
+                    <Textarea id="terms-notes" rows={2} placeholder={manager ? "What the credit officer should look at" : "e.g. Post-dated cheques for the first 3 EMIs, or what the manager should look at"} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Reason code (needed to reject)</Label>
+                    <Select value={rejectReason} onValueChange={setRejectReason}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a reason" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["Low CIBIL", "High FOIR", "Employment Instability", "Document Mismatch", "Fraud Suspicion", "Other"].map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {r}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="terms-override" className="text-xs text-muted-foreground">
+                      Override reason (needed if your decision differs from the AI's {app.recommendation})
+                    </Label>
+                    <Textarea id="terms-override" rows={2} placeholder="Explain the deviation" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <Button
+                      className="bg-success text-success-foreground hover:bg-success/90"
+                      disabled={submitting}
+                      onClick={() => void decide("APPROVE")}
+                    >
+                      {submitting ? <Loader2 className="size-4 animate-spin" /> : rateChanged ? `Approve at ${rate}%` : "Approve"}
+                    </Button>
+                    <Button variant="destructive" disabled={submitting} onClick={() => void decide("REJECT")}>
+                      {submitting ? <Loader2 className="size-4 animate-spin" /> : "Reject"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-warning text-warning-foreground dark:text-warning"
+                      disabled={submitting}
+                      onClick={() => void decide("MAYBE")}
+                    >
+                      {manager ? "Return to officer" : "Send for review"}
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
           </SectionCard>
 
-          {canDecide && (!decided || result) && (
-          <SectionCard title="Decision">
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Decision</Label>
-                <Select value={decision} onValueChange={setDecision}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Approve">Approve</SelectItem>
-                    <SelectItem value="Reject">Reject</SelectItem>
-                    <SelectItem value="Maybe">
-                      {manager ? "Return to credit officer" : "Refer to credit manager"}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {decision === "Approve" && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Conditions (optional)</Label>
-                  <Textarea rows={3} placeholder="e.g. Post-dated cheques for first 3 EMIs" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-                </div>
-              )}
-              {decision === "Reject" && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Reason codes</Label>
-                  <Select value={rejectReason} onValueChange={setRejectReason}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select reason" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[
-                        "Low CIBIL",
-                        "High FOIR",
-                        "Employment Instability",
-                        "Document Mismatch",
-                        "Fraud Suspicion",
-                        "Other",
-                      ].map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {decision === "Maybe" && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    {manager ? "Notes for credit officer" : "Notes for credit manager"}
-                  </Label>
-                  <Textarea rows={3} placeholder="Context for the reviewer" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-                </div>
-              )}
-
-              {overrideNeeded && (
-                <div className="space-y-1.5 rounded-md border border-warning/40 bg-warning/10 p-3">
-                  <Label className="text-xs font-semibold">
-                    Override reason (required — differs from AI recommendation)
-                  </Label>
-                  <Textarea rows={2} placeholder="Explain the deviation" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
-                </div>
-              )}
-
-              <Button className="w-full" disabled={submitting || !!result} onClick={() => handleDecisionSubmit()}>
-                {submitting ? <><Loader2 className="size-4 animate-spin" /> Submitting...</> : result ? "Decision recorded" : "Submit decision"}
-              </Button>
-            </div>
+          <SectionCard title="Downloads" description="Unlock as the case moves forward">
+            {currentStatus === "Rejected" ? (
+              <p className="text-xs text-muted-foreground">This application was rejected, so no letters can be issued.</p>
+            ) : (
+              <ul className="space-y-2">
+                {[
+                  { label: "Approval letter", to: "/applications/$id/approval" as const, open: approvedNow, hint: "After the case is approved" },
+                  { label: "Sanction letter", to: "/applications/$id/sanction" as const, open: approvedNow, hint: "After the case is approved" },
+                ].map((d) => (
+                  <li key={d.label} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                    <span className="text-sm">
+                      {d.label}
+                      {!d.open && <span className="block text-xs text-muted-foreground">{d.hint}</span>}
+                    </span>
+                    {d.open ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to={d.to} params={{ id: app.id }}>Open</Link>
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>Locked</Button>
+                    )}
+                  </li>
+                ))}
+                <li className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                  <span className="text-sm">
+                    Delivery order
+                    <span className="block text-xs text-muted-foreground">
+                      After the customer accepts and the delivery and dealer payment dates are entered
+                    </span>
+                  </span>
+                  <Button size="sm" variant="outline" disabled>Locked</Button>
+                </li>
+              </ul>
+            )}
           </SectionCard>
-          )}
 
           {manager && sample && (
             <SectionCard title="Override History">
